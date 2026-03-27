@@ -64,6 +64,28 @@ export default function PlaceFormModal({
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
+  const parse_lat_lng_from_text = (raw_text) => {
+    if (!raw_text) return null
+    const cleaned_text = raw_text.trim().replace(/\s+/g, ' ')
+    const matches = cleaned_text.match(/-?\d+(?:\.\d+)?/g)
+    if (!matches || matches.length < 2) return null
+    const lat_value = matches[0]
+    const lng_value = matches[1]
+    return { lat: lat_value, lng: lng_value }
+  }
+
+  const handle_coordinate_paste = (e) => {
+    const pasted_text = e.clipboardData?.getData('text') || ''
+    const parsed_coordinates = parse_lat_lng_from_text(pasted_text)
+    if (!parsed_coordinates) return
+    e.preventDefault()
+    setForm(prev => ({
+      ...prev,
+      lat: parsed_coordinates.lat,
+      lng: parsed_coordinates.lng,
+    }))
+  }
+
   const handleMapsSearch = async () => {
     if (!mapsSearch.trim()) return
     setIsSearchingMaps(true)
@@ -242,6 +264,7 @@ export default function PlaceFormModal({
               step="any"
               value={form.lat}
               onChange={e => handleChange('lat', e.target.value)}
+              onPaste={handle_coordinate_paste}
               placeholder={t('places.formLat')}
               className="form-input"
             />
@@ -250,6 +273,7 @@ export default function PlaceFormModal({
               step="any"
               value={form.lng}
               onChange={e => handleChange('lng', e.target.value)}
+              onPaste={handle_coordinate_paste}
               placeholder={t('places.formLng')}
               className="form-input"
             />

@@ -94,6 +94,26 @@ export default function PlaceFormModal({
 
   const update = (field, value) => setFormData(prev => ({ ...prev, [field]: value }))
 
+  const parse_lat_lng_from_text = (raw_text) => {
+    if (!raw_text) return null
+    const cleaned_text = raw_text.trim().replace(/\s+/g, ' ')
+    const matches = cleaned_text.match(/-?\d+(?:\.\d+)?/g)
+    if (!matches || matches.length < 2) return null
+    return { lat: matches[0], lng: matches[1] }
+  }
+
+  const handle_coordinate_paste = (e) => {
+    const pasted_text = e.clipboardData?.getData('text') || ''
+    const parsed_coordinates = parse_lat_lng_from_text(pasted_text)
+    if (!parsed_coordinates) return
+    e.preventDefault()
+    setFormData(prev => ({
+      ...prev,
+      lat: parsed_coordinates.lat,
+      lng: parsed_coordinates.lng,
+    }))
+  }
+
   const toggleTag = (tagId) => {
     setFormData(prev => ({
       ...prev,
@@ -321,6 +341,7 @@ export default function PlaceFormModal({
               step="any"
               value={formData.lat}
               onChange={e => update('lat', e.target.value)}
+              onPaste={handle_coordinate_paste}
               placeholder="e.g. 48.8584"
               className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-slate-400 focus:border-transparent"
             />
@@ -332,6 +353,7 @@ export default function PlaceFormModal({
               step="any"
               value={formData.lng}
               onChange={e => update('lng', e.target.value)}
+              onPaste={handle_coordinate_paste}
               placeholder="e.g. 2.2945"
               className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-slate-400 focus:border-transparent"
             />
