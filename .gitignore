@@ -15,6 +15,8 @@ client/public/icons/*.png
 # User data
 server/data/
 server/uploads/
+data/
+uploads/
 
 # Environment
 .env

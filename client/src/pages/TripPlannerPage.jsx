@@ -19,12 +19,14 @@ import BudgetPanel from '../components/Budget/BudgetPanel'
 import CollabPanel from '../components/Collab/CollabPanel'
 import Navbar from '../components/Layout/Navbar'
 import { useToast } from '../components/shared/Toast'
-import { Map, X, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react'
+import { Map, X, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, MapPin, Search } from 'lucide-react'
 import { useTranslation } from '../i18n'
 import { joinTrip, leaveTrip, addListener, removeListener } from '../api/websocket'
 import { addonsApi, accommodationsApi, authApi, tripsApi, assignmentsApi } from '../api/client'
 import { calculateRoute, calculateSegments } from '../components/Map/RouteCalculator'
 import ConfirmDialog from '../components/shared/ConfirmDialog'
+import { useContextMenu, ContextMenu } from '../components/shared/ContextMenu'
+import NearbyPlacesModal from '../components/Map/NearbyPlacesModal'
 
 const MIN_SIDEBAR = 200
 const MAX_SIDEBAR = 520
@@ -113,6 +115,9 @@ export default function TripPlannerPage() {
   const [fitKey, setFitKey] = useState(0)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(null) // 'left' | 'right' | null
   const [deletePlaceId, setDeletePlaceId] = useState(null)
+  const mapCtxMenu = useContextMenu()
+  const [nearbyPlacesTarget, setNearbyPlacesTarget] = useState(null)
+  const [nearbySearchRadiusM, setNearbySearchRadiusM] = useState(200)
 
   // Load trip + files (needed for place inspector file section)
   useEffect(() => {
@@ -241,10 +246,29 @@ export default function TripPlannerPage() {
     setSelectedPlaceId(null)
   }, [])
 
+  const handleMapContextMenu = useCallback(({ latlng, originalEvent }) => {
+    mapCtxMenu.open(originalEvent, [
+      {
+        label: 'Add Place to List',
+        icon: MapPin,
+        onClick: () => {
+          setEditingPlace({ lat: latlng.lat, lng: latlng.lng })
+          setEditingAssignmentId(null)
+          setShowPlaceForm(true)
+        },
+      },
+      {
+        label: 'Show Close Places',
+        icon: Search,
+        onClick: () => setNearbyPlacesTarget({ lat: latlng.lat, lng: latlng.lng }),
+      },
+    ])
+  }, [mapCtxMenu])
+
   const handleSavePlace = useCallback(async (data) => {
     const pendingFiles = data._pendingFiles
     delete data._pendingFiles
-    if (editingPlace) {
+    if (editingPlace?.id) {
       // Always strip time fields from place update — time is per-assignment only
       const { place_time, end_time, ...placeData } = data
       await tripStore.updatePlace(tripId, editingPlace.id, placeData)
@@ -447,6 +471,8 @@ export default function TripPlannerPage() {
               selectedPlaceId={selectedPlaceId}
               onMarkerClick={handleMarkerClick}
               onMapClick={handleMapClick}
+              onContextMenu={handleMapContextMenu}
+              searchCircle={nearbyPlacesTarget ? { lat: nearbyPlacesTarget.lat, lng: nearbyPlacesTarget.lng, radiusM: nearbySearchRadiusM } : null}
               center={defaultCenter}
               zoom={defaultZoom}
               tileUrl={mapTileUrl}
@@ -651,6 +677,23 @@ export default function TripPlannerPage() {
               />
             )}
 
+            {nearbyPlacesTarget && (
+              <NearbyPlacesModal
+                lat={nearbyPlacesTarget.lat}
+                lng={nearbyPlacesTarget.lng}
+                existingPlaces={places}
+                radiusM={nearbySearchRadiusM}
+                onRadiusChange={setNearbySearchRadiusM}
+                onClose={() => setNearbyPlacesTarget(null)}
+                onAddPlace={(poiData) => {
+                  setNearbyPlacesTarget(null)
+                  setEditingPlace(poiData)
+                  setEditingAssignmentId(null)
+                  setShowPlaceForm(true)
+                }}
+              />
+            )}
+
             {mobileSidebarOpen && ReactDOM.createPortal(
               <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 9999 }} onClick={() => setMobileSidebarOpen(null)}>
                 <div style={{ position: 'absolute', top: 'var(--nav-h)', left: 0, right: 0, bottom: 0, background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
@@ -734,6 +777,7 @@ export default function TripPlannerPage() {
         title={t('common.delete')}
         message={t('trip.confirm.deletePlace')}
       />
+      <ContextMenu menu={mapCtxMenu.menu} onClose={mapCtxMenu.close} />
     </div>
   )
 }

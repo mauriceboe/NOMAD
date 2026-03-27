@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react'
 import ReactDOM from 'react-dom'
-import { MapContainer, TileLayer, Marker, Tooltip, Polyline, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Tooltip, Polyline, Circle, useMap, useMapEvent } from 'react-leaflet'
 import MarkerClusterGroup from 'react-leaflet-cluster'
 import L from 'leaflet'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
@@ -159,6 +159,14 @@ function MapClickHandler({ onClick }) {
   return null
 }
 
+function MapContextMenuHandler({ onContextMenu }) {
+  useMapEvent('contextmenu', (e) => {
+    e.originalEvent.preventDefault()
+    if (onContextMenu) onContextMenu({ latlng: e.latlng, originalEvent: e.originalEvent })
+  })
+  return null
+}
+
 // ── Route travel time label ──
 function RouteLabel({ midpoint, walkingText, drivingText }) {
   const map = useMap()
@@ -214,6 +222,8 @@ export function MapView({
   selectedPlaceId = null,
   onMarkerClick,
   onMapClick,
+  onContextMenu,
+  searchCircle = null,
   center = [48.8566, 2.3522],
   zoom = 10,
   tileUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
@@ -273,6 +283,7 @@ export function MapView({
       <BoundsController places={dayPlaces.length > 0 ? dayPlaces : places} fitKey={fitKey} paddingOpts={paddingOpts} />
       <SelectionController places={places} selectedPlaceId={selectedPlaceId} dayPlaces={dayPlaces} paddingOpts={paddingOpts} />
       <MapClickHandler onClick={onMapClick} />
+      <MapContextMenuHandler onContextMenu={onContextMenu} />
 
       <MarkerClusterGroup
         chunkedLoading
@@ -308,6 +319,10 @@ export function MapView({
               icon={icon}
               eventHandlers={{
                 click: () => onMarkerClick && onMarkerClick(place.id),
+                contextmenu: (e) => {
+                  e.originalEvent.preventDefault()
+                  if (onContextMenu) onContextMenu({ latlng: { lat: place.lat, lng: place.lng }, originalEvent: e.originalEvent })
+                },
               }}
               zIndexOffset={isSelected ? 1000 : 0}
             >
@@ -341,6 +356,14 @@ export function MapView({
           )
         })}
       </MarkerClusterGroup>
+
+      {searchCircle && (
+        <Circle
+          center={[searchCircle.lat, searchCircle.lng]}
+          radius={searchCircle.radiusM}
+          pathOptions={{ color: '#6366f1', fillColor: '#6366f1', fillOpacity: 0.07, weight: 2, dashArray: '6, 5' }}
+        />
+      )}
 
       {route && route.length > 1 && (
         <>
