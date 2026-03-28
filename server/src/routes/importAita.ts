@@ -32,11 +32,13 @@ function importRateLimiter(req: Request, res: Response, next: NextFunction) {
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
-  fileFilter: (_req, file, cb) => {
+  fileFilter: (req, file, cb) => {
     if (file.mimetype === 'text/plain' || file.originalname.endsWith('.txt')) {
       cb(null, true);
     } else {
-      cb(new Error('Only .txt files are accepted'));
+      // Soft-reject non-text files so this does not surface as a 500 error
+      (req as any).fileValidationError = 'Only .txt files are accepted';
+      cb(null, false);
     }
   },
 });
