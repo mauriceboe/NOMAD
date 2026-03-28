@@ -53,12 +53,12 @@ function getTripStatus(trip: DashboardTrip): string | null {
   return 'past'
 }
 
-function formatDate(dateStr: string | null | undefined, locale: string = 'de-DE'): string | null {
+function formatDate(dateStr: string | null | undefined, locale: string = 'en-US'): string | null {
   if (!dateStr) return null
   return new Date(dateStr + 'T00:00:00').toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-function formatDateShort(dateStr: string | null | undefined, locale: string = 'de-DE'): string | null {
+function formatDateShort(dateStr: string | null | undefined, locale: string = 'en-US'): string | null {
   if (!dateStr) return null
   return new Date(dateStr + 'T00:00:00').toLocaleDateString(locale, { day: 'numeric', month: 'short' })
 }

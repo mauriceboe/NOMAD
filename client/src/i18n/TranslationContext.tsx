@@ -2,10 +2,20 @@ import React, { createContext, useContext, useMemo, ReactNode } from 'react'
 import { useSettingsStore } from '../store/settingsStore'
 import de from './translations/de'
 import en from './translations/en'
+import es from './translations/es'
 
 type TranslationStrings = Record<string, string>
 
-const translations: Record<string, TranslationStrings> = { de, en }
+const translations: Record<string, TranslationStrings> = { de, en, es }
+const LOCALES: Record<string, string> = { de: 'de-DE', en: 'en-US', es: 'es-ES' }
+
+export function getLocaleForLanguage(language: string): string {
+  return LOCALES[language] || LOCALES.en
+}
+
+export function getIntlLanguage(language: string): string {
+  return language === 'de' || language === 'es' ? language : 'en'
+}
 
 interface TranslationContextValue {
   t: (key: string, params?: Record<string, string | number>) => string
@@ -13,18 +23,18 @@ interface TranslationContextValue {
   locale: string
 }
 
-const TranslationContext = createContext<TranslationContextValue>({ t: (k: string) => k, language: 'de', locale: 'de-DE' })
+const TranslationContext = createContext<TranslationContextValue>({ t: (k: string) => k, language: 'en', locale: 'en-US' })
 
 interface TranslationProviderProps {
   children: ReactNode
 }
 
 export function TranslationProvider({ children }: TranslationProviderProps) {
-  const language = useSettingsStore((s) => s.settings.language) || 'de'
+  const language = useSettingsStore((s) => s.settings.language) || 'en'
 
   const value = useMemo((): TranslationContextValue => {
-    const strings = translations[language] || translations.de
-    const fallback = translations.de
+    const strings = translations[language] || translations.en
+    const fallback = translations.en
 
     function t(key: string, params?: Record<string, string | number>): string {
       let val: string = strings[key] ?? fallback[key] ?? key
@@ -36,7 +46,7 @@ export function TranslationProvider({ children }: TranslationProviderProps) {
       return val
     }
 
-    return { t, language, locale: language === 'en' ? 'en-US' : 'de-DE' }
+    return { t, language, locale: getLocaleForLanguage(language) }
   }, [language])
 
   return <TranslationContext.Provider value={value}>{children}</TranslationContext.Provider>

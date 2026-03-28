@@ -5,8 +5,10 @@ import type { HolidaysMap, VacayEntry } from '../../types'
 
 const WEEKDAYS_EN = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
 const WEEKDAYS_DE = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+const WEEKDAYS_ES = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa', 'Do']
 const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const MONTHS_DE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
+const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
 interface VacayMonthCardProps {
   year: number
@@ -25,8 +27,8 @@ export default function VacayMonthCard({
   onCellClick, companyMode, blockWeekends
 }: VacayMonthCardProps) {
   const { language } = useTranslation()
-  const weekdays = language === 'de' ? WEEKDAYS_DE : WEEKDAYS_EN
-  const monthNames = language === 'de' ? MONTHS_DE : MONTHS_EN
+  const weekdays = language === 'de' ? WEEKDAYS_DE : language === 'es' ? WEEKDAYS_ES : WEEKDAYS_EN
+  const monthNames = language === 'de' ? MONTHS_DE : language === 'es' ? MONTHS_ES : MONTHS_EN
 
   const weeks = useMemo(() => {
     const firstDay = new Date(year, month, 1)

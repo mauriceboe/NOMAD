@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { MapPin, CalendarOff, AlertCircle, Building2, Unlink, ArrowRightLeft, Globe } from 'lucide-react'
 import { useVacayStore } from '../../store/vacayStore'
-import { useTranslation } from '../../i18n'
+import { getIntlLanguage, useTranslation } from '../../i18n'
 import { useToast } from '../shared/Toast'
 import CustomSelect from '../shared/CustomSelect'
 import apiClient from '../../api/client'
@@ -24,7 +24,7 @@ export default function VacaySettings({ onClose }: VacaySettingsProps) {
   useEffect(() => {
     apiClient.get('/addons/vacay/holidays/countries').then(r => {
       let displayNames
-      try { displayNames = new Intl.DisplayNames([language === 'de' ? 'de' : 'en'], { type: 'region' }) } catch { /* */ }
+      try { displayNames = new Intl.DisplayNames([getIntlLanguage(language)], { type: 'region' }) } catch { /* */ }
       const list = r.data.map(c => ({
         value: c.countryCode,
         label: displayNames ? (displayNames.of(c.countryCode) || c.name) : c.name,
@@ -49,7 +49,7 @@ export default function VacaySettings({ onClose }: VacaySettingsProps) {
       })
       if (allCounties.size > 0) {
         let subdivisionNames
-        try { subdivisionNames = new Intl.DisplayNames([language === 'de' ? 'de' : 'en'], { type: 'region' }) } catch { /* */ }
+        try { subdivisionNames = new Intl.DisplayNames([getIntlLanguage(language)], { type: 'region' }) } catch { /* */ }
         const regionList = [...allCounties].sort().map(c => {
           let label = c.split('-')[1] || c
           // Try Intl for full subdivision name (not all browsers support subdivision codes)
