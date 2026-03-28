@@ -169,7 +169,11 @@ export default function SettingsPage(): React.ReactElement {
         .replace('{flights}', String(result.importedFlights))
       toast.success(msg)
       if (typeof result.mergedConnections === 'number' && result.mergedConnections > 0) {
-        toast(`Merged ${result.mergedConnections} connecting leg(s) into single trips (<=24h layover).`)
+        const mergedMsg = t('settings.importMergedConnections').replace(
+          '{mergedConnections}',
+          String(result.mergedConnections),
+        )
+        toast(mergedMsg)
       }
       if (Array.isArray(result.warnings) && result.warnings.length > 0) {
         toast.warning(result.warnings.join('\n'))
