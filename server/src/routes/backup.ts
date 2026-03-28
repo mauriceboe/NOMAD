@@ -5,7 +5,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { authenticate, adminOnly } from '../middleware/auth';
-import scheduler from '../scheduler';
+import * as scheduler from '../scheduler';
 import { db, closeDb, reinitialize } from '../db/database';
 
 const router = express.Router();
