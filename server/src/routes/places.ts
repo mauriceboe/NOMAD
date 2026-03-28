@@ -22,7 +22,7 @@ interface UnsplashSearchResponse {
 const router = express.Router({ mergeParams: true });
 
 router.get('/', authenticate, requireTripAccess, (req: Request, res: Response) => {
-  const { tripId } = req.params;
+  const { tripId } = req.params 
   const { search, category, tag } = req.query;
 
   let query = `
@@ -41,12 +41,12 @@ router.get('/', authenticate, requireTripAccess, (req: Request, res: Response) =
 
   if (category) {
     query += ' AND p.category_id = ?';
-    params.push(category);
+    params.push(category as string);
   }
 
   if (tag) {
     query += ' AND p.id IN (SELECT place_id FROM place_tags WHERE tag_id = ?)';
-    params.push(tag);
+    params.push(tag as string);
   }
 
   query += ' ORDER BY p.created_at DESC';
@@ -73,7 +73,7 @@ router.get('/', authenticate, requireTripAccess, (req: Request, res: Response) =
 });
 
 router.post('/', authenticate, requireTripAccess, validateStringLengths({ name: 200, description: 2000, address: 500, notes: 2000 }), (req: Request, res: Response) => {
-  const { tripId } = req.params;
+  const { tripId } = req.params 
 
   const {
     name, description, lat, lng, address, category_id, price, currency,
@@ -107,13 +107,13 @@ router.post('/', authenticate, requireTripAccess, validateStringLengths({ name: 
     }
   }
 
-  const place = getPlaceWithTags(placeId);
+  const place = getPlaceWithTags(Number(placeId));
   res.status(201).json({ place });
   broadcast(tripId, 'place:created', { place }, req.headers['x-socket-id'] as string);
 });
 
 router.get('/:id', authenticate, requireTripAccess, (req: Request, res: Response) => {
-  const { tripId, id } = req.params;
+  const { tripId, id } = req.params 
 
   const placeCheck = db.prepare('SELECT id FROM places WHERE id = ? AND trip_id = ?').get(id, tripId);
   if (!placeCheck) {
@@ -126,7 +126,7 @@ router.get('/:id', authenticate, requireTripAccess, (req: Request, res: Response
 
 router.get('/:id/image', authenticate, requireTripAccess, async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
-  const { tripId, id } = req.params;
+  const { tripId, id } = req.params 
 
   const place = db.prepare('SELECT * FROM places WHERE id = ? AND trip_id = ?').get(id, tripId) as Place | undefined;
   if (!place) {
@@ -166,7 +166,7 @@ router.get('/:id/image', authenticate, requireTripAccess, async (req: Request, r
 });
 
 router.put('/:id', authenticate, requireTripAccess, validateStringLengths({ name: 200, description: 2000, address: 500, notes: 2000 }), (req: Request, res: Response) => {
-  const { tripId, id } = req.params;
+  const { tripId, id } = req.params 
 
   const existingPlace = db.prepare('SELECT * FROM places WHERE id = ? AND trip_id = ?').get(id, tripId) as Place | undefined;
   if (!existingPlace) {
@@ -238,7 +238,7 @@ router.put('/:id', authenticate, requireTripAccess, validateStringLengths({ name
 });
 
 router.delete('/:id', authenticate, requireTripAccess, (req: Request, res: Response) => {
-  const { tripId, id } = req.params;
+  const { tripId, id } = req.params 
 
   const place = db.prepare('SELECT id FROM places WHERE id = ? AND trip_id = ?').get(id, tripId);
   if (!place) {

@@ -39,6 +39,7 @@ interface OidcConfig {
   client_secret: string
   client_secret_set: boolean
   display_name: string
+  oidc_only: boolean
 }
 
 interface UpdateInfo {
@@ -72,7 +73,7 @@ export default function AdminPage(): React.ReactElement {
   const [createForm, setCreateForm] = useState<{ username: string; email: string; password: string; role: string }>({ username: '', email: '', password: '', role: 'user' })
 
   // OIDC config
-  const [oidcConfig, setOidcConfig] = useState<OidcConfig>({ issuer: '', client_id: '', client_secret: '', client_secret_set: false, display_name: '' })
+  const [oidcConfig, setOidcConfig] = useState<OidcConfig>({ issuer: '', client_id: '', client_secret: '', client_secret_set: false, display_name: '', oidc_only: false })
   const [savingOidc, setSavingOidc] = useState<boolean>(false)
 
   // Registration toggle
@@ -246,7 +247,7 @@ export default function AdminPage(): React.ReactElement {
 
   const handleSaveUser = async () => {
     try {
-      const payload = {
+      const payload: { username?: string; email?: string; role: string; password?: string } = {
         username: editForm.username.trim() || undefined,
         email: editForm.email.trim() || undefined,
         role: editForm.role,
@@ -715,11 +716,31 @@ export default function AdminPage(): React.ReactElement {
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                     />
                   </div>
+                  {/* OIDC-only mode toggle */}
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">{t('admin.oidcOnlyMode')}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{t('admin.oidcOnlyModeHint')}</p>
+                    </div>
+                    <button
+                      onClick={() => setOidcConfig(c => ({ ...c, oidc_only: !c.oidc_only }))}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ml-4 ${
+                        oidcConfig.oidc_only ? 'bg-slate-900' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          oidcConfig.oidc_only ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
                   <button
                     onClick={async () => {
                       setSavingOidc(true)
                       try {
-                        const payload = { issuer: oidcConfig.issuer, client_id: oidcConfig.client_id, display_name: oidcConfig.display_name }
+                        const payload: Record<string, unknown> = { issuer: oidcConfig.issuer, client_id: oidcConfig.client_id, display_name: oidcConfig.display_name, oidc_only: oidcConfig.oidc_only }
                         if (oidcConfig.client_secret) payload.client_secret = oidcConfig.client_secret
                         await adminApi.updateOidc(payload)
                         toast.success(t('admin.oidcSaved'))

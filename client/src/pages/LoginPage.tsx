@@ -12,6 +12,7 @@ interface AppConfig {
   demo_mode: boolean
   oidc_configured: boolean
   oidc_display_name?: string
+  oidc_only_mode: boolean
 }
 
 export default function LoginPage(): React.ReactElement {
@@ -104,7 +105,10 @@ export default function LoginPage(): React.ReactElement {
     }
   }
 
-  const showRegisterOption = appConfig?.allow_registration || !appConfig?.has_users
+  const showRegisterOption = (appConfig?.allow_registration || !appConfig?.has_users) && !appConfig?.oidc_only_mode
+
+  // In OIDC-only mode, show a minimal page that redirects directly to the IdP
+  const oidcOnly = appConfig?.oidc_only_mode && appConfig?.oidc_configured
 
   const inputBase: React.CSSProperties = {
     width: '100%', padding: '11px 12px 11px 40px', border: '1px solid #e5e7eb',
@@ -434,6 +438,34 @@ export default function LoginPage(): React.ReactElement {
           </div>
 
           <div style={{ background: 'white', borderRadius: 20, border: '1px solid #e5e7eb', padding: '36px 32px', boxShadow: '0 2px 16px rgba(0,0,0,0.06)' }}>
+            {oidcOnly ? (
+              <>
+                <h2 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800, color: '#111827' }}>{t('login.title')}</h2>
+                <p style={{ margin: '0 0 24px', fontSize: 13.5, color: '#9ca3af' }}>{t('login.oidcOnly')}</p>
+                {error && (
+                  <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, fontSize: 13, color: '#dc2626', marginBottom: 16 }}>
+                    {error}
+                  </div>
+                )}
+                <a href="/api/auth/oidc/login"
+                  style={{
+                    width: '100%', padding: '12px',
+                    background: '#111827', color: 'white',
+                    border: 'none', borderRadius: 12,
+                    fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                    fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    textDecoration: 'none', transition: 'all 0.15s',
+                    boxSizing: 'border-box',
+                  }}
+                  onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.background = '#1f2937' }}
+                  onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.background = '#111827' }}
+                >
+                  <Shield size={16} />
+                  {t('login.oidcSignIn', { name: appConfig?.oidc_display_name || 'SSO' })}
+                </a>
+              </>
+            ) : (
+            <>
             <h2 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800, color: '#111827' }}>
               {mode === 'register' ? (!appConfig?.has_users ? t('login.createAdmin') : t('login.createAccount')) : t('login.title')}
             </h2>
@@ -524,10 +556,11 @@ export default function LoginPage(): React.ReactElement {
                 </button>
               </p>
             )}
+            </>)}
           </div>
 
-          {/* OIDC / SSO login button */}
-          {appConfig?.oidc_configured && (
+          {/* OIDC / SSO login button (only when OIDC is configured but not in oidc-only mode) */}
+          {appConfig?.oidc_configured && !oidcOnly && (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16 }}>
                 <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />

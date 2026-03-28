@@ -206,6 +206,7 @@ const de: Record<string, string> = {
   'login.oidc.invalidState': 'Ungültige Sitzung. Bitte erneut versuchen.',
   'login.demoFailed': 'Demo-Login fehlgeschlagen',
   'login.oidcSignIn': 'Anmelden mit {name}',
+  'login.oidcOnly': 'Passwort-Authentifizierung ist deaktiviert. Bitte melde dich über deinen SSO-Anbieter an.',
   'login.demoHint': 'Demo ausprobieren — ohne Registrierung',
 
   // Register
@@ -285,6 +286,8 @@ const de: Record<string, string> = {
   'admin.oidcIssuer': 'Issuer URL',
   'admin.oidcIssuerHint': 'Die OpenID Connect Issuer URL des Anbieters. z.B. https://accounts.google.com',
   'admin.oidcSaved': 'OIDC-Konfiguration gespeichert',
+  'admin.oidcOnlyMode': 'Passwort-Authentifizierung deaktivieren',
+  'admin.oidcOnlyModeHint': 'Wenn aktiviert, ist nur SSO-Login erlaubt. Passwort-Login und Registrierung werden blockiert.',
 
   // File Types
   'admin.fileTypes': 'Erlaubte Dateitypen',

@@ -71,6 +71,13 @@ export default function SettingsPage(): React.ReactElement {
   const [currentPassword, setCurrentPassword] = useState<string>('')
   const [newPassword, setNewPassword] = useState<string>('')
   const [confirmPassword, setConfirmPassword] = useState<string>('')
+  const [oidcOnlyMode, setOidcOnlyMode] = useState<boolean>(false)
+
+  useEffect(() => {
+    authApi.getAppConfig?.().then((config) => {
+      if (config?.oidc_only_mode) setOidcOnlyMode(true)
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     setMapTileUrl(settings.map_tile_url || '')
@@ -398,6 +405,7 @@ export default function SettingsPage(): React.ReactElement {
             </div>
 
             {/* Change Password */}
+            {!oidcOnlyMode && (
             <div style={{ paddingTop: 8, marginTop: 8, borderTop: '1px solid var(--border-secondary)' }}>
               <label className="block text-sm font-medium text-slate-700 mb-3">{t('settings.changePassword')}</label>
               <div className="space-y-3">
@@ -446,6 +454,7 @@ export default function SettingsPage(): React.ReactElement {
                 </button>
               </div>
             </div>
+            )}
 
             <div className="flex items-center gap-4">
               <div style={{ position: 'relative', flexShrink: 0 }}>

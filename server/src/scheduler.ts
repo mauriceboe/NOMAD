@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import cron, { type ScheduledTask } from 'node-cron';
 import archiver from 'archiver';
 import path from 'path';
 import fs from 'fs';
@@ -23,7 +23,7 @@ interface BackupSettings {
   keep_days: number;
 }
 
-let currentTask: cron.ScheduledTask | null = null;
+let currentTask: ScheduledTask | null = null;
 
 function loadSettings(): BackupSettings {
   try {
@@ -110,7 +110,7 @@ function start(): void {
 }
 
 // Demo mode: hourly reset of demo user data
-let demoTask: cron.ScheduledTask | null = null;
+let demoTask: ScheduledTask | null = null;
 
 function startDemoReset(): void {
   if (demoTask) { demoTask.stop(); demoTask = null; }

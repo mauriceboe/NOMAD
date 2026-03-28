@@ -59,6 +59,17 @@ function rateLimiter(maxAttempts: number, windowMs: number) {
 }
 const authLimiter = rateLimiter(10, RATE_LIMIT_WINDOW);
 
+function isOidcOnlyMode(): boolean {
+  const get = (key: string) => (db.prepare("SELECT value FROM app_settings WHERE key = ?").get(key) as { value: string } | undefined)?.value || null;
+  const enabled = get('oidc_only') === 'true';
+  if (!enabled) return false;
+  const oidcConfigured = !!(
+    (process.env.OIDC_ISSUER || get('oidc_issuer')) &&
+    (process.env.OIDC_CLIENT_ID || get('oidc_client_id'))
+  );
+  return oidcConfigured;
+}
+
 function maskKey(key: string | null | undefined): string | null {
   if (!key) return null;
   if (key.length <= 8) return '--------';
@@ -89,6 +100,8 @@ router.get('/app-config', (_req: Request, res: Response) => {
     (process.env.OIDC_ISSUER || (db.prepare("SELECT value FROM app_settings WHERE key = 'oidc_issuer'").get() as { value: string } | undefined)?.value) &&
     (process.env.OIDC_CLIENT_ID || (db.prepare("SELECT value FROM app_settings WHERE key = 'oidc_client_id'").get() as { value: string } | undefined)?.value)
   );
+  const oidcOnlySetting = (db.prepare("SELECT value FROM app_settings WHERE key = 'oidc_only'").get() as { value: string } | undefined)?.value;
+  const oidcOnlyMode = oidcConfigured && oidcOnlySetting === 'true';
   res.json({
     allow_registration: isDemo ? false : allowRegistration,
     has_users: userCount > 0,
@@ -96,6 +109,7 @@ router.get('/app-config', (_req: Request, res: Response) => {
     has_maps_key: hasGoogleKey,
     oidc_configured: oidcConfigured,
     oidc_display_name: oidcConfigured ? (oidcDisplayName || 'SSO') : undefined,
+    oidc_only_mode: oidcOnlyMode,
     allowed_file_types: (db.prepare("SELECT value FROM app_settings WHERE key = 'allowed_file_types'").get() as { value: string } | undefined)?.value || 'jpg,jpeg,png,gif,webp,heic,pdf,doc,docx,xls,xlsx,txt,csv',
     demo_mode: isDemo,
     demo_email: isDemo ? 'demo@trek.app' : undefined,
@@ -118,6 +132,9 @@ router.post('/register', authLimiter, (req: Request, res: Response) => {
   const { username, email, password } = req.body;
 
   const userCount = (db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number }).count;
+  if (userCount > 0 && isOidcOnlyMode()) {
+    return res.status(403).json({ error: 'Password authentication is disabled. Please sign in with SSO.' });
+  }
   if (userCount > 0) {
     const setting = db.prepare("SELECT value FROM app_settings WHERE key = 'allow_registration'").get() as { value: string } | undefined;
     if (setting?.value === 'false') {
@@ -167,6 +184,10 @@ router.post('/register', authLimiter, (req: Request, res: Response) => {
 });
 
 router.post('/login', authLimiter, (req: Request, res: Response) => {
+  if (isOidcOnlyMode()) {
+    return res.status(403).json({ error: 'Password authentication is disabled. Please sign in with SSO.' });
+  }
+
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -205,6 +226,9 @@ router.get('/me', authenticate, (req: Request, res: Response) => {
 
 router.put('/me/password', authenticate, rateLimiter(5, RATE_LIMIT_WINDOW), (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
+  if (isOidcOnlyMode()) {
+    return res.status(403).json({ error: 'Password authentication is disabled.' });
+  }
   if (process.env.DEMO_MODE === 'true' && authReq.user.email === 'demo@trek.app') {
     return res.status(403).json({ error: 'Password change is disabled in demo mode.' });
   }
