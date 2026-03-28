@@ -67,7 +67,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
     ...(enabledAddons.packing ? [{ id: 'packliste', label: t('trip.tabs.packing'), shortLabel: t('trip.tabs.packingShort') }] : []),
     ...(enabledAddons.budget ? [{ id: 'finanzplan', label: t('trip.tabs.budget') }] : []),
     ...(enabledAddons.documents ? [{ id: 'dateien', label: t('trip.tabs.files') }] : []),
-    ...(enabledAddons.collab ? [{ id: 'collab', label: 'Collab' }] : []),
+    ...(enabledAddons.collab ? [{ id: 'collab', label: t('admin.addons.catalog.collab.name') }] : []),
   ]
 
   const [activeTab, setActiveTab] = useState<string>(() => {

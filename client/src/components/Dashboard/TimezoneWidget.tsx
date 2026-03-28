@@ -23,9 +23,9 @@ const POPULAR_ZONES = [
   { label: 'Cairo', tz: 'Africa/Cairo' },
 ]
 
-function getTime(tz) {
+function getTime(tz, locale) {
   try {
-    return new Date().toLocaleTimeString('de-DE', { timeZone: tz, hour: '2-digit', minute: '2-digit' })
+    return new Date().toLocaleTimeString(locale, { timeZone: tz, hour: '2-digit', minute: '2-digit' })
   } catch { return '—' }
 }
 
@@ -41,7 +41,7 @@ function getOffset(tz) {
 }
 
 export default function TimezoneWidget() {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const [zones, setZones] = useState(() => {
     const saved = localStorage.getItem('dashboard_timezones')
     return saved ? JSON.parse(saved) : [
@@ -70,7 +70,7 @@ export default function TimezoneWidget() {
 
   const removeZone = (tz) => setZones(zones.filter(z => z.tz !== tz))
 
-  const localTime = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+  const localTime = new Date().toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
   const rawZone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const localZone = rawZone.split('/').pop().replace(/_/g, ' ')
   // Show abbreviated timezone name (e.g. CET, CEST, EST)
@@ -96,7 +96,7 @@ export default function TimezoneWidget() {
         {zones.map(z => (
           <div key={z.tz} className="flex items-center justify-between group">
             <div>
-              <p className="text-lg font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{getTime(z.tz)}</p>
+              <p className="text-lg font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{getTime(z.tz, locale)}</p>
               <p className="text-[10px]" style={{ color: 'var(--text-faint)' }}>{z.label} <span style={{ color: 'var(--text-muted)' }}>{getOffset(z.tz)}</span></p>
             </div>
             <button onClick={() => removeZone(z.tz)} className="opacity-0 group-hover:opacity-100 p-1 rounded transition-all" style={{ color: 'var(--text-faint)' }}>
@@ -116,7 +116,7 @@ export default function TimezoneWidget() {
               onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               <span className="font-medium">{z.label}</span>
-              <span className="text-[10px]" style={{ color: 'var(--text-faint)' }}>{getTime(z.tz)}</span>
+              <span className="text-[10px]" style={{ color: 'var(--text-faint)' }}>{getTime(z.tz, locale)}</span>
             </button>
           ))}
         </div>

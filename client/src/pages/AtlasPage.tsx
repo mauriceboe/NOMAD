@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useTranslation } from '../i18n'
+import { getIntlLanguage, getLocaleForLanguage, useTranslation } from '../i18n'
 import { useSettingsStore } from '../store/settingsStore'
 import Navbar from '../components/Layout/Navbar'
 import apiClient from '../api/client'
@@ -100,7 +100,7 @@ function useCountryNames(language: string): (code: string) => string {
   const [resolver, setResolver] = useState<(code: string) => string>(() => (code: string) => code)
   useEffect(() => {
     try {
-      const dn = new Intl.DisplayNames([language === 'de' ? 'de' : 'en'], { type: 'region' })
+      const dn = new Intl.DisplayNames([getIntlLanguage(language)], { type: 'region' })
       setResolver(() => (code: string) => { try { return dn.of(code) || code } catch { return code } })
     } catch { /* */ }
   }, [language])
@@ -255,7 +255,7 @@ export default function AtlasPage(): React.ReactElement {
         const c = countryMap[a3]
         if (c) {
           const name = resolveName(c.code)
-          const formatDate = (d) => { if (!d) return '—'; const dt = new Date(d); return dt.toLocaleDateString(language === 'de' ? 'de-DE' : 'en-US', { month: 'short', year: 'numeric' }) }
+          const formatDate = (d) => { if (!d) return '—'; const dt = new Date(d); return dt.toLocaleDateString(getLocaleForLanguage(language), { month: 'short', year: 'numeric' }) }
           const tooltipHtml = `
             <div style="display:flex;flex-direction:column;gap:8px;min-width:160px">
               <div style="font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;padding-bottom:6px;border-bottom:1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}">${name}</div>
@@ -515,4 +515,3 @@ function SidebarContent({ data, stats, countries, selectedCountry, countryDetail
     </div>
   )
 }
-

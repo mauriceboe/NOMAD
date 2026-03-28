@@ -128,7 +128,7 @@ export default function VacayPage(): React.ReactElement {
                 <CalendarDays size={18} style={{ color: 'var(--text-primary)' }} />
               </div>
               <div>
-                <h1 className="text-lg sm:text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Vacay</h1>
+                <h1 className="text-lg sm:text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{t('admin.addons.catalog.vacay.name')}</h1>
                 <p className="text-xs hidden sm:block" style={{ color: 'var(--text-muted)' }}>{t('vacay.subtitle')}</p>
               </div>
             </div>

@@ -136,8 +136,21 @@ interface AddonRowProps {
   t: (key: string) => string
 }
 
+function getAddonLabel(t: (key: string) => string, addon: Addon): { name: string; description: string } {
+  const nameKey = `admin.addons.catalog.${addon.id}.name`
+  const descKey = `admin.addons.catalog.${addon.id}.description`
+  const translatedName = t(nameKey)
+  const translatedDescription = t(descKey)
+
+  return {
+    name: translatedName !== nameKey ? translatedName : addon.name,
+    description: translatedDescription !== descKey ? translatedDescription : addon.description,
+  }
+}
+
 function AddonRow({ addon, onToggle, t }: AddonRowProps) {
   const isComingSoon = false
+  const label = getAddonLabel(t, addon)
   return (
     <div className="flex items-center gap-4 px-6 py-4 border-b transition-colors hover:opacity-95" style={{ borderColor: 'var(--border-secondary)', opacity: isComingSoon ? 0.5 : 1, pointerEvents: isComingSoon ? 'none' : 'auto' }}>
       {/* Icon */}
@@ -148,7 +161,7 @@ function AddonRow({ addon, onToggle, t }: AddonRowProps) {
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{addon.name}</span>
+          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{label.name}</span>
           {isComingSoon && (
             <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-faint)' }}>
               Coming Soon
@@ -161,7 +174,7 @@ function AddonRow({ addon, onToggle, t }: AddonRowProps) {
             {addon.type === 'global' ? t('admin.addons.type.global') : t('admin.addons.type.trip')}
           </span>
         </div>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{addon.description}</p>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{label.description}</p>
       </div>
 
       {/* Toggle */}
