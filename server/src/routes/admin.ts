@@ -169,11 +169,26 @@ function compareVersions(a: string, b: string): number {
   return 0;
 }
 
+router.get('/github-releases', async (req: Request, res: Response) => {
+  const { per_page = '10', page = '1' } = req.query;
+  try {
+    const resp = await fetch(
+      `https://api.github.com/repos/mauriceboe/TREK/releases?per_page=${per_page}&page=${page}`,
+      { headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'TREK-Server' } }
+    );
+    if (!resp.ok) return res.json([]);
+    const data = await resp.json();
+    res.json(Array.isArray(data) ? data : []);
+  } catch {
+    res.json([]);
+  }
+});
+
 router.get('/version-check', async (_req: Request, res: Response) => {
   const { version: currentVersion } = require('../../package.json');
   try {
     const resp = await fetch(
-      'https://api.github.com/repos/mauriceboe/NOMAD/releases/latest',
+      'https://api.github.com/repos/mauriceboe/TREK/releases/latest',
       { headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'TREK-Server' } }
     );
     if (!resp.ok) return res.json({ current: currentVersion, latest: currentVersion, update_available: false });

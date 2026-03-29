@@ -651,9 +651,13 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
 
   const handleAddNewCategory = async () => {
     if (!newCatName.trim()) return
-    // Create a first item in the new category to make it appear
+    let catName = newCatName.trim()
+    // Allow duplicate display names — append invisible zero-width spaces to make unique internally
+    while (allCategories.includes(catName)) {
+      catName += '\u200B'
+    }
     try {
-      await addPackingItem(tripId, { name: '...', category: newCatName.trim() })
+      await addPackingItem(tripId, { name: '...', category: catName })
       setNewCatName('')
       setAddingCategory(false)
     } catch { toast.error(t('packing.toast.addError')) }

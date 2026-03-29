@@ -12,6 +12,7 @@ import PlaceFormModal from '../components/Planner/PlaceFormModal'
 import TripFormModal from '../components/Trips/TripFormModal'
 import TripMembersModal from '../components/Trips/TripMembersModal'
 import { ReservationModal } from '../components/Planner/ReservationModal'
+import MemoriesPanel from '../components/Memories/MemoriesPanel'
 import ReservationsPanel from '../components/Planner/ReservationsPanel'
 import PackingListPanel from '../components/Packing/PackingListPanel'
 import FileManager from '../components/Files/FileManager'
@@ -54,7 +55,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
     addonsApi.enabled().then(data => {
       const map = {}
       data.addons.forEach(a => { map[a.id] = true })
-      setEnabledAddons({ packing: !!map.packing, budget: !!map.budget, documents: !!map.documents, collab: !!map.collab })
+      setEnabledAddons({ packing: !!map.packing, budget: !!map.budget, documents: !!map.documents, collab: !!map.collab, memories: !!map.memories })
     }).catch(() => {})
     authApi.getAppConfig().then(config => {
       if (config.allowed_file_types) setAllowedFileTypes(config.allowed_file_types)
@@ -67,6 +68,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
     ...(enabledAddons.packing ? [{ id: 'packliste', label: t('trip.tabs.packing'), shortLabel: t('trip.tabs.packingShort') }] : []),
     ...(enabledAddons.budget ? [{ id: 'finanzplan', label: t('trip.tabs.budget') }] : []),
     ...(enabledAddons.documents ? [{ id: 'dateien', label: t('trip.tabs.files') }] : []),
+    ...(enabledAddons.memories ? [{ id: 'memories', label: t('memories.title') }] : []),
     ...(enabledAddons.collab ? [{ id: 'collab', label: t('admin.addons.catalog.collab.name') }] : []),
   ]
 
@@ -653,6 +655,12 @@ export default function TripPlannerPage(): React.ReactElement | null {
               tripId={tripId}
               allowedFileTypes={allowedFileTypes}
             />
+          </div>
+        )}
+
+        {activeTab === 'memories' && (
+          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+            <MemoriesPanel tripId={Number(tripId)} startDate={trip?.start_date || null} endDate={trip?.end_date || null} />
           </div>
         )}
 

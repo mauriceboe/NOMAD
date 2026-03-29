@@ -169,7 +169,7 @@ export default function PlaceInspector({
   const selectedDay = days?.find(d => d.id === selectedDayId)
   const weekdayIndex = getWeekdayIndex(selectedDay?.date)
 
-  const placeFiles = (files || []).filter(f => String(f.place_id) === String(place.id))
+  const placeFiles = (files || []).filter(f => String(f.place_id) === String(place.id) || (f.linked_place_ids || []).includes(place.id))
 
   const handleFileUpload = useCallback(async (e) => {
     const selectedFiles = Array.from((e.target as HTMLInputElement).files || [])

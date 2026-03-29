@@ -103,10 +103,9 @@ export function getHolidays(year: number, bundesland: string = 'NW'): Record<str
   return holidays
 }
 
-export function isWeekend(dateStr: string): boolean {
+export function isWeekend(dateStr: string, weekendDays: number[] = [0, 6]): boolean {
   const d = new Date(dateStr + 'T00:00:00')
-  const day = d.getDay()
-  return day === 0 || day === 6
+  return weekendDays.includes(d.getDay())
 }
 
 export function getWeekday(dateStr: string): string {

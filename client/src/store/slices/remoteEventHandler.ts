@@ -232,6 +232,11 @@ export function handleRemoteEvent(set: SetState, event: WebSocketEvent): void {
           files: state.files.filter(f => f.id !== payload.fileId),
         }
 
+      // Memories / Photos
+      case 'memories:updated':
+        window.dispatchEvent(new CustomEvent('memories:updated', { detail: payload }))
+        return {}
+
       default:
         return {}
     }

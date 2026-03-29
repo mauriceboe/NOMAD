@@ -8,6 +8,7 @@ import CustomSelect from '../components/shared/CustomSelect'
 import { useToast } from '../components/shared/Toast'
 import { Save, Map, Palette, User, Moon, Sun, Monitor, Shield, Camera, Trash2, Lock, KeyRound, Copy, Printer, FileDown } from 'lucide-react'
 import { authApi, adminApi } from '../api/client'
+import apiClient from '../api/client'
 import type { LucideIcon } from 'lucide-react'
 import type { UserWithOidc } from '../types'
 import { getApiErrorMessage } from '../types'
@@ -137,6 +138,59 @@ export default function SettingsPage(): React.ReactElement {
   const navigate = useNavigate()
 
   const [saving, setSaving] = useState<Record<string, boolean>>({})
+
+  // Immich
+  const [memoriesEnabled, setMemoriesEnabled] = useState(false)
+  const [immichUrl, setImmichUrl] = useState('')
+  const [immichApiKey, setImmichApiKey] = useState('')
+  const [immichConnected, setImmichConnected] = useState(false)
+  const [immichTesting, setImmichTesting] = useState(false)
+
+  useEffect(() => {
+    apiClient.get('/addons').then(r => {
+      const mem = r.data.addons?.find((a: any) => a.id === 'memories' && a.enabled)
+      setMemoriesEnabled(!!mem)
+      if (mem) {
+        apiClient.get('/integrations/immich/settings').then(r2 => {
+          setImmichUrl(r2.data.immich_url || '')
+          setImmichConnected(r2.data.connected)
+        }).catch(() => {})
+      }
+    }).catch(() => {})
+  }, [])
+
+  const handleSaveImmich = async () => {
+    setSaving(s => ({ ...s, immich: true }))
+    try {
+      await apiClient.put('/integrations/immich/settings', { immich_url: immichUrl, immich_api_key: immichApiKey || undefined })
+      toast.success(t('memories.saved'))
+      // Test connection
+      const res = await apiClient.get('/integrations/immich/status')
+      setImmichConnected(res.data.connected)
+    } catch {
+      toast.error(t('memories.connectionError'))
+    } finally {
+      setSaving(s => ({ ...s, immich: false }))
+    }
+  }
+
+  const handleTestImmich = async () => {
+    setImmichTesting(true)
+    try {
+      const res = await apiClient.get('/integrations/immich/status')
+      if (res.data.connected) {
+        toast.success(`${t('memories.connectionSuccess')} — ${res.data.user?.name || ''}`)
+        setImmichConnected(true)
+      } else {
+        toast.error(`${t('memories.connectionError')}: ${res.data.error}`)
+        setImmichConnected(false)
+      }
+    } catch {
+      toast.error(t('memories.connectionError'))
+    } finally {
+      setImmichTesting(false)
+    }
+  }
 
   // Map settings
   const [mapTileUrl, setMapTileUrl] = useState<string>(settings.map_tile_url || '')
@@ -469,6 +523,45 @@ export default function SettingsPage(): React.ReactElement {
               </div>
             </div>
           </Section>
+
+          {/* Immich — only when Memories addon is enabled */}
+          {memoriesEnabled && (
+            <Section title="Immich" icon={Camera}>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('memories.immichUrl')}</label>
+                  <input type="url" value={immichUrl} onChange={e => setImmichUrl(e.target.value)}
+                    placeholder="https://immich.example.com"
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">{t('memories.immichApiKey')}</label>
+                  <input type="password" value={immichApiKey} onChange={e => setImmichApiKey(e.target.value)}
+                    placeholder={immichConnected ? '••••••••' : 'API Key'}
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-300" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <button onClick={handleSaveImmich} disabled={saving.immich}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm hover:bg-slate-700 disabled:bg-slate-400">
+                    <Save className="w-4 h-4" /> {t('common.save')}
+                  </button>
+                  <button onClick={handleTestImmich} disabled={immichTesting}
+                    className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-sm hover:bg-slate-50">
+                    {immichTesting
+                      ? <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin" />
+                      : <Camera className="w-4 h-4" />}
+                    {t('memories.testConnection')}
+                  </button>
+                  {immichConnected && (
+                    <span className="text-xs font-medium text-green-600 flex items-center gap-1">
+                      <span className="w-2 h-2 bg-green-500 rounded-full" />
+                      {t('memories.connected')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </Section>
+          )}
 
           {/* Account */}
           <Section title={t('settings.account')} icon={User}>

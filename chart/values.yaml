@@ -1,0 +1,53 @@
+
+image:
+  repository: mauriceboe/trek
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Optional image pull secrets for private registries
+imagePullSecrets: []
+  # - name: my-registry-secret
+
+service:
+  type: ClusterIP
+  port: 3000
+
+env:
+  NODE_ENV: production
+  PORT: 3000
+  # ALLOWED_ORIGINS: ""
+# NOTE: If using ingress, ensure env.ALLOWED_ORIGINS matches the domains in ingress.hosts for proper CORS configuration.
+
+
+# JWT secret configuration
+secretEnv:
+  # If set, use this value for JWT_SECRET (base64-encoded in secret.yaml)
+  JWT_SECRET: ""
+
+# If true, a random JWT_SECRET will be generated during install (overrides secretEnv.JWT_SECRET)
+generateJwtSecret: false
+
+# If set, use an existing Kubernetes secret for JWT_SECRET
+existingSecret: ""
+existingSecretKey: JWT_SECRET
+
+persistence:
+  enabled: true
+  data:
+    size: 1Gi
+  uploads:
+    size: 1Gi
+
+resources: {}
+
+ingress:
+  enabled: false
+  annotations: {}
+  hosts:
+    - host: chart-example.local
+      paths:
+        - /
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local

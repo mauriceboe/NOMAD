@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useParams } from 'react-router-dom'
+import apiClient from '../../api/client'
+import { useTripStore } from '../../store/tripStore'
 import Modal from '../shared/Modal'
 import CustomSelect from '../shared/CustomSelect'
 import { Plane, Hotel, Utensils, Train, Car, Ship, Ticket, FileText, Users, Paperclip, X, ExternalLink, Link2 } from 'lucide-react'
@@ -62,6 +65,8 @@ interface ReservationModalProps {
 }
 
 export function ReservationModal({ isOpen, onClose, onSave, reservation, days, places, assignments, selectedDayId, files = [], onFileUpload, onFileDelete, accommodations = [] }: ReservationModalProps) {
+  const { id: tripId } = useParams<{ id: string }>()
+  const loadFiles = useTripStore(s => s.loadFiles)
   const toast = useToast()
   const { t, locale } = useTranslation()
   const fileInputRef = useRef(null)
@@ -78,6 +83,9 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
   const [isSaving, setIsSaving] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
   const [pendingFiles, setPendingFiles] = useState([])
+  const [showFilePicker, setShowFilePicker] = useState(false)
+  const [linkedFileIds, setLinkedFileIds] = useState<number[]>([])
+  const [unlinkedFileIds, setUnlinkedFileIds] = useState<number[]>([])
 
   const assignmentOptions = useMemo(
     () => buildAssignmentOptions(days, assignments, t, locale),
@@ -204,7 +212,13 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
     }
   }
 
-  const attachedFiles = reservation?.id ? files.filter(f => f.reservation_id === reservation.id) : []
+  const attachedFiles = reservation?.id
+    ? files.filter(f =>
+        f.reservation_id === reservation.id ||
+        linkedFileIds.includes(f.id) ||
+        (f.linked_reservation_ids && f.linked_reservation_ids.includes(reservation.id))
+      )
+    : []
 
   const inputStyle = {
     width: '100%', border: '1px solid var(--border-primary)', borderRadius: 10,
@@ -459,11 +473,23 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
                 <FileText size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                 <span style={{ flex: 1, fontSize: 12, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.original_name}</span>
                 <a href={f.url} target="_blank" rel="noreferrer" style={{ color: 'var(--text-faint)', display: 'flex', flexShrink: 0 }}><ExternalLink size={11} /></a>
-                {onFileDelete && (
-                  <button type="button" onClick={() => onFileDelete(f.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', display: 'flex', padding: 0, flexShrink: 0 }}>
-                    <X size={11} />
-                  </button>
-                )}
+                <button type="button" onClick={async () => {
+                  // Always unlink, never delete the file
+                  // Clear primary reservation_id if it points to this reservation
+                  if (f.reservation_id === reservation?.id) {
+                    try { await apiClient.put(`/trips/${tripId}/files/${f.id}`, { reservation_id: null }) } catch {}
+                  }
+                  // Remove from file_links if linked there
+                  try {
+                    const linksRes = await apiClient.get(`/trips/${tripId}/files/${f.id}/links`)
+                    const link = (linksRes.data.links || []).find((l: any) => l.reservation_id === reservation?.id)
+                    if (link) await apiClient.delete(`/trips/${tripId}/files/${f.id}/link/${link.id}`)
+                  } catch {}
+                  setLinkedFileIds(prev => prev.filter(id => id !== f.id))
+                  if (tripId) loadFiles(tripId)
+                }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', display: 'flex', padding: 0, flexShrink: 0 }}>
+                  <X size={11} />
+                </button>
               </div>
             ))}
             {pendingFiles.map((f, i) => (
@@ -477,14 +503,56 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
               </div>
             ))}
             <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.txt,image/*" style={{ display: 'none' }} onChange={handleFileChange} />
-            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingFile} style={{
-              display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px',
-              border: '1px dashed var(--border-primary)', borderRadius: 8, background: 'none',
-              fontSize: 11, color: 'var(--text-faint)', cursor: uploadingFile ? 'default' : 'pointer', fontFamily: 'inherit',
-            }}>
-              <Paperclip size={11} />
-              {uploadingFile ? t('reservations.uploading') : t('reservations.attachFile')}
-            </button>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingFile} style={{
+                display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px',
+                border: '1px dashed var(--border-primary)', borderRadius: 8, background: 'none',
+                fontSize: 11, color: 'var(--text-faint)', cursor: uploadingFile ? 'default' : 'pointer', fontFamily: 'inherit',
+              }}>
+                <Paperclip size={11} />
+                {uploadingFile ? t('reservations.uploading') : t('reservations.attachFile')}
+              </button>
+              {/* Link existing file picker */}
+              {reservation?.id && files.filter(f => !f.deleted_at && !attachedFiles.some(af => af.id === f.id)).length > 0 && (
+                <div style={{ position: 'relative' }}>
+                  <button type="button" onClick={() => setShowFilePicker(v => !v)} style={{
+                    display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px',
+                    border: '1px dashed var(--border-primary)', borderRadius: 8, background: 'none',
+                    fontSize: 11, color: 'var(--text-faint)', cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                    <Link2 size={11} /> {t('reservations.linkExisting')}
+                  </button>
+                  {showFilePicker && (
+                    <div style={{
+                      position: 'absolute', bottom: '100%', left: 0, marginBottom: 4, zIndex: 50,
+                      background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 10,
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.12)', padding: 4, minWidth: 220, maxHeight: 200, overflowY: 'auto',
+                    }}>
+                      {files.filter(f => !f.deleted_at && !attachedFiles.some(af => af.id === f.id)).map(f => (
+                        <button key={f.id} type="button" onClick={async () => {
+                          try {
+                            await apiClient.post(`/trips/${tripId}/files/${f.id}/link`, { reservation_id: reservation.id })
+                            setLinkedFileIds(prev => [...prev, f.id])
+                            setShowFilePicker(false)
+                            if (tripId) loadFiles(tripId)
+                          } catch {}
+                        }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '6px 10px',
+                            background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'inherit',
+                            color: 'var(--text-secondary)', borderRadius: 7, textAlign: 'left',
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-tertiary)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                          <FileText size={12} style={{ color: 'var(--text-faint)', flexShrink: 0 }} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.original_name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

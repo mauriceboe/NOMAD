@@ -302,10 +302,15 @@ export default function FileManager({ files = [], onUpload, onDelete, onUpdate, 
 
   const renderFileRow = (file: TripFile, isTrash = false) => {
     const FileIcon = getFileIcon(file.mime_type)
-    const linkedPlace = places?.find(p => p.id === file.place_id)
-    const linkedReservation = file.reservation_id
-      ? (reservations?.find(r => r.id === file.reservation_id) || { title: file.reservation_title })
-      : null
+    const allLinkedPlaceIds = new Set<number>()
+    if (file.place_id) allLinkedPlaceIds.add(file.place_id)
+    for (const pid of (file.linked_place_ids || [])) allLinkedPlaceIds.add(pid)
+    const linkedPlaces = [...allLinkedPlaceIds].map(pid => places?.find(p => p.id === pid)).filter(Boolean)
+    // All linked reservations (primary + file_links)
+    const allLinkedResIds = new Set<number>()
+    if (file.reservation_id) allLinkedResIds.add(file.reservation_id)
+    for (const rid of (file.linked_reservation_ids || [])) allLinkedResIds.add(rid)
+    const linkedReservations = [...allLinkedResIds].map(rid => reservations?.find(r => r.id === rid)).filter(Boolean)
     const fileUrl = file.url || (file.filename?.startsWith('files/') ? `/uploads/${file.filename}` : `/uploads/files/${file.filename}`)
 
     return (
@@ -365,12 +370,12 @@ export default function FileManager({ files = [], onUpload, onDelete, onUpdate, 
             {file.file_size && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{formatSize(file.file_size)}</span>}
             <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{formatDateWithLocale(file.created_at, locale)}</span>
 
-            {linkedPlace && (
-              <SourceBadge icon={MapPin} label={`${t('files.sourcePlan')} · ${linkedPlace.name}`} />
-            )}
-            {linkedReservation && (
-              <SourceBadge icon={Ticket} label={`${t('files.sourceBooking')} · ${linkedReservation.title || t('files.sourceBooking')}`} />
-            )}
+            {linkedPlaces.map(p => (
+              <SourceBadge key={p.id} icon={MapPin} label={`${t('files.sourcePlan')} · ${p.name}`} />
+            ))}
+            {linkedReservations.map(r => (
+              <SourceBadge key={r.id} icon={Ticket} label={`${t('files.sourceBooking')} · ${r.title || t('files.sourceBooking')}`} />
+            ))}
             {file.note_id && (
               <SourceBadge icon={StickyNote} label={t('files.sourceCollab') || 'Collab Notes'} />
             )}
@@ -477,20 +482,45 @@ export default function FileManager({ files = [], onUpload, onDelete, onUpdate, 
                   }
                 }
                 const unassigned = places.filter(p => !assignedPlaceIds.has(p.id))
-                const placeBtn = (p: Place) => (
-                  <button key={p.id} onClick={() => handleAssign(file.id, { place_id: file.place_id === p.id ? null : p.id })} style={{
-                    width: '100%', textAlign: 'left', padding: '6px 10px 6px 20px', background: file.place_id === p.id ? 'var(--bg-hover)' : 'none',
-                    border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-primary)',
-                    borderRadius: 8, fontFamily: 'inherit', fontWeight: file.place_id === p.id ? 600 : 400,
-                    display: 'flex', alignItems: 'center', gap: 6,
-                  }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-                    onMouseLeave={e => e.currentTarget.style.background = file.place_id === p.id ? 'var(--bg-hover)' : 'transparent'}>
-                    <MapPin size={12} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                    {file.place_id === p.id && <Check size={14} style={{ marginLeft: 'auto', flexShrink: 0, color: 'var(--accent)' }} />}
-                  </button>
-                )
+                const placeBtn = (p: Place) => {
+                  const isLinked = file.place_id === p.id || (file.linked_place_ids || []).includes(p.id)
+                  return (
+                    <button key={p.id} onClick={async () => {
+                      if (isLinked) {
+                        if (file.place_id === p.id) {
+                          await handleAssign(file.id, { place_id: null })
+                        } else {
+                          try {
+                            const linksRes = await filesApi.getLinks(tripId, file.id)
+                            const link = (linksRes.links || []).find((l: any) => l.place_id === p.id)
+                            if (link) await filesApi.removeLink(tripId, file.id, link.id)
+                            refreshFiles()
+                          } catch {}
+                        }
+                      } else {
+                        if (!file.place_id) {
+                          await handleAssign(file.id, { place_id: p.id })
+                        } else {
+                          try {
+                            await filesApi.addLink(tripId, file.id, { place_id: p.id })
+                            refreshFiles()
+                          } catch {}
+                        }
+                      }
+                    }} style={{
+                      width: '100%', textAlign: 'left', padding: '6px 10px 6px 20px', background: isLinked ? 'var(--bg-hover)' : 'none',
+                      border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-primary)',
+                      borderRadius: 8, fontFamily: 'inherit', fontWeight: isLinked ? 600 : 400,
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                      onMouseLeave={e => e.currentTarget.style.background = isLinked ? 'var(--bg-hover)' : 'transparent'}>
+                      <MapPin size={12} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                      {isLinked && <Check size={14} style={{ marginLeft: 'auto', flexShrink: 0, color: 'var(--accent)' }} />}
+                    </button>
+                  )
+                }
 
                 const placesSection = places.length > 0 && (
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -519,20 +549,47 @@ export default function FileManager({ files = [], onUpload, onDelete, onUpdate, 
                     <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-faint)', padding: '8px 10px 4px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                       {t('files.assignBooking')}
                     </div>
-                    {reservations.map(r => (
-                      <button key={r.id} onClick={() => handleAssign(file.id, { reservation_id: file.reservation_id === r.id ? null : r.id })} style={{
-                        width: '100%', textAlign: 'left', padding: '6px 10px 6px 20px', background: file.reservation_id === r.id ? 'var(--bg-hover)' : 'none',
-                        border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-primary)',
-                        borderRadius: 8, fontFamily: 'inherit', fontWeight: file.reservation_id === r.id ? 600 : 400,
-                        display: 'flex', alignItems: 'center', gap: 6,
-                      }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-                        onMouseLeave={e => e.currentTarget.style.background = file.reservation_id === r.id ? 'var(--bg-hover)' : 'transparent'}>
-                        <Ticket size={12} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title || r.name}</span>
-                        {file.reservation_id === r.id && <Check size={14} style={{ marginLeft: 'auto', flexShrink: 0, color: 'var(--accent)' }} />}
-                      </button>
-                    ))}
+                    {reservations.map(r => {
+                      const isLinked = file.reservation_id === r.id || (file.linked_reservation_ids || []).includes(r.id)
+                      return (
+                        <button key={r.id} onClick={async () => {
+                          if (isLinked) {
+                            // Unlink: if primary reservation_id, clear it; if via file_links, remove link
+                            if (file.reservation_id === r.id) {
+                              await handleAssign(file.id, { reservation_id: null })
+                            } else {
+                              try {
+                                const linksRes = await filesApi.getLinks(tripId, file.id)
+                                const link = (linksRes.links || []).find((l: any) => l.reservation_id === r.id)
+                                if (link) await filesApi.removeLink(tripId, file.id, link.id)
+                                refreshFiles()
+                              } catch {}
+                            }
+                          } else {
+                            // Link: if no primary, set it; otherwise use file_links
+                            if (!file.reservation_id) {
+                              await handleAssign(file.id, { reservation_id: r.id })
+                            } else {
+                              try {
+                                await filesApi.addLink(tripId, file.id, { reservation_id: r.id })
+                                refreshFiles()
+                              } catch {}
+                            }
+                          }
+                        }} style={{
+                          width: '100%', textAlign: 'left', padding: '6px 10px 6px 20px', background: isLinked ? 'var(--bg-hover)' : 'none',
+                          border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-primary)',
+                          borderRadius: 8, fontFamily: 'inherit', fontWeight: isLinked ? 600 : 400,
+                          display: 'flex', alignItems: 'center', gap: 6,
+                        }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                          onMouseLeave={e => e.currentTarget.style.background = isLinked ? 'var(--bg-hover)' : 'transparent'}>
+                          <Ticket size={12} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title || r.name}</span>
+                          {isLinked && <Check size={14} style={{ marginLeft: 'auto', flexShrink: 0, color: 'var(--accent)' }} />}
+                        </button>
+                      )
+                    })}
                   </div>
                 )
 

@@ -196,7 +196,7 @@ router.get('/plan', (req: Request, res: Response) => {
 router.put('/plan', async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
   const planId = getActivePlanId(authReq.user.id);
-  const { block_weekends, holidays_enabled, holidays_region, company_holidays_enabled, carry_over_enabled } = req.body;
+  const { block_weekends, holidays_enabled, holidays_region, company_holidays_enabled, carry_over_enabled, weekend_days } = req.body;
 
   const updates: string[] = [];
   const params: (string | number)[] = [];
@@ -205,6 +205,7 @@ router.put('/plan', async (req: Request, res: Response) => {
   if (holidays_region !== undefined) { updates.push('holidays_region = ?'); params.push(holidays_region); }
   if (company_holidays_enabled !== undefined) { updates.push('company_holidays_enabled = ?'); params.push(company_holidays_enabled ? 1 : 0); }
   if (carry_over_enabled !== undefined) { updates.push('carry_over_enabled = ?'); params.push(carry_over_enabled ? 1 : 0); }
+  if (weekend_days !== undefined) { updates.push('weekend_days = ?'); params.push(String(weekend_days)); }
 
   if (updates.length > 0) {
     params.push(planId);

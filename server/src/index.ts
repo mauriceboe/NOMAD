@@ -152,6 +152,8 @@ import vacayRoutes from './routes/vacay';
 app.use('/api/addons/vacay', vacayRoutes);
 import atlasRoutes from './routes/atlas';
 app.use('/api/addons/atlas', atlasRoutes);
+import immichRoutes from './routes/immich';
+app.use('/api/integrations/immich', immichRoutes);
 
 app.use('/api/maps', mapsRoutes);
 app.use('/api/weather', weatherRoutes);

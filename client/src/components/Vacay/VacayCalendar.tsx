@@ -26,6 +26,7 @@ export default function VacayCalendar() {
   }, [entries])
 
   const blockWeekends = plan?.block_weekends !== false
+  const weekendDays: number[] = plan?.weekend_days ? String(plan.weekend_days).split(',').map(Number) : [0, 6]
   const companyHolidaysEnabled = plan?.company_holidays_enabled !== false
 
   const handleCellClick = useCallback(async (dateStr) => {
@@ -35,7 +36,7 @@ export default function VacayCalendar() {
       return
     }
     if (holidays[dateStr]) return
-    if (blockWeekends && isWeekend(dateStr)) return
+    if (blockWeekends && isWeekend(dateStr, weekendDays)) return
     if (companyHolidaysEnabled && companyHolidaySet.has(dateStr)) return
     await toggleEntry(dateStr, selectedUserId || undefined)
   }, [companyMode, toggleEntry, toggleCompanyHoliday, holidays, companyHolidaySet, blockWeekends, companyHolidaysEnabled, selectedUserId])
@@ -57,6 +58,7 @@ export default function VacayCalendar() {
             onCellClick={handleCellClick}
             companyMode={companyMode}
             blockWeekends={blockWeekends}
+            weekendDays={weekendDays}
           />
         ))}
       </div>

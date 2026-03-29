@@ -65,7 +65,7 @@ function ReservationCard({ r, tripId, onEdit, onDelete, files = [], onNavigateTo
   const typeInfo = getType(r.type)
   const TypeIcon = typeInfo.Icon
   const confirmed = r.status === 'confirmed'
-  const attachedFiles = files.filter(f => f.reservation_id === r.id)
+  const attachedFiles = files.filter(f => f.reservation_id === r.id || (f.linked_reservation_ids || []).includes(r.id))
   const linked = r.assignment_id ? assignmentLookup[r.assignment_id] : null
 
   const handleToggle = async () => {

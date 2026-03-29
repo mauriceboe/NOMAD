@@ -3,10 +3,10 @@ import { adminApi } from '../../api/client'
 import { useTranslation } from '../../i18n'
 import { useSettingsStore } from '../../store/settingsStore'
 import { useToast } from '../shared/Toast'
-import { Puzzle, ListChecks, Wallet, FileText, CalendarDays, Globe, Briefcase } from 'lucide-react'
+import { Puzzle, ListChecks, Wallet, FileText, CalendarDays, Globe, Briefcase, Image } from 'lucide-react'
 
 const ICON_MAP = {
-  ListChecks, Wallet, FileText, CalendarDays, Puzzle, Globe, Briefcase,
+  ListChecks, Wallet, FileText, CalendarDays, Puzzle, Globe, Briefcase, Image,
 }
 
 interface Addon {

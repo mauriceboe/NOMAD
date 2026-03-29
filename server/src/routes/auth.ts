@@ -197,7 +197,7 @@ router.post('/register', authLimiter, (req: Request, res: Response) => {
   if (invite_token) {
     validInvite = db.prepare('SELECT * FROM invite_tokens WHERE token = ?').get(invite_token);
     if (!validInvite) return res.status(400).json({ error: 'Invalid invite link' });
-    if (validInvite.used_count >= validInvite.max_uses) return res.status(410).json({ error: 'Invite link has been fully used' });
+    if (validInvite.max_uses > 0 && validInvite.used_count >= validInvite.max_uses) return res.status(410).json({ error: 'Invite link has been fully used' });
     if (validInvite.expires_at && new Date(validInvite.expires_at) < new Date()) return res.status(410).json({ error: 'Invite link has expired' });
   }
 

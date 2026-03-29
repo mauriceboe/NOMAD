@@ -197,6 +197,9 @@ export const filesApi = {
   restore: (tripId: number | string, id: number) => apiClient.post(`/trips/${tripId}/files/${id}/restore`).then(r => r.data),
   permanentDelete: (tripId: number | string, id: number) => apiClient.delete(`/trips/${tripId}/files/${id}/permanent`).then(r => r.data),
   emptyTrash: (tripId: number | string) => apiClient.delete(`/trips/${tripId}/files/trash/empty`).then(r => r.data),
+  addLink: (tripId: number | string, fileId: number, data: { reservation_id?: number; assignment_id?: number }) => apiClient.post(`/trips/${tripId}/files/${fileId}/link`, data).then(r => r.data),
+  removeLink: (tripId: number | string, fileId: number, linkId: number) => apiClient.delete(`/trips/${tripId}/files/${fileId}/link/${linkId}`).then(r => r.data),
+  getLinks: (tripId: number | string, fileId: number) => apiClient.get(`/trips/${tripId}/files/${fileId}/links`).then(r => r.data),
 }
 
 export const reservationsApi = {

@@ -82,7 +82,27 @@ router.get('/', authenticate, (req: Request, res: Response) => {
 
   const where = showTrash ? 'f.trip_id = ? AND f.deleted_at IS NOT NULL' : 'f.trip_id = ? AND f.deleted_at IS NULL';
   const files = db.prepare(`${FILE_SELECT} WHERE ${where} ORDER BY f.starred DESC, f.created_at DESC`).all(tripId) as TripFile[];
-  res.json({ files: files.map(formatFile) });
+
+  // Get all file_links for this trip's files
+  const fileIds = files.map(f => f.id);
+  let linksMap: Record<number, number[]> = {};
+  if (fileIds.length > 0) {
+    const placeholders = fileIds.map(() => '?').join(',');
+    const links = db.prepare(`SELECT file_id, reservation_id, place_id FROM file_links WHERE file_id IN (${placeholders})`).all(...fileIds) as { file_id: number; reservation_id: number | null; place_id: number | null }[];
+    for (const link of links) {
+      if (!linksMap[link.file_id]) linksMap[link.file_id] = [];
+      linksMap[link.file_id].push(link);
+    }
+  }
+
+  res.json({ files: files.map(f => {
+    const fileLinks = linksMap[f.id] || [];
+    return {
+      ...formatFile(f),
+      linked_reservation_ids: fileLinks.filter(l => l.reservation_id).map(l => l.reservation_id),
+      linked_place_ids: fileLinks.filter(l => l.place_id).map(l => l.place_id),
+    };
+  })});
 });
 
 // Upload file
@@ -237,6 +257,57 @@ router.delete('/trash/empty', authenticate, (req: Request, res: Response) => {
 
   db.prepare('DELETE FROM trip_files WHERE trip_id = ? AND deleted_at IS NOT NULL').run(tripId);
   res.json({ success: true, deleted: trashed.length });
+});
+
+// Link a file to a reservation (many-to-many)
+router.post('/:id/link', authenticate, (req: Request, res: Response) => {
+  const authReq = req as AuthRequest;
+  const { tripId, id } = req.params;
+  const { reservation_id, assignment_id, place_id } = req.body;
+
+  const trip = verifyTripOwnership(tripId, authReq.user.id);
+  if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+  const file = db.prepare('SELECT * FROM trip_files WHERE id = ? AND trip_id = ?').get(id, tripId);
+  if (!file) return res.status(404).json({ error: 'File not found' });
+
+  try {
+    db.prepare('INSERT OR IGNORE INTO file_links (file_id, reservation_id, assignment_id, place_id) VALUES (?, ?, ?, ?)').run(
+      id, reservation_id || null, assignment_id || null, place_id || null
+    );
+  } catch {}
+
+  const links = db.prepare('SELECT * FROM file_links WHERE file_id = ?').all(id);
+  res.json({ success: true, links });
+});
+
+// Unlink a file from a reservation
+router.delete('/:id/link/:linkId', authenticate, (req: Request, res: Response) => {
+  const authReq = req as AuthRequest;
+  const { tripId, id, linkId } = req.params;
+
+  const trip = verifyTripOwnership(tripId, authReq.user.id);
+  if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+  db.prepare('DELETE FROM file_links WHERE id = ? AND file_id = ?').run(linkId, id);
+  res.json({ success: true });
+});
+
+// Get all links for a file
+router.get('/:id/links', authenticate, (req: Request, res: Response) => {
+  const authReq = req as AuthRequest;
+  const { tripId, id } = req.params;
+
+  const trip = verifyTripOwnership(tripId, authReq.user.id);
+  if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+  const links = db.prepare(`
+    SELECT fl.*, r.title as reservation_title
+    FROM file_links fl
+    LEFT JOIN reservations r ON fl.reservation_id = r.id
+    WHERE fl.file_id = ?
+  `).all(id);
+  res.json({ links });
 });
 
 export default router;

@@ -18,8 +18,8 @@ export default function GitHubPanel() {
 
   const fetchReleases = async (pageNum = 1, append = false) => {
     try {
-      const res = await apiClient.get(`/auth/github-releases`, { params: { per_page: PER_PAGE, page: pageNum } })
-      const data = res.data
+      const res = await apiClient.get(`/admin/github-releases`, { params: { per_page: PER_PAGE, page: pageNum } })
+      const data = Array.isArray(res.data) ? res.data : []
       setReleases(prev => append ? [...prev, ...data] : data)
       setHasMore(data.length === PER_PAGE)
     } catch (err: unknown) {

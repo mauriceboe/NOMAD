@@ -49,6 +49,42 @@ export default function VacaySettings({ onClose }: VacaySettingsProps) {
         onChange={() => toggle('block_weekends')}
       />
 
+      {/* Weekend days selector */}
+      {plan.block_weekends !== false && (
+        <div style={{ paddingLeft: 36 }}>
+          <p className="text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>{t('vacay.weekendDays')}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { day: 1, label: t('vacay.mon') },
+              { day: 2, label: t('vacay.tue') },
+              { day: 3, label: t('vacay.wed') },
+              { day: 4, label: t('vacay.thu') },
+              { day: 5, label: t('vacay.fri') },
+              { day: 6, label: t('vacay.sat') },
+              { day: 0, label: t('vacay.sun') },
+            ].map(({ day, label }) => {
+              const current: number[] = plan.weekend_days ? String(plan.weekend_days).split(',').map(Number) : [0, 6]
+              const active = current.includes(day)
+              return (
+                <button key={day} onClick={() => {
+                  const next = active ? current.filter(d => d !== day) : [...current, day]
+                  updatePlan({ weekend_days: next.join(',') })
+                }}
+                  style={{
+                    padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    fontFamily: 'inherit', border: '1px solid', transition: 'all 0.12s',
+                    background: active ? 'var(--text-primary)' : 'var(--bg-card)',
+                    borderColor: active ? 'var(--text-primary)' : 'var(--border-primary)',
+                    color: active ? 'var(--bg-primary)' : 'var(--text-muted)',
+                  }}>
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Carry-over */}
       <SettingToggle
         icon={ArrowRightLeft}
