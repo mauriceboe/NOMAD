@@ -1524,7 +1524,8 @@ export function resolveCountryCodeForAirport(airportCode: string | null): string
 
 export function getCountriesFromFlightLocation(location: string | null): string[] {
   if (!location) return [];
-  const match = location.match(/\b([A-Z]{3})\b\s*(?:→|->|-)\s*\b([A-Z]{3})\b/);
+  const normalizedLocation = location.toUpperCase();
+  const match = normalizedLocation.match(/\b([A-Z]{3})\b\s*(?:→|->|-)\s*\b([A-Z]{3})\b/);
   if (!match) return [];
   const out: string[] = [];
   const from = AIRPORT_TO_COUNTRY[match[1]];
