@@ -271,6 +271,7 @@ const de: Record<string, string | { name: string; category: string }[]> = {
   'admin.tabs.users': 'Benutzer',
   'admin.tabs.categories': 'Kategorien',
   'admin.tabs.backup': 'Backup',
+  'admin.tabs.audit': 'Audit-Protokoll',
   'admin.stats.users': 'Benutzer',
   'admin.stats.trips': 'Reisen',
   'admin.stats.places': 'Orte',
@@ -374,8 +375,6 @@ const de: Record<string, string | { name: string; category: string }[]> = {
   'admin.tabs.addons': 'Addons',
   'admin.addons.title': 'Addons',
   'admin.addons.subtitle': 'Aktiviere oder deaktiviere Funktionen, um TREK nach deinen Wünschen anzupassen.',
-  'admin.addons.catalog.memories.name': 'Erinnerungen',
-  'admin.addons.catalog.memories.description': 'Geteilte Fotoalben für jede Reise',
   'admin.addons.catalog.packing.name': 'Packliste',
   'admin.addons.catalog.packing.description': 'Checklisten zum Kofferpacken für jede Reise',
   'admin.addons.catalog.budget.name': 'Budget',
@@ -415,6 +414,19 @@ const de: Record<string, string | { name: string; category: string }[]> = {
 
   // GitHub
   'admin.tabs.github': 'GitHub',
+
+  'admin.audit.subtitle': 'Sicherheitsrelevante und administrative Ereignisse (Backups, Benutzer, MFA, Einstellungen).',
+  'admin.audit.empty': 'Noch keine Audit-Einträge.',
+  'admin.audit.refresh': 'Aktualisieren',
+  'admin.audit.loadMore': 'Mehr laden',
+  'admin.audit.showing': '{count} geladen · {total} gesamt',
+  'admin.audit.col.time': 'Zeit',
+  'admin.audit.col.user': 'Benutzer',
+  'admin.audit.col.action': 'Aktion',
+  'admin.audit.col.resource': 'Ressource',
+  'admin.audit.col.ip': 'IP',
+  'admin.audit.col.details': 'Details',
+
   'admin.github.title': 'Update-Verlauf',
   'admin.github.subtitle': 'Neueste Updates von {repo}',
   'admin.github.latest': 'Aktuell',

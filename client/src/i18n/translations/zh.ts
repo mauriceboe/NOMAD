@@ -271,6 +271,7 @@ const zh: Record<string, string> = {
   'admin.tabs.users': '用户',
   'admin.tabs.categories': '分类',
   'admin.tabs.backup': '备份',
+  'admin.tabs.audit': '审计日志',
   'admin.stats.users': '用户',
   'admin.stats.trips': '旅行',
   'admin.stats.places': '地点',
@@ -412,6 +413,19 @@ const zh: Record<string, string> = {
 
   // GitHub
   'admin.tabs.github': 'GitHub',
+
+  'admin.audit.subtitle': '安全与管理员操作记录（备份、用户、MFA、设置）。',
+  'admin.audit.empty': '暂无审计记录。',
+  'admin.audit.refresh': '刷新',
+  'admin.audit.loadMore': '加载更多',
+  'admin.audit.showing': '已加载 {count} 条 · 共 {total} 条',
+  'admin.audit.col.time': '时间',
+  'admin.audit.col.user': '用户',
+  'admin.audit.col.action': '操作',
+  'admin.audit.col.resource': '资源',
+  'admin.audit.col.ip': 'IP',
+  'admin.audit.col.details': '详情',
+
   'admin.github.title': '版本历史',
   'admin.github.subtitle': '{repo} 的最新更新',
   'admin.github.latest': '最新',

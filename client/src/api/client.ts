@@ -163,6 +163,8 @@ export const adminApi = {
   listInvites: () => apiClient.get('/admin/invites').then(r => r.data),
   createInvite: (data: { max_uses: number; expires_in_days?: number }) => apiClient.post('/admin/invites', data).then(r => r.data),
   deleteInvite: (id: number) => apiClient.delete(`/admin/invites/${id}`).then(r => r.data),
+  auditLog: (params?: { limit?: number; offset?: number }) =>
+    apiClient.get('/admin/audit-log', { params }).then(r => r.data),
 }
 
 export const addonsApi = {

@@ -276,6 +276,7 @@ const ar: Record<string, string | { name: string; category: string }[]> = {
   'admin.tabs.users': 'المستخدمون',
   'admin.tabs.categories': 'الفئات',
   'admin.tabs.backup': 'النسخ الاحتياطي',
+  'admin.tabs.audit': 'سجل التدقيق',
   'admin.tabs.settings': 'الإعدادات',
   'admin.tabs.config': 'الإعدادات',
   'admin.tabs.templates': 'قوالب التعبئة',
@@ -419,6 +420,18 @@ const ar: Record<string, string | { name: string; category: string }[]> = {
   'admin.weather.locationHint': 'يعتمد الطقس على أول مكان بإحداثيات في كل يوم. إذا لم يكن هناك مكان مخصص ليوم ما، يُستخدم أي مكان من قائمة الأماكن كمرجع.',
 
   // GitHub
+  'admin.audit.subtitle': 'أحداث الأمان والإدارة (النسخ الاحتياطية، المستخدمون، المصادقة الثنائية، الإعدادات).',
+  'admin.audit.empty': 'لا توجد سجلات تدقيق بعد.',
+  'admin.audit.refresh': 'تحديث',
+  'admin.audit.loadMore': 'تحميل المزيد',
+  'admin.audit.showing': 'تم تحميل {count} · الإجمالي {total}',
+  'admin.audit.col.time': 'الوقت',
+  'admin.audit.col.user': 'المستخدم',
+  'admin.audit.col.action': 'الإجراء',
+  'admin.audit.col.resource': 'المورد',
+  'admin.audit.col.ip': 'عنوان IP',
+  'admin.audit.col.details': 'التفاصيل',
+
   'admin.github.title': 'سجل الإصدارات',
   'admin.github.subtitle': 'آخر التحديثات من {repo}',
   'admin.github.latest': 'الأحدث',

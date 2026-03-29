@@ -13,6 +13,7 @@ import { authenticate, demoUploadBlock } from '../middleware/auth';
 import { JWT_SECRET } from '../config';
 import { encryptMfaSecret, decryptMfaSecret } from '../services/mfaCrypto';
 import { AuthRequest, User } from '../types';
+import { writeAudit, getClientIp } from '../services/auditLog';
 
 authenticator.options = { window: 1 };
 
@@ -518,6 +519,15 @@ router.put('/app-settings', authenticate, (req: Request, res: Response) => {
   if (allowed_file_types !== undefined) {
     db.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('allowed_file_types', ?)").run(String(allowed_file_types));
   }
+  writeAudit({
+    userId: authReq.user.id,
+    action: 'settings.app_update',
+    ip: getClientIp(req),
+    details: {
+      allow_registration: allow_registration !== undefined ? Boolean(allow_registration) : undefined,
+      allowed_file_types_changed: allowed_file_types !== undefined,
+    },
+  });
   res.json({ success: true });
 });
 
@@ -673,6 +683,7 @@ router.post('/mfa/enable', authenticate, (req: Request, res: Response) => {
     authReq.user.id
   );
   mfaSetupPending.delete(authReq.user.id);
+  writeAudit({ userId: authReq.user.id, action: 'user.mfa_enable', ip: getClientIp(req) });
   res.json({ success: true, mfa_enabled: true });
 });
 
@@ -702,6 +713,7 @@ router.post('/mfa/disable', authenticate, rateLimiter(5, RATE_LIMIT_WINDOW), (re
     authReq.user.id
   );
   mfaSetupPending.delete(authReq.user.id);
+  writeAudit({ userId: authReq.user.id, action: 'user.mfa_disable', ip: getClientIp(req) });
   res.json({ success: true, mfa_enabled: false });
 });
 

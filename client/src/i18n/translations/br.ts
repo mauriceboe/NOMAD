@@ -271,6 +271,7 @@ const br: Record<string, string | { name: string; category: string }[]> = {
   'admin.tabs.users': 'Usuários',
   'admin.tabs.categories': 'Categorias',
   'admin.tabs.backup': 'Backup',
+  'admin.tabs.audit': 'Registro de auditoria',
   'admin.stats.users': 'Usuários',
   'admin.stats.trips': 'Viagens',
   'admin.stats.places': 'Lugares',
@@ -413,6 +414,18 @@ const br: Record<string, string | { name: string; category: string }[]> = {
 
   // GitHub
   'admin.tabs.github': 'GitHub',
+
+  'admin.audit.subtitle': 'Eventos sensíveis de segurança e administração (backups, usuários, MFA, configurações).',
+  'admin.audit.empty': 'Nenhum registro de auditoria ainda.',
+  'admin.audit.refresh': 'Atualizar',
+  'admin.audit.loadMore': 'Carregar mais',
+  'admin.audit.showing': '{count} carregados · {total} no total',
+  'admin.audit.col.time': 'Data/hora',
+  'admin.audit.col.user': 'Usuário',
+  'admin.audit.col.action': 'Ação',
+  'admin.audit.col.resource': 'Recurso',
+  'admin.audit.col.ip': 'IP',
+  'admin.audit.col.details': 'Detalhes',
   'admin.github.title': 'Histórico de versões',
   'admin.github.subtitle': 'Últimas atualizações de {repo}',
   'admin.github.latest': 'Mais recente',

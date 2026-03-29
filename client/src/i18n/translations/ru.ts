@@ -271,6 +271,7 @@ const ru: Record<string, string> = {
   'admin.tabs.users': 'Пользователи',
   'admin.tabs.categories': 'Категории',
   'admin.tabs.backup': 'Резервная копия',
+  'admin.tabs.audit': 'Журнал аудита',
   'admin.stats.users': 'Пользователи',
   'admin.stats.trips': 'Поездки',
   'admin.stats.places': 'Места',
@@ -412,6 +413,19 @@ const ru: Record<string, string> = {
 
   // GitHub
   'admin.tabs.github': 'GitHub',
+
+  'admin.audit.subtitle': 'События, связанные с безопасностью и администрированием (резервные копии, пользователи, MFA, настройки).',
+  'admin.audit.empty': 'Записей аудита пока нет.',
+  'admin.audit.refresh': 'Обновить',
+  'admin.audit.loadMore': 'Загрузить ещё',
+  'admin.audit.showing': 'Загружено: {count} · всего {total}',
+  'admin.audit.col.time': 'Время',
+  'admin.audit.col.user': 'Пользователь',
+  'admin.audit.col.action': 'Действие',
+  'admin.audit.col.resource': 'Объект',
+  'admin.audit.col.ip': 'IP',
+  'admin.audit.col.details': 'Подробности',
+
   'admin.github.title': 'История релизов',
   'admin.github.subtitle': 'Последние обновления из {repo}',
   'admin.github.latest': 'Последний',

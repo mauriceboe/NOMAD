@@ -7,6 +7,7 @@ import fs from 'fs';
 import { db } from '../db/database';
 import { authenticate, adminOnly } from '../middleware/auth';
 import { AuthRequest, User, Addon } from '../types';
+import { writeAudit, getClientIp } from '../services/auditLog';
 
 const router = express.Router();
 
@@ -52,6 +53,14 @@ router.post('/users', (req: Request, res: Response) => {
     'SELECT id, username, email, role, created_at, updated_at FROM users WHERE id = ?'
   ).get(result.lastInsertRowid);
 
+  const authReq = req as AuthRequest;
+  writeAudit({
+    userId: authReq.user.id,
+    action: 'admin.user_create',
+    resource: String(result.lastInsertRowid),
+    ip: getClientIp(req),
+    details: { username: username.trim(), email: email.trim(), role: role || 'user' },
+  });
   res.status(201).json({ user });
 });
 
@@ -90,6 +99,19 @@ router.put('/users/:id', (req: Request, res: Response) => {
     'SELECT id, username, email, role, created_at, updated_at FROM users WHERE id = ?'
   ).get(req.params.id);
 
+  const authReq = req as AuthRequest;
+  const changed: string[] = [];
+  if (username) changed.push('username');
+  if (email) changed.push('email');
+  if (role) changed.push('role');
+  if (password) changed.push('password');
+  writeAudit({
+    userId: authReq.user.id,
+    action: 'admin.user_update',
+    resource: String(req.params.id),
+    ip: getClientIp(req),
+    details: { fields: changed },
+  });
   res.json({ user: updated });
 });
 
@@ -103,6 +125,12 @@ router.delete('/users/:id', (req: Request, res: Response) => {
   if (!user) return res.status(404).json({ error: 'User not found' });
 
   db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
+  writeAudit({
+    userId: authReq.user.id,
+    action: 'admin.user_delete',
+    resource: String(req.params.id),
+    ip: getClientIp(req),
+  });
   res.json({ success: true });
 });
 
@@ -113,6 +141,48 @@ router.get('/stats', (_req: Request, res: Response) => {
   const totalFiles = (db.prepare('SELECT COUNT(*) as count FROM trip_files').get() as { count: number }).count;
 
   res.json({ totalUsers, totalTrips, totalPlaces, totalFiles });
+});
+
+router.get('/audit-log', (req: Request, res: Response) => {
+  const limitRaw = parseInt(String(req.query.limit || '100'), 10);
+  const offsetRaw = parseInt(String(req.query.offset || '0'), 10);
+  const limit = Math.min(Math.max(Number.isFinite(limitRaw) ? limitRaw : 100, 1), 500);
+  const offset = Math.max(Number.isFinite(offsetRaw) ? offsetRaw : 0, 0);
+  type Row = {
+    id: number;
+    created_at: string;
+    user_id: number | null;
+    username: string | null;
+    user_email: string | null;
+    action: string;
+    resource: string | null;
+    details: string | null;
+    ip: string | null;
+  };
+  const rows = db.prepare(`
+    SELECT a.id, a.created_at, a.user_id, u.username, u.email as user_email, a.action, a.resource, a.details, a.ip
+    FROM audit_log a
+    LEFT JOIN users u ON u.id = a.user_id
+    ORDER BY a.id DESC
+    LIMIT ? OFFSET ?
+  `).all(limit, offset) as Row[];
+  const total = (db.prepare('SELECT COUNT(*) as c FROM audit_log').get() as { c: number }).c;
+  res.json({
+    entries: rows.map((r) => {
+      let details: Record<string, unknown> | null = null;
+      if (r.details) {
+        try {
+          details = JSON.parse(r.details) as Record<string, unknown>;
+        } catch {
+          details = { _parse_error: true };
+        }
+      }
+      return { ...r, details };
+    }),
+    total,
+    limit,
+    offset,
+  });
 });
 
 router.get('/oidc', (_req: Request, res: Response) => {
@@ -135,16 +205,25 @@ router.put('/oidc', (req: Request, res: Response) => {
   if (client_secret !== undefined) set('oidc_client_secret', client_secret);
   set('oidc_display_name', display_name);
   set('oidc_only', oidc_only ? 'true' : 'false');
+  const authReq = req as AuthRequest;
+  writeAudit({
+    userId: authReq.user.id,
+    action: 'admin.oidc_update',
+    ip: getClientIp(req),
+    details: { oidc_only: !!oidc_only, issuer_set: !!issuer },
+  });
   res.json({ success: true });
 });
 
-router.post('/save-demo-baseline', (_req: Request, res: Response) => {
+router.post('/save-demo-baseline', (req: Request, res: Response) => {
   if (process.env.DEMO_MODE !== 'true') {
     return res.status(404).json({ error: 'Not found' });
   }
   try {
     const { saveBaseline } = require('../demo/demo-reset');
     saveBaseline();
+    const authReq = req as AuthRequest;
+    writeAudit({ userId: authReq.user.id, action: 'admin.demo_baseline_save', ip: getClientIp(req) });
     res.json({ success: true, message: 'Demo baseline saved. Hourly resets will restore to this state.' });
   } catch (err: unknown) {
     console.error(err);
@@ -201,7 +280,7 @@ router.get('/version-check', async (_req: Request, res: Response) => {
   }
 });
 
-router.post('/update', async (_req: Request, res: Response) => {
+router.post('/update', async (req: Request, res: Response) => {
   const rootDir = path.resolve(__dirname, '../../..');
   const serverDir = path.resolve(__dirname, '../..');
   const clientDir = path.join(rootDir, 'client');
@@ -224,6 +303,13 @@ router.post('/update', async (_req: Request, res: Response) => {
     const { version: newVersion } = require('../../package.json');
     steps.push({ step: 'version', version: newVersion });
 
+    const authReq = req as AuthRequest;
+    writeAudit({
+      userId: authReq.user.id,
+      action: 'admin.system_update',
+      resource: newVersion,
+      ip: getClientIp(req),
+    });
     res.json({ success: true, steps, restarting: true });
 
     setTimeout(() => {
@@ -260,24 +346,39 @@ router.post('/invites', (req: Request, res: Response) => {
     ? new Date(Date.now() + parseInt(expires_in_days) * 86400000).toISOString()
     : null;
 
-  db.prepare(
+  const ins = db.prepare(
     'INSERT INTO invite_tokens (token, max_uses, expires_at, created_by) VALUES (?, ?, ?, ?)'
   ).run(token, uses, expiresAt, authReq.user.id);
 
+  const inviteId = Number(ins.lastInsertRowid);
   const invite = db.prepare(`
     SELECT i.*, u.username as created_by_name
     FROM invite_tokens i
     JOIN users u ON i.created_by = u.id
-    WHERE i.id = last_insert_rowid()
-  `).get();
+    WHERE i.id = ?
+  `).get(inviteId);
 
+  writeAudit({
+    userId: authReq.user.id,
+    action: 'admin.invite_create',
+    resource: String(inviteId),
+    ip: getClientIp(req),
+    details: { max_uses: uses, expires_in_days: expires_in_days ?? null },
+  });
   res.status(201).json({ invite });
 });
 
-router.delete('/invites/:id', (_req: Request, res: Response) => {
-  const invite = db.prepare('SELECT id FROM invite_tokens WHERE id = ?').get(_req.params.id);
+router.delete('/invites/:id', (req: Request, res: Response) => {
+  const invite = db.prepare('SELECT id FROM invite_tokens WHERE id = ?').get(req.params.id);
   if (!invite) return res.status(404).json({ error: 'Invite not found' });
-  db.prepare('DELETE FROM invite_tokens WHERE id = ?').run(_req.params.id);
+  db.prepare('DELETE FROM invite_tokens WHERE id = ?').run(req.params.id);
+  const authReq = req as AuthRequest;
+  writeAudit({
+    userId: authReq.user.id,
+    action: 'admin.invite_delete',
+    resource: String(req.params.id),
+    ip: getClientIp(req),
+  });
   res.json({ success: true });
 });
 
@@ -291,6 +392,13 @@ router.get('/bag-tracking', (_req: Request, res: Response) => {
 router.put('/bag-tracking', (req: Request, res: Response) => {
   const { enabled } = req.body;
   db.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('bag_tracking_enabled', ?)").run(enabled ? 'true' : 'false');
+  const authReq = req as AuthRequest;
+  writeAudit({
+    userId: authReq.user.id,
+    action: 'admin.bag_tracking',
+    ip: getClientIp(req),
+    details: { enabled: !!enabled },
+  });
   res.json({ enabled: !!enabled });
 });
 
@@ -337,10 +445,19 @@ router.put('/packing-templates/:id', (req: Request, res: Response) => {
   res.json({ template: db.prepare('SELECT * FROM packing_templates WHERE id = ?').get(req.params.id) });
 });
 
-router.delete('/packing-templates/:id', (_req: Request, res: Response) => {
-  const template = db.prepare('SELECT * FROM packing_templates WHERE id = ?').get(_req.params.id);
+router.delete('/packing-templates/:id', (req: Request, res: Response) => {
+  const template = db.prepare('SELECT * FROM packing_templates WHERE id = ?').get(req.params.id);
   if (!template) return res.status(404).json({ error: 'Template not found' });
-  db.prepare('DELETE FROM packing_templates WHERE id = ?').run(_req.params.id);
+  db.prepare('DELETE FROM packing_templates WHERE id = ?').run(req.params.id);
+  const authReq = req as AuthRequest;
+  const t = template as { name?: string };
+  writeAudit({
+    userId: authReq.user.id,
+    action: 'admin.packing_template_delete',
+    resource: String(req.params.id),
+    ip: getClientIp(req),
+    details: { name: t.name },
+  });
   res.json({ success: true });
 });
 
@@ -408,6 +525,14 @@ router.put('/addons/:id', (req: Request, res: Response) => {
   if (enabled !== undefined) db.prepare('UPDATE addons SET enabled = ? WHERE id = ?').run(enabled ? 1 : 0, req.params.id);
   if (config !== undefined) db.prepare('UPDATE addons SET config = ? WHERE id = ?').run(JSON.stringify(config), req.params.id);
   const updated = db.prepare('SELECT * FROM addons WHERE id = ?').get(req.params.id) as Addon;
+  const authReq = req as AuthRequest;
+  writeAudit({
+    userId: authReq.user.id,
+    action: 'admin.addon_update',
+    resource: String(req.params.id),
+    ip: getClientIp(req),
+    details: { enabled: enabled !== undefined ? !!enabled : undefined, config_changed: config !== undefined },
+  });
   res.json({ addon: { ...updated, enabled: !!updated.enabled, config: JSON.parse(updated.config || '{}') } });
 });
 

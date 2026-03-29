@@ -321,6 +321,20 @@ function runMigrations(db: Database.Database): void {
         UNIQUE(file_id, place_id)
       )`);
     },
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS audit_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          action TEXT NOT NULL,
+          resource TEXT,
+          details TEXT,
+          ip TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
+      `);
+    },
   ];
 
   if (currentVersion < migrations.length) {

@@ -7,6 +7,10 @@ import fs from 'fs';
 import { authenticate, adminOnly } from '../middleware/auth';
 import * as scheduler from '../scheduler';
 import { db, closeDb, reinitialize } from '../db/database';
+import { AuthRequest } from '../types';
+import { writeAudit, getClientIp } from '../services/auditLog';
+
+type RestoreAuditInfo = { userId: number; ip: string | null; source: 'backup.restore' | 'backup.upload_restore'; label: string };
 
 const router = express.Router();
 
@@ -103,6 +107,14 @@ router.post('/create', backupRateLimiter(3, BACKUP_RATE_WINDOW), async (_req: Re
     });
 
     const stat = fs.statSync(outputPath);
+    const authReq = _req as AuthRequest;
+    writeAudit({
+      userId: authReq.user.id,
+      action: 'backup.create',
+      resource: filename,
+      ip: getClientIp(_req),
+      details: { size: stat.size },
+    });
     res.json({
       success: true,
       backup: {
@@ -134,7 +146,7 @@ router.get('/download/:filename', (req: Request, res: Response) => {
   res.download(filePath, filename);
 });
 
-async function restoreFromZip(zipPath: string, res: Response) {
+async function restoreFromZip(zipPath: string, res: Response, audit?: RestoreAuditInfo) {
   const extractDir = path.join(dataDir, `restore-${Date.now()}`);
   try {
     await fs.createReadStream(zipPath)
@@ -174,6 +186,14 @@ async function restoreFromZip(zipPath: string, res: Response) {
 
     fs.rmSync(extractDir, { recursive: true, force: true });
 
+    if (audit) {
+      writeAudit({
+        userId: audit.userId,
+        action: audit.source,
+        resource: audit.label,
+        ip: audit.ip,
+      });
+    }
     res.json({ success: true });
   } catch (err: unknown) {
     console.error('Restore error:', err);
@@ -191,7 +211,13 @@ router.post('/restore/:filename', async (req: Request, res: Response) => {
   if (!fs.existsSync(zipPath)) {
     return res.status(404).json({ error: 'Backup not found' });
   }
-  await restoreFromZip(zipPath, res);
+  const authReq = req as AuthRequest;
+  await restoreFromZip(zipPath, res, {
+    userId: authReq.user.id,
+    ip: getClientIp(req),
+    source: 'backup.restore',
+    label: filename,
+  });
 });
 
 const uploadTmp = multer({
@@ -206,7 +232,14 @@ const uploadTmp = multer({
 router.post('/upload-restore', uploadTmp.single('backup'), async (req: Request, res: Response) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   const zipPath = req.file.path;
-  await restoreFromZip(zipPath, res);
+  const authReq = req as AuthRequest;
+  const origName = req.file.originalname || 'upload.zip';
+  await restoreFromZip(zipPath, res, {
+    userId: authReq.user.id,
+    ip: getClientIp(req),
+    source: 'backup.upload_restore',
+    label: origName,
+  });
   if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
 });
 
@@ -248,6 +281,13 @@ router.put('/auto-settings', (req: Request, res: Response) => {
     const settings = parseAutoBackupBody((req.body || {}) as Record<string, unknown>);
     scheduler.saveSettings(settings);
     scheduler.start();
+    const authReq = req as AuthRequest;
+    writeAudit({
+      userId: authReq.user.id,
+      action: 'backup.auto_settings',
+      ip: getClientIp(req),
+      details: { enabled: settings.enabled, interval: settings.interval, keep_days: settings.keep_days },
+    });
     res.json({ settings });
   } catch (err: unknown) {
     console.error('[backup] PUT auto-settings:', err);
@@ -272,6 +312,13 @@ router.delete('/:filename', (req: Request, res: Response) => {
   }
 
   fs.unlinkSync(filePath);
+  const authReq = req as AuthRequest;
+  writeAudit({
+    userId: authReq.user.id,
+    action: 'backup.delete',
+    resource: filename,
+    ip: getClientIp(req),
+  });
   res.json({ success: true });
 });
 

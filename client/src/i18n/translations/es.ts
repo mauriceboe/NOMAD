@@ -269,6 +269,7 @@ const es: Record<string, string> = {
   'admin.tabs.users': 'Usuarios',
   'admin.tabs.categories': 'Categorías',
   'admin.tabs.backup': 'Copia de seguridad',
+  'admin.tabs.audit': 'Registro de auditoría',
   'admin.stats.users': 'Usuarios',
   'admin.stats.trips': 'Viajes',
   'admin.stats.places': 'Lugares',
@@ -393,6 +394,19 @@ const es: Record<string, string> = {
 
   // GitHub
   'admin.tabs.github': 'GitHub',
+
+  'admin.audit.subtitle': 'Eventos sensibles de seguridad y administración (copias de seguridad, usuarios, MFA, ajustes).',
+  'admin.audit.empty': 'Aún no hay entradas de auditoría.',
+  'admin.audit.refresh': 'Actualizar',
+  'admin.audit.loadMore': 'Cargar más',
+  'admin.audit.showing': '{count} cargados · {total} en total',
+  'admin.audit.col.time': 'Fecha y hora',
+  'admin.audit.col.user': 'Usuario',
+  'admin.audit.col.action': 'Acción',
+  'admin.audit.col.resource': 'Recurso',
+  'admin.audit.col.ip': 'IP',
+  'admin.audit.col.details': 'Detalles',
+
   'admin.github.title': 'Historial de versiones',
   'admin.github.subtitle': 'Últimas novedades de {repo}',
   'admin.github.latest': 'Última',

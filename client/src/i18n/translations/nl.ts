@@ -271,6 +271,7 @@ const nl: Record<string, string> = {
   'admin.tabs.users': 'Gebruikers',
   'admin.tabs.categories': 'Categorieën',
   'admin.tabs.backup': 'Back-up',
+  'admin.tabs.audit': 'Auditlog',
   'admin.stats.users': 'Gebruikers',
   'admin.stats.trips': 'Reizen',
   'admin.stats.places': 'Plaatsen',
@@ -412,6 +413,19 @@ const nl: Record<string, string> = {
 
   // GitHub
   'admin.tabs.github': 'GitHub',
+
+  'admin.audit.subtitle': 'Beveiligingsgevoelige en beheerdersgebeurtenissen (back-ups, gebruikers, MFA, instellingen).',
+  'admin.audit.empty': 'Nog geen auditregistraties.',
+  'admin.audit.refresh': 'Vernieuwen',
+  'admin.audit.loadMore': 'Meer laden',
+  'admin.audit.showing': '{count} geladen · {total} totaal',
+  'admin.audit.col.time': 'Tijd',
+  'admin.audit.col.user': 'Gebruiker',
+  'admin.audit.col.action': 'Actie',
+  'admin.audit.col.resource': 'Bron',
+  'admin.audit.col.ip': 'IP',
+  'admin.audit.col.details': 'Details',
+
   'admin.github.title': 'Release-geschiedenis',
   'admin.github.subtitle': 'Laatste updates van {repo}',
   'admin.github.latest': 'Nieuwste',
