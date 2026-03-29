@@ -542,6 +542,8 @@ export default function TripPlannerPage(): React.ReactElement | null {
                   lng={geoPlace?.lng}
                   onClose={() => setShowDayDetail(null)}
                   onAccommodationChange={loadAccommodations}
+                  leftWidth={leftCollapsed ? 0 : leftWidth}
+                  rightWidth={rightCollapsed ? 0 : rightWidth}
                 />
               )
             })()}
