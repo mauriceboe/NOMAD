@@ -497,7 +497,7 @@ export default function LoginPage(): React.ReactElement {
                     {error}
                   </div>
                 )}
-                <a href="/api/auth/oidc/login"
+                <a href={`/api/auth/oidc/login${inviteToken ? '?invite=' + encodeURIComponent(inviteToken) : ''}`}
                   style={{
                     width: '100%', padding: '12px',
                     background: '#111827', color: 'white',
@@ -658,7 +658,7 @@ export default function LoginPage(): React.ReactElement {
                 <span style={{ fontSize: 12, color: '#9ca3af' }}>{t('common.or')}</span>
                 <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
               </div>
-              <a href="/api/auth/oidc/login"
+              <a href={`/api/auth/oidc/login${inviteToken ? '?invite=' + encodeURIComponent(inviteToken) : ''}`}
                 style={{
                   marginTop: 12, width: '100%', padding: '12px',
                   background: 'white', color: '#374151',

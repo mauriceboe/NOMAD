@@ -41,7 +41,7 @@ setInterval(() => {
   }
 }, AUTH_CODE_CLEANUP);
 
-const pendingStates = new Map<string, { createdAt: number; redirectUri: string }>();
+const pendingStates = new Map<string, { createdAt: number; redirectUri: string; inviteToken?: string }>();
 
 setInterval(() => {
   const now = Date.now();
@@ -104,8 +104,9 @@ router.get('/login', async (req: Request, res: Response) => {
     const proto = (req.headers['x-forwarded-proto'] as string) || req.protocol;
     const host = (req.headers['x-forwarded-host'] as string) || req.headers.host;
     const redirectUri = `${proto}://${host}/api/auth/oidc/callback`;
+    const inviteToken = req.query.invite as string | undefined;
 
-    pendingStates.set(state, { createdAt: Date.now(), redirectUri });
+    pendingStates.set(state, { createdAt: Date.now(), redirectUri, inviteToken });
 
     const params = new URLSearchParams({
       response_type: 'code',
@@ -194,7 +195,16 @@ router.get('/callback', async (req: Request, res: Response) => {
       const userCount = (db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number }).count;
       const isFirstUser = userCount === 0;
 
-      if (!isFirstUser) {
+      let validInvite: any = null;
+      if (pending.inviteToken) {
+        validInvite = db.prepare('SELECT * FROM invite_tokens WHERE token = ?').get(pending.inviteToken);
+        if (validInvite) {
+          if (validInvite.max_uses > 0 && validInvite.used_count >= validInvite.max_uses) validInvite = null;
+          if (validInvite?.expires_at && new Date(validInvite.expires_at) < new Date()) validInvite = null;
+        }
+      }
+
+      if (!isFirstUser && !validInvite) {
         const setting = db.prepare("SELECT value FROM app_settings WHERE key = 'allow_registration'").get() as { value: string } | undefined;
         if (setting?.value === 'false') {
           return res.redirect(frontendUrl('/login?oidc_error=registration_disabled'));
@@ -213,6 +223,15 @@ router.get('/callback', async (req: Request, res: Response) => {
       const result = db.prepare(
         'INSERT INTO users (username, email, password_hash, role, oidc_sub, oidc_issuer) VALUES (?, ?, ?, ?, ?, ?)'
       ).run(username, email, hash, role, sub, config.issuer);
+
+      if (validInvite) {
+        const updated = db.prepare(
+          'UPDATE invite_tokens SET used_count = used_count + 1 WHERE id = ? AND (max_uses = 0 OR used_count < max_uses)'
+        ).run(validInvite.id);
+        if (updated.changes === 0) {
+          console.warn(`[OIDC] Invite token ${pending.inviteToken?.slice(0, 8)}... exceeded max_uses (race condition)`);
+        }
+      }
 
       user = { id: Number(result.lastInsertRowid), username, email, role } as User;
     }
