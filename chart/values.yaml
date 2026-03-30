@@ -15,21 +15,37 @@ service:
 env:
   NODE_ENV: production
   PORT: 3000
-  # ALLOWED_ORIGINS: ""
-# NOTE: If using ingress, ensure env.ALLOWED_ORIGINS matches the domains in ingress.hosts for proper CORS configuration.
+  ALLOWED_ORIGINS: "*" # NOTE: If using ingress, ensure env.ALLOWED_ORIGINS matches the domains in ingress.hosts for proper CORS configuration.
+  FORCE_HTTPS: "false" # Set to "true" to force HTTPS in production (requires ingress with TLS)
+  OIDC_DISPLAY_NAME: "SSO" # SSO button label
+  OIDC_ONLY: "false" # Set to "true" to disable local auth and only allow OIDC login
+  TRUST_PROXY: "false" # Set to "true" if running behind a reverse proxy (e.g., ingress) to properly handle client IPs and HTTPS
+  DEMO_MODE: "false" # Set to "true" to enable demo mode with pre-populated data and no authentication (not recommended for production)
+  
+  # OIDC configuration should be set via additionalEnv or additionalEnvFrom to avoid hardcoding sensitive values in the main env section. Example:
+  # OIDC_ISSUER: "https://keycloak.example.com/realms/myrealm"
+  # OIDC_CLIENT_ID: "trek-client"
+  # OIDC_CLIENT_SECRET: "my-client-secret" # This should be stored in a Kubernetes secret and referenced here
 
+jwt:
+  # JWT secret configuration. Use one of the following approaches:
+  #  - Generate a random secret at install: set `jwt.generateSecret=true`
+  #  - Use an existing Kubernetes Secret: set `jwt.existingSecret` to the secret name
+  #  - Provide the secret value directly (not recommended for production): set `jwt.secret`
+  # `jwt.existingSecretKey` controls the key name inside the existing secret (defaults to JWT_SECRET)
+  generateSecret: false
+  existingSecret: ""
+  existingSecretKey: JWT_SECRET
+  secret: ""
 
-# JWT secret configuration
-secretEnv:
-  # If set, use this value for JWT_SECRET (base64-encoded in secret.yaml)
-  JWT_SECRET: ""
-
-# If true, a random JWT_SECRET will be generated during install (overrides secretEnv.JWT_SECRET)
-generateJwtSecret: false
-
-# If set, use an existing Kubernetes secret for JWT_SECRET
-existingSecret: ""
-existingSecretKey: JWT_SECRET
+# Additional environment variables to be set in the container (see Environment Variables section in README for available options)
+additionalEnv: {}
+# Additional environment variables from a ConfigMap (key-value pairs where value is the key in the ConfigMap)
+additionalEnvFrom: []
+# - name: trek-config
+# Additional environment variables from Kubernetes secrets (key-value pairs where value is the key in the secret)
+additionalEnvFromSecrets: []
+# - name: trek-secret
 
 persistence:
   enabled: true

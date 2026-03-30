@@ -29,12 +29,39 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "trek.fullname" . }}-config
+          {{- with .Values.additionalEnvFrom }}
+          {{- range . }}
+            - configMapRef:
+                name: {{ .name }}
+          {{- end }}
+          {{- end }}
+          {{- with .Values.additionalEnvFromSecrets }}
+          {{- range . }}
+            - secretRef:
+                name: {{ .name }}
+          {{- end }}
+          {{- end }}
           env:
+            # JWT secret is provided via the `jwt` values block. Precedence:
+            # 1) `jwt.existingSecret` -> uses key `jwt.existingSecretKey` (default JWT_SECRET)
+            # 2) `jwt.generateSecret` -> uses generated secret `<release>-jwt-secret` key `JWT_SECRET`
+            # 3) `jwt.secret` -> direct value (not recommended for production)
+            {{- if .Values.jwt.generateSecret }}
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ default (printf "%s-secret" (include "trek.fullname" .)) .Values.existingSecret }}
-                  key: {{ .Values.existingSecretKey | default "JWT_SECRET" }}
+                  name: {{ include "trek.fullname" . }}-jwt-secret
+                  key: JWT_SECRET
+            {{- else if .Values.jwt.existingSecret }}
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.jwt.existingSecret }}
+                  key: {{ .Values.jwt.existingSecretKey | default "JWT_SECRET" }}
+            {{- else if .Values.jwt.secret }}
+            - name: JWT_SECRET
+              value: {{ .Values.jwt.secret | quote }}
+            {{- end }}
           volumeMounts:
             - name: data
               mountPath: /app/data

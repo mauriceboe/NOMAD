@@ -14,7 +14,7 @@ This is a minimal Helm chart for deploying the TREK app.
 
 ```sh
 helm install trek ./chart \
-  --set secretEnv.JWT_SECRET=your_jwt_secret \
+  --set jwt.secret=your_jwt_secret \
   --set ingress.enabled=true \
   --set ingress.hosts[0].host=yourdomain.com
 ```
@@ -29,5 +29,12 @@ See `values.yaml` for more options.
 ## Notes
 - Ingress is off by default. Enable and configure hosts for your domain.
 - PVCs require a default StorageClass or specify one as needed.
-- JWT_SECRET must be set for production use.
+- JWT secret must be provided for production. Preferred ways:
+  - `--set jwt.generateSecret=true` to have Helm generate a secret at install
+  - `--set jwt.existingSecret=my-k8s-secret` to reference an existing Kubernetes Secret
+  - `--set jwt.secret=...` (not recommended for production)
 - If using ingress, you must manually keep `env.ALLOWED_ORIGINS` and `ingress.hosts` in sync to ensure CORS works correctly. The chart does not sync these automatically.
+
+## Recommendations
+- Let the chart create the initial JWT secret. Afterwards, note the name of the created secret (usually `trek-jwt-secret`), change `jwt.generateSecret` to `false` and set `jwt.existingSecret`.
+- OIDC-configuration should be done in a Kubernetes secret. Create one manually (or use external secrets operator) and use `additionalEnvFromSecrets` to include the environment in the container.

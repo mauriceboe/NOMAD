@@ -5,8 +5,16 @@ metadata:
   labels:
     app: {{ include "trek.name" . }}
 data:
+  # Non-sensitive configuration. Do NOT place secrets here; use `jwt` settings
+  # or `additionalEnvFromSecrets` to reference Kubernetes Secrets instead.
   NODE_ENV: {{ .Values.env.NODE_ENV | quote }}
   PORT: {{ .Values.env.PORT | quote }}
-  {{- if .Values.env.ALLOWED_ORIGINS }}
-  ALLOWED_ORIGINS: {{ .Values.env.ALLOWED_ORIGINS | quote }}
-  {{- end }}
+  ALLOWED_ORIGINS: {{ .Values.env.ALLOWED_ORIGINS | default "*" | quote }}
+  FORCE_HTTPS: {{ .Values.env.FORCE_HTTPS | default "false" | quote }}
+  OIDC_DISPLAY_NAME: {{ .Values.env.OIDC_DISPLAY_NAME | default "SSO" | quote }}
+  OIDC_ONLY: {{ .Values.env.OIDC_ONLY | default "false" | quote }}
+  TRUST_PROXY: {{ .Values.env.TRUST_PROXY | default "false" | quote }}
+  DEMO_MODE: {{ .Values.env.DEMO_MODE | default "false" | quote }}
+{{- with .Values.additionalEnv }}
+{{- toYaml . | nindent 2 }}
+{{- end }}
