@@ -19,3 +19,23 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
+
+  mcp:
+    profiles:
+      - mcp
+    build:
+      context: ./mcp
+    environment:
+      - TREK_BASE_URL=http://app:3000/api
+      - TREK_EMAIL=${TREK_EMAIL:-}
+      - TREK_PASSWORD=${TREK_PASSWORD:-}
+      - MCP_PORT=3333
+      - MCP_PATH=/mcp
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN:-}
+      - MCP_ALLOWED_HOSTS=${MCP_ALLOWED_HOSTS:-}
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    expose:
+      - "3333"
