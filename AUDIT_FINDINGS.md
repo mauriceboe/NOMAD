@@ -206,6 +206,9 @@
 
 ### Applied Fixes
 
+- **Immich SSRF prevention** — Added URL validation on save (block private IPs, metadata endpoints, non-HTTP protocols)
+- **Immich API key isolation** — Removed `userId` query parameter from asset proxy endpoints; all Immich requests now use authenticated user's own credentials only
+- **Immich asset ID validation** — Added alphanumeric pattern validation to prevent path traversal in proxied URLs
 - **JWT algorithm pinning** — Added `{ algorithms: ['HS256'] }` to all `jwt.verify()` calls (auth middleware, MFA policy, WebSocket, OIDC, auth routes)
 - **OIDC token payload** — Reduced to `{ id }` only, matching auth.ts pattern
 - **OIDC redirect URI validation** — Validates against `APP_URL` env var when set
@@ -231,6 +234,20 @@
 - Test suite needs to be created from scratch (T-1, T-2)
 - Major dependency upgrades (express 5, React 19, zustand 5, etc.)
 - `serialize-javascript` vulnerability fix requires vite-plugin-pwa major upgrade
+
+### 1.7 Immich Integration
+
+| # | Severity | File | Line(s) | Description | Recommended Fix | Status |
+|---|----------|------|---------|-------------|-----------------|--------|
+| I-1 | **CRITICAL** | `server/src/routes/immich.ts` | 38-39, 85, 199, 250, 274 | SSRF via user-controlled `immich_url`. Users can set any URL which is then used in `fetch()` calls, allowing requests to internal metadata endpoints (169.254.169.254), localhost services, etc. | Validate URL on save: require HTTP(S) protocol, block private/internal IPs. | FIXED |
+| I-2 | **CRITICAL** | `server/src/routes/immich.ts` | 194-196, 244-246, 269-270 | Asset info/thumbnail/original endpoints accept `userId` query param, allowing any authenticated user to proxy requests through another user's Immich API key. This exposes other users' Immich credentials and photo libraries. | Restrict all Immich proxy endpoints to the authenticated user's own credentials only. | FIXED |
+| I-3 | **MEDIUM** | `server/src/routes/immich.ts` | 199, 250, 274 | `assetId` URL parameter used directly in `fetch()` URL construction. Path traversal characters could redirect requests to unintended Immich API endpoints. | Validate assetId matches `[a-zA-Z0-9_-]+` pattern. | FIXED |
+
+### 1.8 Admin Routes
+
+| # | Severity | File | Line(s) | Description | Recommended Fix | Status |
+|---|----------|------|---------|-------------|-----------------|--------|
+| AD-1 | **MEDIUM** | `server/src/routes/admin.ts` | 302-310 | Self-update endpoint runs `git pull` then `npm run build`. While admin-only and `npm install` uses `--ignore-scripts`, `npm run build` executes whatever is in the pulled package.json. A compromised upstream could execute arbitrary code. | Document as accepted risk for self-hosted self-update feature. Users should pin to specific versions. | DOCUMENTED |
 
 ### Additional Findings (from exhaustive scan)
 
