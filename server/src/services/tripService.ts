@@ -188,6 +188,7 @@ export interface UpdateTripResult {
   newTitle: string;
   newReminder: number;
   oldReminder: number;
+  currencyChanged: boolean;
 }
 
 export function updateTrip(tripId: string | number, userId: number, data: UpdateTripData, userRole: string): UpdateTripResult {
@@ -203,7 +204,8 @@ export function updateTrip(tripId: string | number, userId: number, data: Update
   const newDesc = description !== undefined ? description : trip.description;
   const newStart = start_date !== undefined ? start_date : trip.start_date;
   const newEnd = end_date !== undefined ? end_date : trip.end_date;
-  const newCurrency = currency || trip.currency;
+  const newCurrency = (currency || trip.currency).toUpperCase();
+  const currencyChanged = newCurrency !== (trip.currency || '').toUpperCase();
   const newArchived = is_archived !== undefined ? (is_archived ? 1 : 0) : trip.is_archived;
   const newCover = cover_image !== undefined ? cover_image : trip.cover_image;
   const oldReminder = (trip as any).reminder_days ?? 3;
@@ -236,7 +238,7 @@ export function updateTrip(tripId: string | number, userId: number, data: Update
 
   const updatedTrip = db.prepare(`${TRIP_SELECT} WHERE t.id = :tripId`).get({ userId, tripId });
 
-  return { updatedTrip, changes, isAdminEdit, ownerEmail, newTitle, newReminder, oldReminder };
+  return { updatedTrip, changes, isAdminEdit, ownerEmail, newTitle, newReminder, oldReminder, currencyChanged };
 }
 
 // ── Delete ─────────────────────────────────────────────────────────────────
@@ -449,7 +451,7 @@ export function getTripSummary(tripId: number) {
   const budgetItems = listBudgetItems(tripId);
   const budget = {
     item_count: budgetItems.length,
-    total: budgetItems.reduce((sum, i) => sum + (i.total_price || 0), 0),
+    total: budgetItems.reduce((sum, i) => sum + (i.converted_price ?? i.total_price ?? 0), 0),
     currency: trip.currency,
   };
 

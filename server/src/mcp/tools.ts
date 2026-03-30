@@ -14,6 +14,7 @@ import {
   deleteAssignment, reorderAssignments, getAssignmentForTrip, updateTime,
 } from '../services/assignmentService';
 import { createBudgetItem, updateBudgetItem, deleteBudgetItem } from '../services/budgetService';
+import { recalculateTrip } from '../services/exchangeRates';
 import { createItem as createPackingItem, updateItem as updatePackingItem, deleteItem as deletePackingItem } from '../services/packingService';
 import { createReservation, getReservation, updateReservation, deleteReservation } from '../services/reservationService';
 import { getDay, updateDay, validateAccommodationRefs } from '../services/dayService';
@@ -99,9 +100,15 @@ export function registerTools(server: McpServer, userId: number): void {
         if (isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== end_date)
           return { content: [{ type: 'text' as const, text: 'end_date is not a valid calendar date.' }], isError: true };
       }
-      const { updatedTrip } = updateTrip(tripId, userId, { title, description, start_date, end_date, currency }, 'user');
-      broadcast(tripId, 'trip:updated', { trip: updatedTrip });
-      return ok({ trip: updatedTrip });
+      const result = updateTrip(tripId, userId, { title, description, start_date, end_date, currency }, 'user');
+      if (result.currencyChanged) {
+        try {
+          await recalculateTrip(tripId);
+          broadcast(tripId, 'budget:rates-updated', { tripId });
+        } catch {}
+      }
+      broadcast(tripId, 'trip:updated', { trip: result.updatedTrip });
+      return ok({ trip: result.updatedTrip });
     }
   );
 
@@ -307,7 +314,7 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, name, category, total_price, note }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const item = createBudgetItem(tripId, { category, name, total_price, note });
+      const item = await createBudgetItem(tripId, { category, name, total_price, note });
       broadcast(tripId, 'budget:created', { item });
       return ok({ item });
     }
@@ -623,7 +630,7 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, itemId, name, category, total_price, persons, days, note }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const item = updateBudgetItem(itemId, tripId, { name, category, total_price, persons, days, note });
+      const item = await updateBudgetItem(itemId, tripId, { name, category, total_price, persons, days, note });
       if (!item) return { content: [{ type: 'text' as const, text: 'Budget item not found.' }], isError: true };
       broadcast(tripId, 'budget:updated', { item });
       return ok({ item });

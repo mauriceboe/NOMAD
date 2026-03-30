@@ -225,6 +225,7 @@ export const budgetApi = {
   togglePaid: (tripId: number | string, id: number, userId: number, paid: boolean) => apiClient.put(`/trips/${tripId}/budget/${id}/members/${userId}/paid`, { paid }).then(r => r.data),
   perPersonSummary: (tripId: number | string) => apiClient.get(`/trips/${tripId}/budget/summary/per-person`).then(r => r.data),
   settlement: (tripId: number | string) => apiClient.get(`/trips/${tripId}/budget/settlement`).then(r => r.data),
+  refreshRates: (tripId: number | string) => apiClient.post(`/trips/${tripId}/budget/refresh-rates`).then(r => r.data),
 }
 
 export const filesApi = {

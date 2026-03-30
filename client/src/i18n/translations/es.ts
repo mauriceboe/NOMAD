@@ -974,6 +974,14 @@ const es: Record<string, string> = {
   'budget.settlement': 'Liquidación',
   'budget.settlementInfo': 'Haz clic en el avatar de un miembro en una partida del presupuesto para marcarlo en verde — esto significa que ha pagado. La liquidación muestra quién debe cuánto a quién.',
   'budget.netBalances': 'Saldos netos',
+  'budget.refreshRates': 'Actualizar tasas de cambio',
+  'budget.noRate': 'Tasa no disponible',
+  'budget.itemCurrency': 'Moneda del artículo',
+  'budget.baseCurrency': 'Moneda base',
+  'budget.convertedAmount': 'Monto convertido',
+  'budget.approximateConversion': '≈ convertido de {currency}',
+  'budget.ratesUpdated': 'Tasas actualizadas',
+  'budget.ratesFailed': 'No se pudieron obtener las tasas de cambio',
 
   // Files
   'files.title': 'Archivos',

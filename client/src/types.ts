@@ -20,6 +20,7 @@ export interface Trip {
   description: string | null
   start_date: string
   end_date: string
+  currency: string
   cover_url: string | null
   is_archived: boolean
   reminder_days: number
@@ -119,11 +120,18 @@ export interface BudgetItem {
   name: string
   amount: number
   currency: string
+  total_price: number
+  item_currency: string
+  converted_price: number | null
   category: string | null
   paid_by: number | null
   persons: number
+  days: number | null
+  note: string | null
+  sort_order: number
   members: BudgetMember[]
   expense_date: string | null
+  reservation_id: number | null
 }
 
 export interface BudgetMember {

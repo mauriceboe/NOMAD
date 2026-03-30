@@ -27,7 +27,7 @@ router.get('/', authenticate, (req: Request, res: Response) => {
   res.json({ reservations });
 });
 
-router.post('/', authenticate, (req: Request, res: Response) => {
+router.post('/', authenticate, async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
   const { tripId } = req.params;
   const { title, reservation_time, reservation_end_time, location, confirmation_number, notes, day_id, place_id, assignment_id, status, type, accommodation_id, metadata, create_accommodation, create_budget_entry } = req.body;
@@ -54,10 +54,11 @@ router.post('/', authenticate, (req: Request, res: Response) => {
   if (create_budget_entry && create_budget_entry.total_price > 0) {
     try {
       const { createBudgetItem } = require('../services/budgetService');
-      const budgetItem = createBudgetItem(tripId, {
+      const budgetItem = await createBudgetItem(tripId, {
         name: title,
         category: create_budget_entry.category || type || 'Other',
         total_price: create_budget_entry.total_price,
+        item_currency: create_budget_entry.item_currency || undefined,
       });
       db.prepare('UPDATE budget_items SET reservation_id = ? WHERE id = ?').run(reservation.id, budgetItem.id);
       budgetItem.reservation_id = reservation.id;
@@ -98,7 +99,7 @@ router.put('/positions', authenticate, (req: Request, res: Response) => {
   broadcast(tripId, 'reservation:positions', { positions, day_id }, req.headers['x-socket-id'] as string);
 });
 
-router.put('/:id', authenticate, (req: Request, res: Response) => {
+router.put('/:id', authenticate, async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
   const { tripId, id } = req.params;
   const { title, reservation_time, reservation_end_time, location, confirmation_number, notes, day_id, place_id, assignment_id, status, type, accommodation_id, metadata, create_accommodation, create_budget_entry } = req.body;
@@ -128,7 +129,7 @@ router.put('/:id', authenticate, (req: Request, res: Response) => {
     if (linked) {
       const { deleteBudgetItem } = require('../services/budgetService');
       deleteBudgetItem(linked.id, tripId);
-      broadcast(tripId, 'budget:deleted', { id: linked.id }, req.headers['x-socket-id'] as string);
+      broadcast(tripId, 'budget:deleted', { itemId: linked.id }, req.headers['x-socket-id'] as string);
     }
   }
 
@@ -139,17 +140,19 @@ router.put('/:id', authenticate, (req: Request, res: Response) => {
       const itemName = title || current.title;
       const existing = db.prepare('SELECT id FROM budget_items WHERE trip_id = ? AND reservation_id = ?').get(tripId, id) as { id: number } | undefined;
       if (existing) {
-        const updated = updateBudgetItem(existing.id, tripId, {
+        const updated = await updateBudgetItem(existing.id, tripId, {
           name: itemName,
           category: create_budget_entry.category || type || current.type || 'Other',
           total_price: create_budget_entry.total_price,
+          item_currency: create_budget_entry.item_currency || undefined,
         });
         broadcast(tripId, 'budget:updated', { item: updated }, req.headers['x-socket-id'] as string);
       } else {
-        const budgetItem = createBudgetItem(tripId, {
+        const budgetItem = await createBudgetItem(tripId, {
           name: itemName,
           category: create_budget_entry.category || type || current.type || 'Other',
           total_price: create_budget_entry.total_price,
+          item_currency: create_budget_entry.item_currency || undefined,
         });
         db.prepare('UPDATE budget_items SET reservation_id = ? WHERE id = ?').run(id, budgetItem.id);
         budgetItem.reservation_id = Number(id);

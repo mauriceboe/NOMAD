@@ -11,6 +11,7 @@ import { useTranslation } from '../../i18n'
 import { CustomDatePicker } from '../shared/CustomDateTimePicker'
 import CustomTimePicker from '../shared/CustomTimePicker'
 import type { Day, Place, Reservation, TripFile, AssignmentsMap, Accommodation } from '../../types'
+import { CURRENCIES } from '../../utils/formatters'
 
 const TYPE_OPTIONS = [
   { value: 'flight',     labelKey: 'reservations.type.flight',     Icon: Plane },
@@ -74,6 +75,7 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
 
   const isBudgetEnabled = useAddonStore(s => s.isEnabled('budget'))
   const budgetItems = useTripStore(s => s.budgetItems)
+  const tripCurrency = useTripStore(s => s.trip?.currency || 'EUR')
   const budgetCategories = useMemo(() => {
     const cats = new Set<string>()
     budgetItems.forEach(i => { if (i.category) cats.add(i.category) })
@@ -84,13 +86,12 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
     title: '', type: 'other', status: 'pending',
     reservation_time: '', reservation_end_time: '', end_date: '', location: '', confirmation_number: '',
     notes: '', assignment_id: '', accommodation_id: '',
-    price: '', budget_category: '',
-    meta_airline: '', meta_flight_number: '', meta_departure_airport: '', meta_arrival_airport: '',
-    meta_departure_timezone: '', meta_arrival_timezone: '',
-    meta_train_number: '', meta_platform: '', meta_seat: '',
-    meta_check_in_time: '', meta_check_out_time: '',
-    hotel_place_id: '', hotel_start_day: '', hotel_end_day: '',
-  })
+        price: '', budget_category: '', budget_currency: '',
+        meta_airline: '', meta_flight_number: '', meta_departure_airport: '', meta_arrival_airport: '',
+        meta_departure_timezone: '', meta_arrival_timezone: '',
+        meta_train_number: '', meta_platform: '', meta_seat: '',
+        meta_check_in_time: '', meta_check_out_time: '',
+      })
   const [isSaving, setIsSaving] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
   const [pendingFiles, setPendingFiles] = useState([])
@@ -142,13 +143,14 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
         hotel_end_day: (() => { const acc = accommodations.find(a => a.id == reservation.accommodation_id); return acc?.end_day_id || '' })(),
         price: meta.price || '',
         budget_category: (meta.budget_category && budgetItems.some(i => i.category === meta.budget_category)) ? meta.budget_category : '',
+        budget_currency: meta.budget_currency || '',
       })
     } else {
       setForm({
         title: '', type: 'other', status: 'pending',
         reservation_time: '', reservation_end_time: '', end_date: '', location: '', confirmation_number: '',
         notes: '', assignment_id: '', accommodation_id: '',
-        price: '', budget_category: '',
+    price: '', budget_category: '', budget_currency: '',
         meta_airline: '', meta_flight_number: '', meta_departure_airport: '', meta_arrival_airport: '',
         meta_departure_timezone: '', meta_arrival_timezone: '',
         meta_train_number: '', meta_platform: '', meta_seat: '',
@@ -201,6 +203,7 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
       if (isBudgetEnabled) {
         if (form.price) metadata.price = form.price
         if (form.budget_category) metadata.budget_category = form.budget_category
+        if (form.budget_currency) metadata.budget_currency = form.budget_currency
       }
       const saveData: Record<string, any> = {
         title: form.title, type: form.type, status: form.status,
@@ -214,7 +217,7 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
       // Auto-create/update budget entry if price is set, or signal removal if cleared
       if (isBudgetEnabled) {
         saveData.create_budget_entry = form.price && parseFloat(form.price) > 0
-          ? { total_price: parseFloat(form.price), category: form.budget_category || t(`reservations.type.${form.type}`) || 'Other' }
+          ? { total_price: parseFloat(form.price), category: form.budget_category || t(`reservations.type.${form.type}`) || 'Other', item_currency: form.budget_currency || undefined }
           : { total_price: 0 }
       }
       // If hotel with place + days, pass hotel data for auto-creation or update
@@ -649,16 +652,26 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
           </div>
         </div>
 
-        {/* Price + Budget Category — only shown when budget addon is enabled */}
         {isBudgetEnabled && (
           <>
             <div style={{ display: 'flex', gap: 8 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <label style={labelStyle}>{t('reservations.price')}</label>
-                <input type="text" inputMode="decimal" value={form.price}
-                  onChange={e => { const v = e.target.value; if (v === '' || /^\d*\.?\d{0,2}$/.test(v)) set('price', v) }}
-                  placeholder="0.00"
-                  style={inputStyle} />
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <input type="text" inputMode="decimal" value={form.price}
+                    onChange={e => { const v = e.target.value; if (v === '' || /^\d*\.?\d{0,2}$/.test(v)) set('price', v) }}
+                    placeholder="0.00"
+                    style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
+                  <div style={{ width: 76, flexShrink: 0 }}>
+                    <CustomSelect
+                      value={form.budget_currency || tripCurrency}
+                      onChange={v => set('budget_currency', v === tripCurrency ? '' : v)}
+                      options={CURRENCIES.map(c => ({ value: c, label: c }))}
+                      searchable
+                      size="sm"
+                    />
+                  </div>
+                </div>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <label style={labelStyle}>{t('reservations.budgetCategory')}</label>

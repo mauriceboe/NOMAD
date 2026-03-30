@@ -1,5 +1,6 @@
 import { db, canAccessTrip } from '../db/database';
-import { BudgetItem, BudgetItemMember } from '../types';
+import { BudgetItem, BudgetItemMember, Trip } from '../types';
+import { convertAmount } from './exchangeRates';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -14,12 +15,13 @@ export function verifyTripAccess(tripId: string | number, userId: number) {
 }
 
 function loadItemMembers(itemId: number | string) {
-  return db.prepare(`
+  const rows = db.prepare(`
     SELECT bm.user_id, bm.paid, u.username, u.avatar
     FROM budget_item_members bm
     JOIN users u ON bm.user_id = u.id
     WHERE bm.budget_item_id = ?
   `).all(itemId) as BudgetItemMember[];
+  return rows.map(m => ({ user_id: m.user_id, paid: m.paid, username: m.username, avatar_url: avatarUrl(m) }));
 }
 
 // ---------------------------------------------------------------------------
@@ -54,22 +56,34 @@ export function listBudgetItems(tripId: string | number) {
   return items;
 }
 
-export function createBudgetItem(
+export async function createBudgetItem(
   tripId: string | number,
-  data: { category?: string; name: string; total_price?: number; persons?: number | null; days?: number | null; note?: string | null; expense_date?: string | null },
+  data: { category?: string; name: string; total_price?: number; item_currency?: string; persons?: number | null; days?: number | null; note?: string | null; expense_date?: string | null },
 ) {
+  const tripData = db.prepare('SELECT currency FROM trips WHERE id = ?').get(tripId) as Trip | undefined;
+  const baseCurrency = (tripData?.currency || 'EUR').toUpperCase();
+  const itemCur = (data.item_currency || baseCurrency).toUpperCase();
+  const price = data.total_price || 0;
+
+  let convertedPrice: number | null = price;
+  if (itemCur !== baseCurrency) {
+    try { convertedPrice = await convertAmount(price, itemCur, baseCurrency); } catch { convertedPrice = null; }
+  }
+
   const maxOrder = db.prepare(
     'SELECT MAX(sort_order) as max FROM budget_items WHERE trip_id = ?'
   ).get(tripId) as { max: number | null };
   const sortOrder = (maxOrder.max !== null ? maxOrder.max : -1) + 1;
 
   const result = db.prepare(
-    'INSERT INTO budget_items (trip_id, category, name, total_price, persons, days, note, sort_order, expense_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO budget_items (trip_id, category, name, total_price, item_currency, converted_price, persons, days, note, sort_order, expense_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).run(
     tripId,
     data.category || 'Other',
     data.name,
-    data.total_price || 0,
+    price,
+    itemCur,
+    convertedPrice,
     data.persons != null ? data.persons : null,
     data.days !== undefined && data.days !== null ? data.days : null,
     data.note || null,
@@ -82,10 +96,10 @@ export function createBudgetItem(
   return item;
 }
 
-export function updateBudgetItem(
+export async function updateBudgetItem(
   id: string | number,
   tripId: string | number,
-  data: { category?: string; name?: string; total_price?: number; persons?: number | null; days?: number | null; note?: string | null; sort_order?: number; expense_date?: string | null },
+  data: { category?: string; name?: string; total_price?: number; item_currency?: string; persons?: number | null; days?: number | null; note?: string | null; sort_order?: number; expense_date?: string | null },
 ) {
   const item = db.prepare('SELECT * FROM budget_items WHERE id = ? AND trip_id = ?').get(id, tripId);
   if (!item) return null;
@@ -95,6 +109,7 @@ export function updateBudgetItem(
       category = COALESCE(?, category),
       name = COALESCE(?, name),
       total_price = CASE WHEN ? IS NOT NULL THEN ? ELSE total_price END,
+      item_currency = CASE WHEN ? IS NOT NULL THEN ? ELSE item_currency END,
       persons = CASE WHEN ? IS NOT NULL THEN ? ELSE persons END,
       days = CASE WHEN ? THEN ? ELSE days END,
       note = CASE WHEN ? THEN ? ELSE note END,
@@ -105,6 +120,7 @@ export function updateBudgetItem(
     data.category || null,
     data.name || null,
     data.total_price !== undefined ? 1 : null, data.total_price !== undefined ? data.total_price : 0,
+    data.item_currency !== undefined ? 1 : null, data.item_currency !== undefined ? (data.item_currency?.toUpperCase() ?? null) : null,
     data.persons !== undefined ? 1 : null, data.persons !== undefined ? data.persons : null,
     data.days !== undefined ? 1 : 0, data.days !== undefined ? data.days : null,
     data.note !== undefined ? 1 : 0, data.note !== undefined ? data.note : null,
@@ -112,6 +128,19 @@ export function updateBudgetItem(
     data.expense_date !== undefined ? 1 : 0, data.expense_date !== undefined ? (data.expense_date || null) : null,
     id,
   );
+
+  if (data.total_price !== undefined || data.item_currency !== undefined) {
+    const after = db.prepare('SELECT total_price, item_currency FROM budget_items WHERE id = ?').get(id) as { total_price: number; item_currency: string | null };
+    const tripData = db.prepare('SELECT currency FROM trips WHERE id = ?').get(tripId) as Trip | undefined;
+    const baseCurrency = (tripData?.currency || 'EUR').toUpperCase();
+    const itemCur = (after.item_currency || baseCurrency).toUpperCase();
+
+    let convertedPrice: number | null = after.total_price;
+    if (itemCur !== baseCurrency) {
+      try { convertedPrice = await convertAmount(after.total_price, itemCur, baseCurrency); } catch { convertedPrice = null; }
+    }
+    db.prepare('UPDATE budget_items SET converted_price = ? WHERE id = ?').run(convertedPrice, id);
+  }
 
   const updated = db.prepare('SELECT * FROM budget_items WHERE id = ?').get(id) as BudgetItem & { members?: BudgetItemMember[] };
   updated.members = loadItemMembers(id);
@@ -147,7 +176,7 @@ export function updateMembers(id: string | number, tripId: string | number, user
     db.prepare('UPDATE budget_items SET persons = NULL WHERE id = ?').run(id);
   }
 
-  const members = loadItemMembers(id).map(m => ({ ...m, avatar_url: avatarUrl(m) }));
+  const members = loadItemMembers(id);
   const updated = db.prepare('SELECT * FROM budget_items WHERE id = ?').get(id) as BudgetItem;
   return { members, item: updated };
 }
@@ -172,8 +201,8 @@ export function toggleMemberPaid(id: string | number, userId: string | number, p
 export function getPerPersonSummary(tripId: string | number) {
   const summary = db.prepare(`
     SELECT bm.user_id, u.username, u.avatar,
-      SUM(bi.total_price * 1.0 / (SELECT COUNT(*) FROM budget_item_members WHERE budget_item_id = bi.id)) as total_assigned,
-      SUM(CASE WHEN bm.paid = 1 THEN bi.total_price * 1.0 / (SELECT COUNT(*) FROM budget_item_members WHERE budget_item_id = bi.id) ELSE 0 END) as total_paid,
+      SUM(COALESCE(bi.converted_price, bi.total_price) * 1.0 / (SELECT COUNT(*) FROM budget_item_members WHERE budget_item_id = bi.id)) as total_assigned,
+      SUM(CASE WHEN bm.paid = 1 THEN COALESCE(bi.converted_price, bi.total_price) * 1.0 / (SELECT COUNT(*) FROM budget_item_members WHERE budget_item_id = bi.id) ELSE 0 END) as total_paid,
       COUNT(bi.id) as items_count
     FROM budget_item_members bm
     JOIN budget_items bi ON bm.budget_item_id = bi.id
@@ -208,8 +237,9 @@ export function calculateSettlement(tripId: string | number) {
     const payers = members.filter(m => m.paid);
     if (payers.length === 0) continue; // no one marked as paid
 
-    const sharePerMember = item.total_price / members.length;
-    const paidPerPayer = item.total_price / payers.length;
+    const effectivePrice = item.converted_price ?? item.total_price;
+    const sharePerMember = effectivePrice / members.length;
+    const paidPerPayer = effectivePrice / payers.length;
 
     for (const m of members) {
       if (!balances[m.user_id]) {

@@ -1013,6 +1013,14 @@ const fr: Record<string, string> = {
   'budget.settlement': 'Règlement',
   'budget.settlementInfo': 'Cliquez sur l\'avatar d\'un membre sur un poste budgétaire pour le marquer en vert — cela signifie qu\'il a payé. Le règlement indique ensuite qui doit combien à qui.',
   'budget.netBalances': 'Soldes nets',
+  'budget.refreshRates': 'Actualiser les taux de change',
+  'budget.noRate': 'Taux non disponible',
+  'budget.itemCurrency': 'Devise de l\'article',
+  'budget.baseCurrency': 'Devise de base',
+  'budget.convertedAmount': 'Montant converti',
+  'budget.approximateConversion': '≈ converti de {currency}',
+  'budget.ratesUpdated': 'Taux mis à jour',
+  'budget.ratesFailed': 'Impossible de récupérer les taux de change',
 
   // Files
   'files.title': 'Fichiers',

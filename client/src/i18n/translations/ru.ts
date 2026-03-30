@@ -1013,6 +1013,14 @@ const ru: Record<string, string> = {
   'budget.settlement': 'Взаиморасчёт',
   'budget.settlementInfo': 'Нажмите на аватар участника в строке бюджета, чтобы отметить его зелёным — это значит, что он заплатил. Взаиморасчёт покажет, кто кому и сколько должен.',
   'budget.netBalances': 'Чистые балансы',
+  'budget.refreshRates': 'Обновить курсы валют',
+  'budget.noRate': 'Курс недоступен',
+  'budget.itemCurrency': 'Валюта позиции',
+  'budget.baseCurrency': 'Базовая валюта',
+  'budget.convertedAmount': 'Конвертированная сумма',
+  'budget.approximateConversion': '≈ конвертировано из {currency}',
+  'budget.ratesUpdated': 'Курсы обновлены',
+  'budget.ratesFailed': 'Не удалось получить курсы валют',
 
   // Files
   'files.title': 'Файлы',

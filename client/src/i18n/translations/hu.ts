@@ -1014,6 +1014,14 @@ const hu: Record<string, string | { name: string; category: string }[]> = {
   'budget.settlement': 'Elszámolás',
   'budget.settlementInfo': 'Kattints egy tag avatárjára egy költségvetési tételen a zöld jelöléshez — ez azt jelenti, hogy fizetett. Az elszámolás ezután mutatja, ki kinek mennyivel tartozik.',
   'budget.netBalances': 'Nettó egyenlegek',
+  'budget.refreshRates': 'Árfolyamok frissítése',
+  'budget.noRate': 'Nincs elérhető árfolyam',
+  'budget.itemCurrency': 'Tétel pénzneme',
+  'budget.baseCurrency': 'Alap pénznem',
+  'budget.convertedAmount': 'Átváltott összeg',
+  'budget.approximateConversion': '≈ átváltva innen: {currency}',
+  'budget.ratesUpdated': 'Árfolyamok frissítve',
+  'budget.ratesFailed': 'Nem sikerült lekérni az árfolyamokat',
 
   // Fájlok
   'files.title': 'Fájlok',
