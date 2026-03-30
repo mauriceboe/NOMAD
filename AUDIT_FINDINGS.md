@@ -249,6 +249,19 @@
 |---|----------|------|---------|-------------|-----------------|--------|
 | AD-1 | **MEDIUM** | `server/src/routes/admin.ts` | 302-310 | Self-update endpoint runs `git pull` then `npm run build`. While admin-only and `npm install` uses `--ignore-scripts`, `npm run build` executes whatever is in the pulled package.json. A compromised upstream could execute arbitrary code. | Document as accepted risk for self-hosted self-update feature. Users should pin to specific versions. | DOCUMENTED |
 
+### 1.9 Client-Side XSS
+
+| # | Severity | File | Line(s) | Description | Recommended Fix | Status |
+|---|----------|------|---------|-------------|-----------------|--------|
+| X-1 | **CRITICAL** | `client/src/components/Admin/GitHubPanel.tsx` | 66, 106 | `dangerouslySetInnerHTML` with `inlineFormat()` renders GitHub release notes as HTML without escaping. Malicious HTML in release notes could execute scripts. | Escape HTML entities before applying markdown-style formatting. Validate link URLs. | FIXED |
+| X-2 | **LOW** | `client/src/components/Map/MapView.tsx` | divIcon | Uses `escAttr()` for HTML sanitization in divIcon strings. Properly mitigated. | OK | OK |
+
+### 1.10 Route Calculator Bug
+
+| # | Severity | File | Line(s) | Description | Recommended Fix | Status |
+|---|----------|------|---------|-------------|-----------------|--------|
+| RC-1 | **HIGH** | `client/src/components/Map/RouteCalculator.ts` | 16 | OSRM URL hardcodes `'driving'` profile, ignoring the `profile` parameter. Walking/cycling routes always return driving results. | Use the `profile` parameter in URL construction. | FIXED |
+
 ### Additional Findings (from exhaustive scan)
 
 - **MEDIUM** — `server/src/index.ts:121-136`: Upload files (`/uploads/:type/:filename`) served without authentication. UUIDs are unguessable but this is security-through-obscurity. **REQUIRES MANUAL REVIEW** — adding auth would break shared trip image URLs.
