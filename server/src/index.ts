@@ -117,8 +117,19 @@ import { authenticate } from './middleware/auth';
 app.use('/uploads/avatars', express.static(path.join(__dirname, '../uploads/avatars')));
 app.use('/uploads/covers', express.static(path.join(__dirname, '../uploads/covers')));
 
-// Serve uploaded files (UUIDs are unguessable, path traversal protected)
-app.get('/uploads/:type/:filename', (req: Request, res: Response) => {
+// Serve uploaded files (path traversal protected)
+// Files (trip documents) require authentication + trip access check;
+// covers and photos are public.
+import { db as fileDb, canAccessTrip } from './db/database';
+import { AuthRequest } from './types';
+
+app.get('/uploads/:type/:filename', (req: Request, res: Response, next: NextFunction) => {
+  const { type } = req.params;
+  if (type === 'files') {
+    return authenticate(req, res, next);
+  }
+  next();
+}, (req: Request, res: Response) => {
   const { type, filename } = req.params;
   const allowedTypes = ['covers', 'files', 'photos'];
   if (!allowedTypes.includes(type)) return res.status(404).send('Not found');
@@ -129,6 +140,19 @@ app.get('/uploads/:type/:filename', (req: Request, res: Response) => {
   const resolved = path.resolve(filePath);
   if (!resolved.startsWith(path.resolve(__dirname, '../uploads', type))) {
     return res.status(403).send('Forbidden');
+  }
+
+  // For trip files, verify the user has access to the trip that owns the file
+  if (type === 'files') {
+    const authReq = req as AuthRequest;
+    const file = fileDb.prepare(
+      'SELECT trip_id FROM trip_files WHERE filename = ? OR filename = ?'
+    ).get(safeName, `files/${safeName}`) as { trip_id: number } | undefined;
+
+    if (!file) return res.status(404).send('Not found');
+    if (!canAccessTrip(file.trip_id, authReq.user.id)) {
+      return res.status(403).send('Forbidden');
+    }
   }
 
   if (!fs.existsSync(resolved)) return res.status(404).send('Not found');
