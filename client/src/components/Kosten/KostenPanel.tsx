@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Plus, Trash2, Receipt, TrendingUp, TrendingDown, CheckCircle2, ArrowRight, FileDown, RefreshCw, Pencil } from 'lucide-react'
 import { kostenApi } from '../../api/client'
 import { useTranslation } from '../../i18n'
@@ -113,11 +113,18 @@ function ExpenseFormModal({
   const [newCatInput, setNewCatInput] = useState('')
   const [showAddPerson, setShowAddPerson] = useState(false)
   const [newPersonInput, setNewPersonInput] = useState('')
+  const formInitKeyRef = useRef<string>('')
   const allCategories = [...CATEGORIES, ...customCategories]
 
   // Reset when expense changes
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) {
+      formInitKeyRef.current = ''
+      return
+    }
+    const initKey = expense ? `edit:${expense.id}` : 'new'
+    if (formInitKeyRef.current === initKey) return
+
     if (expense) {
       const userShares = expense.shares.filter(s => s.user_id != null)
       const customShares = expense.shares.filter(s => s.user_id == null && s.user_name)
@@ -157,7 +164,8 @@ function ExpenseFormModal({
         participant_ids: tripMembers.map(m => m.id), participant_names: customPayers, share_values: {},
       })
     }
-  }, [isOpen, expense, tripMembers, tripCurrency])
+    formInitKeyRef.current = initKey
+  }, [isOpen, expense, tripMembers, tripCurrency, customPayers, onAddPayer])
 
   const needsExchangeRate = form.currency !== tripCurrency
   const parsedAmount = parseFloat(form.amount.replace(',', '.')) || 0
