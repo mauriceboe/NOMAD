@@ -5,8 +5,14 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  DOCKER_REPO: ${{ vars.DOCKER_REPO || 'mauriceboe/trek' }}
+  DOCKER_REPO_LEGACY: ${{ vars.DOCKER_REPO_LEGACY || 'mauriceboe/nomad' }}
+
 jobs:
   build:
+    # Skip entirely when Docker Hub credentials are not configured (e.g. on forks)
+    if: ${{ secrets.DOCKERHUB_USERNAME != '' }}
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -35,7 +41,7 @@ jobs:
         with:
           context: .
           platforms: ${{ matrix.platform }}
-          outputs: type=image,name=mauriceboe/trek,push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ env.DOCKER_REPO }},push-by-digest=true,name-canonical=true,push=true
           no-cache: true
 
       - name: Export digest
@@ -55,6 +61,7 @@ jobs:
   merge:
     runs-on: ubuntu-latest
     needs: build
+    if: ${{ secrets.DOCKERHUB_USERNAME != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -79,13 +86,12 @@ jobs:
       - name: Create and push multi-arch manifest
         working-directory: /tmp/digests
         run: |
-          mapfile -t digests < <(printf 'mauriceboe/trek@sha256:%s\n' *)
-          docker buildx imagetools create \
-            -t mauriceboe/trek:latest \
-            -t mauriceboe/trek:${{ steps.version.outputs.VERSION }} \
-            -t mauriceboe/nomad:latest \
-            -t mauriceboe/nomad:${{ steps.version.outputs.VERSION }} \
-            "${digests[@]}"
+          mapfile -t digests < <(printf '${{ env.DOCKER_REPO }}@sha256:%s\n' *)
+          tags=(-t "${{ env.DOCKER_REPO }}:latest" -t "${{ env.DOCKER_REPO }}:${{ steps.version.outputs.VERSION }}")
+          if [ -n "${{ env.DOCKER_REPO_LEGACY }}" ]; then
+            tags+=(-t "${{ env.DOCKER_REPO_LEGACY }}:latest" -t "${{ env.DOCKER_REPO_LEGACY }}:${{ steps.version.outputs.VERSION }}")
+          fi
+          docker buildx imagetools create "${tags[@]}" "${digests[@]}"
 
       - name: Inspect manifest
-        run: docker buildx imagetools inspect mauriceboe/trek:latest
+        run: docker buildx imagetools inspect ${{ env.DOCKER_REPO }}:latest
