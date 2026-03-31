@@ -190,13 +190,13 @@ export default function DayPlanSidebar({
     })
   }
 
-  const TRANSPORT_TYPES = new Set(['flight', 'train', 'bus', 'car', 'cruise'])
+  const PLAN_BOOKING_TYPES = new Set(['flight', 'train', 'bus', 'car', 'cruise', 'event', 'tour', 'hotel', 'restaurant'])
 
   const getTransportForDay = (dayId: number) => {
     const day = days.find(d => d.id === dayId)
     if (!day?.date) return []
     return reservations.filter(r => {
-      if (!r.reservation_time || !TRANSPORT_TYPES.has(r.type)) return false
+      if (!r.reservation_time || !PLAN_BOOKING_TYPES.has(r.type)) return false
       const resDate = r.reservation_time.split('T')[0]
       return resDate === day.date
     })
