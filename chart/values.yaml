@@ -64,6 +64,7 @@ ingress:
     - host: chart-example.local
       paths:
         - /
+  # className: ""
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:
