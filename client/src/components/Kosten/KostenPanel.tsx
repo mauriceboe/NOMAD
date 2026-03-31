@@ -83,7 +83,7 @@ function payerOptionKey(paid_by: number | null, paid_by_name: string | null): st
 }
 
 function ExpenseFormModal({
-  isOpen, onClose, onSave, expense, tripMembers, tripId, tripCurrency, locale, customCategories, onAddCategory, customPayers, onAddPayer,
+  isOpen, onClose, onSave, expense, tripMembers, tripId, tripCurrency, locale, customCategories, onAddCategory, customPayers, onAddPayer, onRemovePayer,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -97,6 +97,7 @@ function ExpenseFormModal({
   onAddCategory: (cat: string) => void
   customPayers: string[]
   onAddPayer: (name: string) => void
+  onRemovePayer: (name: string) => void
 }) {
   const { t } = useTranslation()
   const opts = [...tripMembers.map(m => ({u: m.id, c: null})), ...customPayers.map(c => ({u: null, c}))]
@@ -201,6 +202,39 @@ function ExpenseFormModal({
       const has = f.participant_names.includes(name)
       const newNames = has ? f.participant_names.filter(x => x !== name) : [...f.participant_names, name]
       return { ...f, participant_names: newNames }
+    })
+  }
+
+  const removeCustomPerson = (name: string) => {
+    onRemovePayer(name)
+    setForm(f => {
+      const nextParticipantNames = f.participant_names.filter(x => x !== name)
+      const nextShareValues = { ...f.share_values }
+      delete nextShareValues[`c:${name}`]
+
+      let nextPaidBy = f.paid_by
+      let nextPaidByName = f.paid_by_name
+      if (f.paid_by_name === name) {
+        const remainingCustomPayers = customPayers.filter(p => p !== name)
+        if (tripMembers.length > 0) {
+          nextPaidBy = tripMembers[0].id
+          nextPaidByName = null
+        } else if (remainingCustomPayers.length > 0) {
+          nextPaidBy = null
+          nextPaidByName = remainingCustomPayers[0]
+        } else {
+          nextPaidBy = null
+          nextPaidByName = null
+        }
+      }
+
+      return {
+        ...f,
+        participant_names: nextParticipantNames,
+        share_values: nextShareValues,
+        paid_by: nextPaidBy,
+        paid_by_name: nextPaidByName,
+      }
     })
   }
 
@@ -524,6 +558,14 @@ function ExpenseFormModal({
                   </button>
                   <AvatarChip username={name} avatarUrl={null} size={24} />
                   <span style={{ flex: 1, fontSize: 13, color: 'var(--text-primary)' }}>{name}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeCustomPerson(name)}
+                    title="Person komplett entfernen"
+                    style={{ width: 18, height: 18, borderRadius: 999, border: 'none', background: 'var(--bg-card)', color: 'var(--text-faint)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: 0 }}
+                  >
+                    <Minus size={11} />
+                  </button>
 
                   {active && form.split_type === 'equal' && (
                     <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
@@ -908,6 +950,13 @@ export default function KostenPanel({ tripId, tripTitle = '', tripMembers, tripC
   const handleAddPayer = useCallback((name: string) => {
     setCustomPayers(prev => {
       const next = prev.includes(name) ? prev : [...prev, name]
+      localStorage.setItem(`kosten-custom-payers-${tripId}`, JSON.stringify(next))
+      return next
+    })
+  }, [tripId])
+  const handleRemovePayer = useCallback((name: string) => {
+    setCustomPayers(prev => {
+      const next = prev.filter(p => p !== name)
       localStorage.setItem(`kosten-custom-payers-${tripId}`, JSON.stringify(next))
       return next
     })
@@ -1376,6 +1425,7 @@ export default function KostenPanel({ tripId, tripTitle = '', tripMembers, tripC
         onAddCategory={handleAddCategory}
         customPayers={customPayers}
         onAddPayer={handleAddPayer}
+        onRemovePayer={handleRemovePayer}
       />
 
       <SettlementFormModal
