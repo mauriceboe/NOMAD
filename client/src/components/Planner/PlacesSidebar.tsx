@@ -58,10 +58,28 @@ export default function PlacesSidebar({
   const isAssignedToSelectedDay = (placeId) =>
     selectedDayId && (assignments[String(selectedDayId)] || []).some(a => a.place?.id === placeId)
 
+  const selectedDayIndex = days?.findIndex(d => d.id === selectedDayId) ?? -1
+  const selectedDay = selectedDayIndex !== -1 ? days![selectedDayIndex] : null
+  const selectedDayLabel = selectedDay ? (selectedDay.title || t('dayplan.dayN', { n: selectedDayIndex + 1 })) : null
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif" }}>
       {/* Kopfbereich */}
       <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid var(--border-faint)', flexShrink: 0 }}>
+        {selectedDayLabel && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            marginBottom: 12, padding: '10px 12px', borderRadius: 12,
+            background: 'var(--bg-tertiary)', color: 'var(--text-primary)',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+            fontSize: 13, fontWeight: 600,
+          }}>
+            <CalendarDays size={16} color="var(--accent)" />
+            <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {selectedDayLabel}
+            </span>
+          </div>
+        )}
         <button
           onClick={onAddPlace}
           style={{
@@ -233,7 +251,7 @@ export default function PlacesSidebar({
                       title={t('common.delete')}
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        width: 32, height: 32, borderRadius: 8, marginRight: (!inDay && selectedDayId) ? 6 : 0,
+                        width: 32, height: 32, borderRadius: 8, marginRight: (selectedDayId) ? 6 : 0,
                         background: 'var(--bg-hover)', border: 'none', cursor: 'pointer',
                         color: '#ef4444', padding: 0, transition: 'background 0.15s, color 0.15s',
                       }}

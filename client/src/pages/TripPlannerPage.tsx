@@ -197,6 +197,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
         }
       }
       toast.success(t('trip.toast.placeUpdated'))
+      if (window.innerWidth < 768) setMobileSidebarOpen('right')
     } else {
       const place = await tripStore.addPlace(tripId, data)
       if (pendingFiles?.length > 0 && place?.id) {
@@ -225,6 +226,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
       await tripStore.deletePlace(tripId, deletePlaceId)
       if (selectedPlaceId === deletePlaceId) setSelectedPlaceId(null)
       toast.success(t('trip.toast.placeDeleted'))
+      if (window.innerWidth < 768) setMobileSidebarOpen('right')
     } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Unknown error') }
   }, [deletePlaceId, tripId, tripStore, toast, selectedPlaceId])
 
