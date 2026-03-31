@@ -103,7 +103,7 @@ function ExpenseFormModal({
     title: '', amount: '', currency: tripCurrency, exchange_rate: '1',
     paid_by: tripMembers[0]?.id ?? null, paid_by_name: null, category: 'Sonstiges',
     expense_date: new Date().toISOString().slice(0, 10), note: '', split_type: 'equal',
-    participant_ids: tripMembers.map(m => m.id), participant_names: [], share_values: {},
+    participant_ids: tripMembers.map(m => m.id), participant_names: customPayers, share_values: {},
   })
   const [saving, setSaving] = useState(false)
   const [fetchingRate, setFetchingRate] = useState(false)
@@ -150,7 +150,7 @@ function ExpenseFormModal({
         title: '', amount: '', currency: tripCurrency, exchange_rate: '1',
         paid_by: tripMembers[0]?.id ?? null, paid_by_name: null, category: 'Sonstiges',
         expense_date: new Date().toISOString().slice(0, 10), note: '', split_type: 'equal',
-        participant_ids: tripMembers.map(m => m.id), participant_names: [], share_values: {},
+        participant_ids: tripMembers.map(m => m.id), participant_names: customPayers, share_values: {},
       })
     }
   }, [isOpen, expense, tripMembers, tripCurrency])
@@ -214,20 +214,20 @@ function ExpenseFormModal({
   const setField = <K extends keyof ExpenseFormData>(k: K, v: ExpenseFormData[K]) => setForm(f => ({ ...f, [k]: v }))
 
   const inputStyle = {
-    width: '100%', padding: '9px 10px', borderRadius: 8,
+    width: '100%', padding: '0 10px', height: 38, boxSizing: 'border-box' as const, borderRadius: 8,
     border: '1px solid var(--border-primary)',
     background: 'var(--bg-input)', color: 'var(--text-primary)',
     fontSize: 13, fontFamily: 'inherit', outline: 'none',
   }
-  const labelStyle = { display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 4 }
+  const labelStyle = { display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 4, minHeight: 21 }
 
   const footerButtons = (
-    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 16, borderTop: '1px solid var(--border-faint)', marginTop: 4 }}>
-      <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid var(--border-primary)', background: 'var(--bg-card)', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+      <button onClick={onClose} style={{ padding: '0 16px', height: 38, borderRadius: 8, border: '1px solid var(--border-primary)', background: 'var(--bg-card)', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
         {t('common.cancel')}
       </button>
       <button onClick={handleSave} disabled={!form.title.trim() || !form.amount || (!form.paid_by && !form.paid_by_name) || saving} style={{
-        padding: '7px 16px', borderRadius: 8, border: 'none',
+        padding: '0 16px', height: 38, borderRadius: 8, border: 'none',
         background: 'var(--accent)', color: 'var(--accent-text)',
         fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
         opacity: (!form.title.trim() || !form.amount || (!form.paid_by && !form.paid_by_name) || saving) ? 0.5 : 1,
@@ -247,7 +247,7 @@ function ExpenseFormModal({
         </div>
 
         {/* Amount + Currency */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 8 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
           <div>
             <label style={labelStyle}>{t('kosten.amount')} *</label>
             <input style={inputStyle} type="text" inputMode="decimal" value={form.amount} onChange={e => setField('amount', e.target.value)} placeholder="0.00" />
@@ -286,9 +286,11 @@ function ExpenseFormModal({
         )}
 
         {/* Paid by + Category */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
           <div>
-            <label style={labelStyle}>{t('kosten.paidBy')} *</label>
+            <div style={{ display: 'flex', alignItems: 'center', minHeight: 21, marginBottom: 4 }}>
+              <label style={{ ...labelStyle, marginBottom: 0 }}>{t('kosten.paidBy')} *</label>
+            </div>
             <select
               style={{ ...inputStyle, cursor: 'pointer' }}
               value={payerOptionKey(form.paid_by, form.paid_by_name)}
@@ -303,7 +305,7 @@ function ExpenseFormModal({
             </select>
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 21, marginBottom: 4 }}>
               <label style={{ ...labelStyle, marginBottom: 0 }}>{t('kosten.category')}</label>
               <button
                 type="button"
@@ -317,7 +319,7 @@ function ExpenseFormModal({
             {showAddCat && (
               <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
                 <input
-                  style={{ ...inputStyle, flex: 1, padding: '6px 8px' }}
+                  style={{ ...inputStyle, flex: 1, padding: '0 10px' }}
                   value={newCatInput}
                   onChange={e => setNewCatInput(e.target.value)}
                   placeholder={t('kosten.newCategoryPlaceholder')}
@@ -341,7 +343,7 @@ function ExpenseFormModal({
                       setShowAddCat(false)
                     }
                   }}
-                  style={{ padding: '6px 12px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: 'var(--accent-text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}
+                  style={{ padding: '0 12px', height: 38, boxSizing: 'border-box', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--accent-text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}
                 >+</button>
               </div>
             )}
@@ -349,7 +351,7 @@ function ExpenseFormModal({
         </div>
 
         {/* Date + Note */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
           <div>
             <label style={labelStyle}>{t('kosten.date')}</label>
             <input style={{ ...inputStyle, textAlign: 'left', boxSizing: 'border-box', maxWidth: '100%' }} type="date" value={form.expense_date} onChange={e => setField('expense_date', e.target.value)} />
@@ -366,7 +368,7 @@ function ExpenseFormModal({
           <div style={{ display: 'flex', gap: 6 }}>
             {(['equal', 'unequal_amount', 'unequal_percent'] as const).map(st => (
               <button key={st} onClick={() => setField('split_type', st)} style={{
-                flex: 1, padding: '6px 8px', borderRadius: 8, border: '1px solid',
+                flex: 1, padding: '0 8px', height: 38, borderRadius: 8, border: '1px solid', boxSizing: 'border-box',
                 borderColor: form.split_type === st ? 'var(--accent)' : 'var(--border-primary)',
                 background: form.split_type === st ? 'var(--accent)' : 'var(--bg-card)',
                 color: form.split_type === st ? 'var(--accent-text)' : 'var(--text-muted)',
@@ -391,7 +393,7 @@ function ExpenseFormModal({
           {showAddPerson && (
             <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
               <input
-                style={{ ...inputStyle, flex: 1, padding: '6px 8px' }}
+                style={{ ...inputStyle, flex: 1, padding: '0 10px' }}
                 value={newPersonInput}
                 onChange={e => setNewPersonInput(e.target.value)}
                 placeholder={t('kosten.newPersonPlaceholder')}
@@ -417,7 +419,7 @@ function ExpenseFormModal({
                     setShowAddPerson(false)
                   }
                 }}
-                style={{ padding: '6px 12px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: 'var(--accent-text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}
+                style={{ padding: '0 12px', height: 38, boxSizing: 'border-box', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--accent-text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}
               >+</button>
             </div>
           )}
@@ -591,15 +593,15 @@ function SettlementFormModal({
     try { await onSave(form) } finally { setSaving(false) }
   }
 
-  const inputStyle = { width: '100%', padding: '9px 10px', borderRadius: 8, border: '1px solid var(--border-primary)', background: 'var(--bg-input)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }
-  const labelStyle = { display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 4 }
+  const inputStyle = { width: '100%', padding: '0 10px', height: 38, boxSizing: 'border-box' as const, borderRadius: 8, border: '1px solid var(--border-primary)', background: 'var(--bg-input)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }
+  const labelStyle = { display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 4, minHeight: 21 }
 
   const footerButtons = (
-    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 16, borderTop: '1px solid var(--border-faint)', marginTop: 4 }}>
-      <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 8, border: '1px solid var(--border-primary)', background: 'var(--bg-card)', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+      <button onClick={onClose} style={{ padding: '0 16px', height: 38, borderRadius: 8, border: '1px solid var(--border-primary)', background: 'var(--bg-card)', color: 'var(--text-muted)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
         {t('common.cancel')}
       </button>
-      <button onClick={handleSave} disabled={(!form.from_user_id && !form.from_name) || (!form.to_user_id && !form.to_name) || !form.amount || saving} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--accent-text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, opacity: ((!form.from_user_id && !form.from_name) || (!form.to_user_id && !form.to_name) || !form.amount || saving) ? 0.5 : 1 }}>
+      <button onClick={handleSave} disabled={(!form.from_user_id && !form.from_name) || (!form.to_user_id && !form.to_name) || !form.amount || saving} style={{ padding: '0 16px', height: 38, borderRadius: 8, border: 'none', background: 'var(--accent)', color: 'var(--accent-text)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, opacity: ((!form.from_user_id && !form.from_name) || (!form.to_user_id && !form.to_name) || !form.amount || saving) ? 0.5 : 1 }}>
         {saving ? t('common.saving') : t('common.save')}
       </button>
     </div>
@@ -608,7 +610,7 @@ function SettlementFormModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={t('kosten.addSettlement')} size="md" footer={footerButtons}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
           <div>
             <label style={labelStyle}>{t('kosten.fromUser')}</label>
             <select
@@ -641,7 +643,7 @@ function SettlementFormModal({
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 8 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
           <div>
             <label style={labelStyle}>{t('kosten.amount')} *</label>
             <input style={inputStyle} type="text" inputMode="decimal" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="0.00" />
@@ -941,13 +943,16 @@ export default function KostenPanel({ tripId, tripTitle = '', tripMembers, tripC
   const pieSegments = useMemo(() => {
     if (totalSpent === 0) return null
     let start = 0
+    const allCats = [...CATEGORIES, ...customCategories]
     return categoryTotals.map(([cat, val], i) => {
       const pct = (val / totalSpent) * 100
-      const seg = { cat, val, color: PIE_COLORS[i % PIE_COLORS.length], start, end: start + pct }
+      let colorIdx = allCats.indexOf(cat)
+      if (colorIdx === -1) colorIdx = CATEGORIES.length + Math.max(0, [...cat].reduce((a,c)=>a+c.charCodeAt(0),0) % 10)
+      const seg = { cat, val, color: PIE_COLORS[colorIdx % PIE_COLORS.length], start, end: start + pct }
       start += pct
       return seg
     })
-  }, [categoryTotals, totalSpent])
+  }, [categoryTotals, totalSpent, customCategories])
 
   const pieGradient = pieSegments
     ? pieSegments.map(s => `${s.color} ${s.start.toFixed(1)}% ${s.end.toFixed(1)}%`).join(', ')
@@ -1081,6 +1086,7 @@ export default function KostenPanel({ tripId, tripTitle = '', tripMembers, tripC
                         tripCurrency={tripCurrency}
                         locale={locale}
                         t={t}
+                        allCategories={[...CATEGORIES, ...customCategories]}
                         onEdit={() => { setEditingExpense(expense); setShowExpenseForm(true) }}
                         onDelete={() => setDeleteExpenseId(expense.id)}
                       />
@@ -1160,12 +1166,6 @@ export default function KostenPanel({ tripId, tripTitle = '', tripMembers, tripC
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <h2 style={{ fontSize: 14, fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>{t('kosten.settlements')}</h2>
-                <button
-                  onClick={() => { setSettlementPrefill(null); setShowSettlementForm(true) }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 8, border: '1px solid var(--border-primary)', background: 'var(--bg-card)', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}
-                >
-                  <Plus size={13} /> {t('kosten.addSettlement')}
-                </button>
               </div>
               {settlements.length === 0 ? (
                 <div style={{ fontSize: 13, color: 'var(--text-faint)', padding: '12px 0' }}>—</div>
@@ -1289,21 +1289,25 @@ export default function KostenPanel({ tripId, tripTitle = '', tripMembers, tripC
 
 // ── Expense Card ──────────────────────────────────────────────────────────────
 
-function ExpenseCard({ expense, tripCurrency, locale, t, onEdit, onDelete }: React.PropsWithChildren<{
+function ExpenseCard({ expense, tripCurrency, locale, t, allCategories, onEdit, onDelete }: React.PropsWithChildren<{
   expense: KostenExpense
   tripCurrency: string
   locale: string
   t: (key: string, params?: Record<string, string | number>) => string
+  allCategories: string[]
   onEdit: () => void
   onDelete: () => void
 }>) {
   const amtInTripCurrency = expense.amount * expense.exchange_rate
   const numParticipants = expense.shares.length || 1
 
+  let catIndex = allCategories.indexOf(expense.category)
+  if (catIndex === -1) catIndex = CATEGORIES.length + Math.max(0, [...expense.category].reduce((a,c)=>a+c.charCodeAt(0),0) % 10)
+
   return (
     <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--bg-card)', border: '1px solid var(--border-faint)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
       {/* Category dot */}
-      <div style={{ width: 8, height: 8, borderRadius: '50%', background: PIE_COLORS[CATEGORIES.indexOf(expense.category) % PIE_COLORS.length] || '#6b7280', marginTop: 5, flexShrink: 0 }} />
+      <div style={{ width: 8, height: 8, borderRadius: '50%', background: PIE_COLORS[catIndex % PIE_COLORS.length] || '#6b7280', marginTop: 5, flexShrink: 0 }} />
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>

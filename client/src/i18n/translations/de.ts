@@ -566,7 +566,7 @@ const de: Record<string, string | { name: string; category: string }[]> = {
   'kosten.allSettledHint': 'Keine offenen Schulden',
   'kosten.simplifiedDebts': 'Vereinfachte Übersicht',
   'kosten.owes': 'schuldet',
-  'kosten.settleUp': 'Ausgleich eintragen',
+  'kosten.settleUp': 'Ausgleich entrichten',
   'kosten.settlements': 'Ausgleichszahlungen',
   'kosten.addSettlement': 'Ausgleich entrichten',
   'kosten.fromUser': 'Von',

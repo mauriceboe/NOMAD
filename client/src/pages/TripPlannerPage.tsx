@@ -340,7 +340,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
 
       <div style={{
         position: 'fixed', top: 'var(--nav-h)', left: 0, right: 0, zIndex: 40,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
         padding: '0 12px',
         background: 'var(--bg-elevated)',
         backdropFilter: 'blur(16px)',
