@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Plus, Trash2, Receipt, TrendingUp, TrendingDown, CheckCircle2, ArrowRight, FileDown, RefreshCw, Pencil } from 'lucide-react'
+import { Plus, Trash2, Receipt, TrendingUp, TrendingDown, CheckCircle2, ArrowRight, FileDown, RefreshCw, Pencil, Minus } from 'lucide-react'
 import { kostenApi } from '../../api/client'
 import { useTranslation } from '../../i18n'
 import Modal from '../shared/Modal'
@@ -999,6 +999,20 @@ export default function KostenPanel({ tripId, tripTitle = '', tripMembers, tripC
     await load()
   }
 
+  const handleRemoveParticipantFromExpense = async (expense: KostenExpense, share: KostenShare) => {
+    if (expense.shares.length <= 1) return
+    const updatedShares = expense.shares
+      .filter(s => !(s.user_id === share.user_id && s.user_name === share.user_name))
+      .map(s => ({
+        user_id: s.user_id,
+        user_name: s.user_name,
+        share_value: expense.split_type === 'equal' ? null : (s.share_value ?? 0),
+      }))
+
+    await kostenApi.setShares(tripId, expense.id, updatedShares)
+    await load()
+  }
+
   const handleSaveSettlement = async (form: SettlementFormData) => {
     const parsedRate = parseFloat(form.exchange_rate.replace(',', '.')) || 1
     await kostenApi.createSettlement(tripId, {
@@ -1186,6 +1200,7 @@ export default function KostenPanel({ tripId, tripTitle = '', tripMembers, tripC
                         allCategories={[...CATEGORIES, ...customCategories]}
                         onEdit={() => { setEditingExpense(expense); setShowExpenseForm(true) }}
                         onDelete={() => setDeleteExpenseId(expense.id)}
+                        onRemoveParticipant={(share) => handleRemoveParticipantFromExpense(expense, share)}
                       />
                     ))}
                   </div>
@@ -1396,7 +1411,7 @@ export default function KostenPanel({ tripId, tripTitle = '', tripMembers, tripC
 
 // ── Expense Card ──────────────────────────────────────────────────────────────
 
-function ExpenseCard({ expense, tripCurrency, locale, t, allCategories, onEdit, onDelete }: React.PropsWithChildren<{
+function ExpenseCard({ expense, tripCurrency, locale, t, allCategories, onEdit, onDelete, onRemoveParticipant }: React.PropsWithChildren<{
   expense: KostenExpense
   tripCurrency: string
   locale: string
@@ -1404,6 +1419,7 @@ function ExpenseCard({ expense, tripCurrency, locale, t, allCategories, onEdit, 
   allCategories: string[]
   onEdit: () => void
   onDelete: () => void
+  onRemoveParticipant: (share: KostenShare) => void
 }>) {
   const amtInTripCurrency = expense.amount * expense.exchange_rate
   const numParticipants = expense.shares.length || 1
@@ -1448,11 +1464,25 @@ function ExpenseCard({ expense, tripCurrency, locale, t, allCategories, onEdit, 
           <span style={{ color: 'var(--border-primary)', fontSize: 11 }}>·</span>
 
           {/* Participants */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {expense.shares.slice(0, 4).map(s => (
-              <AvatarChip key={s.user_id || s.user_name || Math.random()} username={s.username} avatarUrl={s.avatar_url} size={20} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {expense.shares.map(s => (
+              <div key={`${s.user_id ?? 'c'}:${s.user_name ?? s.username}`} style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '2px 4px', borderRadius: 999, background: 'var(--bg-secondary)' }}>
+                <AvatarChip username={s.username} avatarUrl={s.avatar_url} size={20} />
+                <button
+                  onClick={() => onRemoveParticipant(s)}
+                  disabled={expense.shares.length <= 1}
+                  title="Person entfernen"
+                  style={{
+                    width: 16, height: 16, borderRadius: '50%', border: 'none',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'var(--bg-card)', color: 'var(--text-muted)', cursor: expense.shares.length <= 1 ? 'not-allowed' : 'pointer',
+                    opacity: expense.shares.length <= 1 ? 0.35 : 1, flexShrink: 0, padding: 0,
+                  }}
+                >
+                  <Minus size={10} />
+                </button>
+              </div>
             ))}
-            {expense.shares.length > 4 && <span style={{ fontSize: 10, color: 'var(--text-muted)', marginLeft: 2 }}>+{expense.shares.length - 4}</span>}
           </div>
 
           {/* Share hint */}
