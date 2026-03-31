@@ -692,7 +692,7 @@ const de: Record<string, string | { name: string; category: string }[]> = {
   'places.countSingular': '1 Ort',
   'places.allPlanned': 'Alle Orte sind eingeplant',
   'places.noneFound': 'Keine Orte gefunden',
-  'places.editPlace': 'Ort bearbeiten',
+  'places.editPlace': 'Ort/Aktivität bearbeiten',
   'places.formName': 'Name',
   'places.formNamePlaceholder': 'z.B. Eiffelturm',
   'places.formDescription': 'Beschreibung',
