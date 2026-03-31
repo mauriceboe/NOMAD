@@ -79,6 +79,14 @@ spec:
               port: 3000
             initialDelaySeconds: 5
             periodSeconds: 10
+      # Affinity rules to make sure the data and uploads volumes are always scheduled on the same node as the application container
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: {{ include "trek.name" . }}
+            topologyKey: kubernetes.io/hostname
       volumes:
         - name: data
           persistentVolumeClaim:

@@ -49,6 +49,7 @@ additionalEnvFromSecrets: []
 
 persistence:
   enabled: true
+  # Depending on your usage, you may want to increase this
   data:
     size: 1Gi
   uploads:
@@ -67,3 +68,7 @@ ingress:
   #  - secretName: chart-example-tls
   #    hosts:
   #      - chart-example.local
+  websocket:
+    enabled: false
+    # Optional annotations to ensure websocket upgrade and keepalive for ingress controllers (nginx recommended)
+    annotations: {}

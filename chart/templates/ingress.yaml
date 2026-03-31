@@ -5,9 +5,20 @@ metadata:
   name: {{ include "trek.fullname" . }}
   labels:
     app: {{ include "trek.name" . }}
-  {{- with .Values.ingress.annotations }}
+  {{- if or (not (empty .Values.ingress.annotations)) .Values.ingress.websocket.enabled }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- if not (empty .Values.ingress.annotations) }}
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+    {{- end }}
+    {{- if .Values.ingress.websocket.enabled }}
+      {{- if not (empty .Values.ingress.websocket.annotations) }}
+    {{- toYaml .Values.ingress.websocket.annotations | nindent 4 }}
+      {{- else }}
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      {{- end }}
+    {{- end }}
   {{- end }}
 spec:
   {{- if .Values.ingress.tls }}
@@ -19,6 +30,15 @@ spec:
     - host: {{ .host }}
       http:
         paths:
+          {{- if $.Values.ingress.websocket.enabled }}
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "trek.fullname" $ }}
+                port:
+                  number: {{ $.Values.service.port }}
+          {{- end }}
           {{- range .paths }}
           - path: {{ . }}
             pathType: Prefix
