@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
-import fetch from 'node-fetch';
 import { authenticate } from '../middleware/auth';
+import { weatherFetch } from '../services/weatherFetch';
 
 const router = express.Router();
 
@@ -161,8 +161,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 
       if (diffDays >= -1 && diffDays <= 16) {
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto&forecast_days=16`;
-        const response = await fetch(url);
-        const data = await response.json() as OpenMeteoForecast;
+        const { data, response } = await weatherFetch<OpenMeteoForecast>(url);
 
         if (!response.ok || data.error) {
           return res.status(response.status || 500).json({ error: data.reason || 'Open-Meteo API error' });
@@ -199,8 +198,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
         const endStr = endDate.toISOString().slice(0, 10);
 
         const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lng}&start_date=${startStr}&end_date=${endStr}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto`;
-        const response = await fetch(url);
-        const data = await response.json() as OpenMeteoForecast;
+        const { data, response } = await weatherFetch<OpenMeteoForecast>(url);
 
         if (!response.ok || data.error) {
           return res.status(response.status || 500).json({ error: data.reason || 'Open-Meteo Climate API error' });
@@ -251,8 +249,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
     if (cached) return res.json(cached);
 
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weathercode&timezone=auto`;
-    const response = await fetch(url);
-    const data = await response.json() as OpenMeteoForecast;
+    const { data, response } = await weatherFetch<OpenMeteoForecast>(url);
 
     if (!response.ok || data.error) {
       return res.status(response.status || 500).json({ error: data.reason || 'Open-Meteo API error' });
@@ -304,8 +301,7 @@ router.get('/detailed', authenticate, async (req: Request, res: Response) => {
         + `&hourly=temperature_2m,precipitation,weathercode,windspeed_10m,relativehumidity_2m`
         + `&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_sum,windspeed_10m_max,sunrise,sunset`
         + `&timezone=auto`;
-      const response = await fetch(url);
-      const data = await response.json() as OpenMeteoForecast;
+      const { data, response } = await weatherFetch<OpenMeteoForecast>(url);
 
       if (!response.ok || data.error) {
         return res.status(response.status || 500).json({ error: data.reason || 'Open-Meteo Climate API error' });
@@ -366,8 +362,7 @@ router.get('/detailed', authenticate, async (req: Request, res: Response) => {
       + `&daily=temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset,precipitation_probability_max,precipitation_sum,windspeed_10m_max`
       + `&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`;
 
-    const response = await fetch(url);
-    const data = await response.json() as OpenMeteoForecast;
+    const { data, response } = await weatherFetch<OpenMeteoForecast>(url);
 
     if (!response.ok || data.error) {
       return res.status(response.status || 500).json({ error: data.reason || 'Open-Meteo API error' });
