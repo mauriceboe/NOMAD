@@ -1,7 +1,7 @@
 import ReactDOM from 'react-dom'
 import { useState } from 'react'
 import DOM from 'react-dom'
-import { Search, Plus, X, CalendarDays, Pencil, Trash2, ExternalLink, Navigation } from 'lucide-react'
+import { Search, Plus, Minus, X, CalendarDays, Pencil, Trash2, ExternalLink, Navigation } from 'lucide-react'
 import PlaceAvatar from '../shared/PlaceAvatar'
 import { getCategoryIcon } from '../shared/categoryIcons'
 import { useTranslation } from '../../i18n'
@@ -18,6 +18,7 @@ interface PlacesSidebarProps {
   onPlaceClick: (placeId: number | null) => void
   onAddPlace: () => void
   onAssignToDay: (placeId: number, dayId: number) => void
+  onRemoveAssignment?: (dayId: number, assignmentId: number) => void
   onEditPlace: (place: Place) => void
   onDeletePlace: (placeId: number) => void
   days?: Day[]
@@ -27,7 +28,7 @@ interface PlacesSidebarProps {
 
 export default function PlacesSidebar({
   places, categories, assignments, selectedDayId, selectedPlaceId,
-  onPlaceClick, onAddPlace, onAssignToDay, onEditPlace, onDeletePlace, days, isMobile, onCategoryFilterChange,
+  onPlaceClick, onAddPlace, onAssignToDay, onRemoveAssignment, onEditPlace, onDeletePlace, days, isMobile, onCategoryFilterChange,
 }: PlacesSidebarProps) {
   const { t } = useTranslation()
   const ctxMenu = useContextMenu()
@@ -144,6 +145,7 @@ export default function PlacesSidebar({
             const cat = categories.find(c => c.id === place.category_id)
             const isSelected = place.id === selectedPlaceId
             const inDay = isAssignedToSelectedDay(place.id)
+            const assignmentInSelectedDay = selectedDayId ? (assignments[String(selectedDayId)] || []).find(a => a.place?.id === place.id) : null
             const isPlanned = plannedIds.has(place.id)
 
             return (
@@ -165,7 +167,8 @@ export default function PlacesSidebar({
                 }}
                 onContextMenu={e => ctxMenu.open(e, [
                   onEditPlace && { label: t('common.edit'), icon: Pencil, onClick: () => onEditPlace(place) },
-                  selectedDayId && { label: t('planner.addToDay'), icon: CalendarDays, onClick: () => onAssignToDay(place.id, selectedDayId) },
+                  (!inDay && selectedDayId) && { label: t('planner.addToDay'), icon: CalendarDays, onClick: () => onAssignToDay(place.id, selectedDayId) },
+                  (inDay && selectedDayId && onRemoveAssignment && assignmentInSelectedDay) && { label: t('planner.removeFromDay'), icon: Minus, danger: true, onClick: () => onRemoveAssignment(selectedDayId, assignmentInSelectedDay.id) },
                   place.website && { label: t('inspector.website'), icon: ExternalLink, onClick: () => window.open(place.website, '_blank') },
                   (place.lat && place.lng) && { label: 'Google Maps', icon: Navigation, onClick: () => window.open(`https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`, '_blank') },
                   { divider: true },
@@ -202,39 +205,49 @@ export default function PlacesSidebar({
                   )}
                 </div>
                 <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-                  <button
-                    onClick={e => { e.stopPropagation(); onEditPlace(place) }}
-                    onPointerDown={e => e.stopPropagation()}
-                    onTouchStart={e => e.stopPropagation()}
-                    title={t('common.edit')}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      width: 32, height: 32, borderRadius: 8, marginRight: 6,
-                      background: 'var(--bg-hover)', border: 'none', cursor: 'pointer',
-                      color: 'var(--text-faint)', padding: 0, transition: 'background 0.15s, color 0.15s',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tertiary)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-faint)' }}
-                  ><Pencil size={15} strokeWidth={2.3} /></button>
-                  <button
-                    onClick={e => { e.stopPropagation(); onDeletePlace(place.id) }}
-                    onPointerDown={e => e.stopPropagation()}
-                    onTouchStart={e => e.stopPropagation()}
-                    title={t('common.delete')}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      width: 32, height: 32, borderRadius: 8, marginRight: selectedDayId ? 6 : 0,
-                      background: 'var(--bg-hover)', border: 'none', cursor: 'pointer',
-                      color: '#ef4444', padding: 0, transition: 'background 0.15s, color 0.15s',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; e.currentTarget.style.color = '#dc2626' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = '#ef4444' }}
-                  ><Trash2 size={15} strokeWidth={2.3} /></button>
-                  {!inDay && selectedDayId && (
+                  {onEditPlace && (
                     <button
-                      onClick={e => { e.stopPropagation(); onAssignToDay(place.id) }}
+                      onClick={e => { e.preventDefault(); e.stopPropagation(); onEditPlace(place) }}
                       onPointerDown={e => e.stopPropagation()}
+                      onPointerUp={e => e.stopPropagation()}
                       onTouchStart={e => e.stopPropagation()}
+                      onTouchEnd={e => e.stopPropagation()}
+                      title={t('common.edit')}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: 32, height: 32, borderRadius: 8, marginRight: 6,
+                        background: 'var(--bg-hover)', border: 'none', cursor: 'pointer',
+                        color: 'var(--text-faint)', padding: 0, transition: 'background 0.15s, color 0.15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-tertiary)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-faint)' }}
+                    ><Pencil size={15} strokeWidth={2.3} /></button>
+                  )}
+                  {onDeletePlace && (
+                    <button
+                      onClick={e => { e.preventDefault(); e.stopPropagation(); onDeletePlace(place.id) }}
+                      onPointerDown={e => e.stopPropagation()}
+                      onPointerUp={e => e.stopPropagation()}
+                      onTouchStart={e => e.stopPropagation()}
+                      onTouchEnd={e => e.stopPropagation()}
+                      title={t('common.delete')}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: 32, height: 32, borderRadius: 8, marginRight: (!inDay && selectedDayId) ? 6 : 0,
+                        background: 'var(--bg-hover)', border: 'none', cursor: 'pointer',
+                        color: '#ef4444', padding: 0, transition: 'background 0.15s, color 0.15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; e.currentTarget.style.color = '#dc2626' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = '#ef4444' }}
+                    ><Trash2 size={15} strokeWidth={2.3} /></button>
+                  )}
+                  {!inDay && selectedDayId && onAssignToDay && (
+                    <button
+                      onClick={e => { e.preventDefault(); e.stopPropagation(); onAssignToDay(place.id, selectedDayId) }}
+                      onPointerDown={e => e.stopPropagation()}
+                      onPointerUp={e => e.stopPropagation()}
+                      onTouchStart={e => e.stopPropagation()}
+                      onTouchEnd={e => e.stopPropagation()}
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         width: 32, height: 32, borderRadius: 8,
@@ -244,6 +257,23 @@ export default function PlacesSidebar({
                       onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent-text)' }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-faint)' }}
                     ><Plus size={18} strokeWidth={2.5} /></button>
+                  )}
+                  {inDay && selectedDayId && onRemoveAssignment && assignmentInSelectedDay && (
+                    <button
+                      onClick={e => { e.preventDefault(); e.stopPropagation(); onRemoveAssignment(selectedDayId, assignmentInSelectedDay.id) }}
+                      onPointerDown={e => e.stopPropagation()}
+                      onPointerUp={e => e.stopPropagation()}
+                      onTouchStart={e => e.stopPropagation()}
+                      onTouchEnd={e => e.stopPropagation()}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: 32, height: 32, borderRadius: 8,
+                        background: 'var(--bg-hover)', border: 'none', cursor: 'pointer',
+                        color: '#ef4444', padding: 0, transition: 'background 0.15s, color 0.15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)'; e.currentTarget.style.color = '#dc2626' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = '#ef4444' }}
+                    ><Minus size={18} strokeWidth={2.5} /></button>
                   )}
                 </div>
               </div>
@@ -267,10 +297,18 @@ export default function PlacesSidebar({
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px 16px' }}>
               {days.map((day, i) => {
+                const assigned = (assignments[String(day.id)] || []).find(a => a.place?.id === dayPickerPlace.id)
                 return (
                   <button
                     key={day.id}
-                    onClick={() => { onAssignToDay(dayPickerPlace.id, day.id); setDayPickerPlace(null) }}
+                    onClick={() => { 
+                      if (assigned && onRemoveAssignment) {
+                        onRemoveAssignment(day.id, assigned.id)
+                      } else {
+                        onAssignToDay(dayPickerPlace.id, day.id)
+                      }
+                      setDayPickerPlace(null) 
+                    }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10, width: '100%',
                       padding: '12px 14px', borderRadius: 12, border: 'none', cursor: 'pointer',
@@ -291,7 +329,7 @@ export default function PlacesSidebar({
                       </div>
                       {day.date && <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>{new Date(day.date + 'T00:00:00').toLocaleDateString()}</div>}
                     </div>
-                    {(assignments[String(day.id)] || []).some(a => a.place?.id === dayPickerPlace.id) && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>✓</span>}
+                    {assigned && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}><Minus size={16} /></span>}
                   </button>
                 )
               })}
