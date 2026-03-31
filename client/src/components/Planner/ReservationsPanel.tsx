@@ -50,6 +50,8 @@ function buildAssignmentLookup(days, assignments) {
 interface ReservationCardProps {
   r: Reservation
   tripId: number
+  days: Day[]
+  accommodations: any[]
   onEdit: (reservation: Reservation) => void
   onDelete: (id: number) => void
   files?: TripFile[]
@@ -57,7 +59,7 @@ interface ReservationCardProps {
   assignmentLookup: Record<number, AssignmentLookupEntry>
 }
 
-function ReservationCard({ r, tripId, onEdit, onDelete, files = [], onNavigateToFiles, assignmentLookup }: ReservationCardProps) {
+function ReservationCard({ r, tripId, days, accommodations, onEdit, onDelete, files = [], onNavigateToFiles, assignmentLookup }: ReservationCardProps) {
   const { toggleReservationStatus } = useTripStore()
   const toast = useToast()
   const { t, locale } = useTranslation()
@@ -339,14 +341,14 @@ export default function ReservationsPanel({ tripId, reservations, days, assignme
             {allPending.length > 0 && (
               <Section title={t('reservations.pending')} count={allPending.length} accent="gray">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  {allPending.map(r => <ReservationCard key={r.id} r={r} tripId={tripId} onEdit={onEdit} onDelete={onDelete} files={files} onNavigateToFiles={onNavigateToFiles} assignmentLookup={assignmentLookup} />)}
+                  {allPending.map(r => <ReservationCard key={r.id} r={r} tripId={tripId} days={days} accommodations={accommodations} onEdit={onEdit} onDelete={onDelete} files={files} onNavigateToFiles={onNavigateToFiles} assignmentLookup={assignmentLookup} />)}
                 </div>
               </Section>
             )}
             {allConfirmed.length > 0 && (
               <Section title={t('reservations.confirmed')} count={allConfirmed.length} accent="green">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  {allConfirmed.map(r => <ReservationCard key={r.id} r={r} tripId={tripId} onEdit={onEdit} onDelete={onDelete} files={files} onNavigateToFiles={onNavigateToFiles} assignmentLookup={assignmentLookup} />)}
+                  {allConfirmed.map(r => <ReservationCard key={r.id} r={r} tripId={tripId} days={days} accommodations={accommodations} onEdit={onEdit} onDelete={onDelete} files={files} onNavigateToFiles={onNavigateToFiles} assignmentLookup={assignmentLookup} />)}
                 </div>
               </Section>
             )}
