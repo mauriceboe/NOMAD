@@ -68,6 +68,7 @@ app.use(helmet({
         "https://*.basemaps.cartocdn.com", "https://*.tile.openstreetmap.org",
         "https://unpkg.com", "https://open-meteo.com", "https://api.open-meteo.com",
         "https://geocoding-api.open-meteo.com",
+        "https://raw.githubusercontent.com",
       ],
       fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
       objectSrc: ["'none'"],
