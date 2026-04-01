@@ -31,6 +31,7 @@ export interface Trip {
   currency: string;
   cover_image?: string | null;
   is_archived: number;
+  reminder_days: number;
   created_at?: string;
   updated_at?: string;
 }
