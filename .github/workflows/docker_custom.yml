@@ -2,7 +2,7 @@ name: Build & Push Docker Image for custom repo
 
 on:
   push:
-    branches: [main]
+    branches: [custom]
   workflow_dispatch:
 
 jobs:
