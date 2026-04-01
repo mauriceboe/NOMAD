@@ -1,4 +1,4 @@
-name: Build & Push Docker Image
+name: Build & Push Docker Image for custom repo
 
 on:
   push:
