@@ -2,14 +2,16 @@ import cron, { type ScheduledTask } from 'node-cron';
 import archiver from 'archiver';
 import path from 'path';
 import fs from 'fs';
+import { getBackend, getTargetNameForSource } from './storage/factory';
+import { StoragePurpose } from './storage/types';
+import { db } from './db/database';
 
 const dataDir = path.join(__dirname, '../data');
-const backupsDir = path.join(dataDir, 'backups');
-const uploadsDir = path.join(__dirname, '../uploads');
 const settingsFile = path.join(dataDir, 'backup-settings.json');
+const uploadsDir = path.join(__dirname, '../uploads');
 
 const VALID_INTERVALS = ['hourly', 'daily', 'weekly', 'monthly'];
-const VALID_DAYS_OF_WEEK = [0, 1, 2, 3, 4, 5, 6]; // 0=Sunday
+const VALID_DAYS_OF_WEEK = [0, 1, 2, 3, 4, 5, 6];
 const VALID_HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 interface BackupSettings {
@@ -58,18 +60,19 @@ function saveSettings(settings: BackupSettings): void {
 }
 
 async function runBackup(): Promise<void> {
-  if (!fs.existsSync(backupsDir)) fs.mkdirSync(backupsDir, { recursive: true });
-
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const filename = `auto-backup-${timestamp}.zip`;
-  const outputPath = path.join(backupsDir, filename);
+  const tmpPath = path.join(dataDir, 'tmp', filename);
 
   try {
-    // Flush WAL to main DB file before archiving
-    try { const { db } = require('./db/database'); db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch (e) {}
+    if (!fs.existsSync(path.dirname(tmpPath))) {
+      fs.mkdirSync(path.dirname(tmpPath), { recursive: true });
+    }
+
+    try { db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch (e) {}
 
     await new Promise<void>((resolve, reject) => {
-      const output = fs.createWriteStream(outputPath);
+      const output = fs.createWriteStream(tmpPath);
       const archive = archiver('zip', { zlib: { level: 9 } });
       output.on('close', resolve);
       archive.on('error', reject);
@@ -79,33 +82,47 @@ async function runBackup(): Promise<void> {
       if (fs.existsSync(uploadsDir)) archive.directory(uploadsDir, 'uploads');
       archive.finalize();
     });
+
+    const backend = getBackend(StoragePurpose.BACKUP);
+    const fileStream = fs.createReadStream(tmpPath);
+    await backend.store(filename, fileStream);
+
+    fs.unlinkSync(tmpPath);
+
+    const assignment = db.prepare('SELECT target_id FROM storage_assignments WHERE purpose = ?').get(StoragePurpose.BACKUP) as { target_id: number | null } | undefined;
+    const targetName = assignment?.target_id ? getTargetNameForSource(`target:${assignment.target_id}`) : 'Local';
+
     const { logInfo: li } = require('./services/auditLog');
-    li(`Auto-Backup created: ${filename}`);
+    li(`Auto-Backup created: ${filename} (${targetName})`);
   } catch (err: unknown) {
     const { logError: le } = require('./services/auditLog');
     le(`Auto-Backup: ${err instanceof Error ? err.message : err}`);
-    if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+    if (fs.existsSync(tmpPath)) {
+      try { fs.unlinkSync(tmpPath); } catch (e) {}
+    }
     return;
   }
 
   const settings = loadSettings();
   if (settings.keep_days > 0) {
-    cleanupOldBackups(settings.keep_days);
+    await cleanupOldBackups(settings.keep_days);
   }
 }
 
-function cleanupOldBackups(keepDays: number): void {
+async function cleanupOldBackups(keepDays: number): Promise<void> {
   try {
     const MS_PER_DAY = 24 * 60 * 60 * 1000;
     const cutoff = Date.now() - keepDays * MS_PER_DAY;
-    const files = fs.readdirSync(backupsDir).filter(f => f.endsWith('.zip'));
-    for (const file of files) {
-      const filePath = path.join(backupsDir, file);
-      const stat = fs.statSync(filePath);
-      if (stat.birthtimeMs < cutoff) {
-        fs.unlinkSync(filePath);
+    
+    const backend = getBackend(StoragePurpose.BACKUP);
+    const entries = await backend.list();
+
+    for (const entry of entries) {
+      const createdTime = new Date(entry.createdAt).getTime();
+      if (createdTime < cutoff) {
+        await backend.delete(entry.key);
         const { logInfo: li } = require('./services/auditLog');
-        li(`Auto-Backup old backup deleted: ${file}`);
+        li(`Auto-Backup old backup deleted: ${entry.key}`);
       }
     }
   } catch (err: unknown) {
@@ -134,7 +151,6 @@ function start(): void {
   li2(`Auto-Backup scheduled: ${settings.interval} (${expression}), tz: ${tz}, retention: ${settings.keep_days === 0 ? 'forever' : settings.keep_days + ' days'}`);
 }
 
-// Demo mode: hourly reset of demo user data
 let demoTask: ScheduledTask | null = null;
 
 function startDemoReset(): void {
@@ -154,15 +170,14 @@ function startDemoReset(): void {
   li3('Demo hourly reset scheduled');
 }
 
-// Trip reminders: daily check at 9 AM local time for trips starting tomorrow
 let reminderTask: ScheduledTask | null = null;
 
 function startTripReminders(): void {
   if (reminderTask) { reminderTask.stop(); reminderTask = null; }
 
   try {
-    const { db } = require('./db/database');
-    const getSetting = (key: string) => (db.prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as { value: string } | undefined)?.value;
+    const { db: dbInstance } = require('./db/database');
+    const getSetting = (key: string) => (dbInstance.prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as { value: string } | undefined)?.value;
     const channel = getSetting('notification_channel') || 'none';
     const reminderEnabled = getSetting('notify_trip_reminder') !== 'false';
     const hasSmtp = !!(getSetting('smtp_host') || '').trim();
@@ -176,7 +191,7 @@ function startTripReminders(): void {
       return;
     }
 
-    const tripCount = (db.prepare('SELECT COUNT(*) as c FROM trips WHERE reminder_days > 0 AND start_date IS NOT NULL').get() as { c: number }).c;
+    const tripCount = (dbInstance.prepare('SELECT COUNT(*) as c FROM trips WHERE reminder_days > 0 AND start_date IS NOT NULL').get() as { c: number }).c;
     const { logInfo: liSetup } = require('./services/auditLog');
     liSetup(`Trip reminders: enabled via ${channel}${tripCount > 0 ? `, ${tripCount} trip(s) with active reminders` : ''}`);
   } catch {
@@ -186,10 +201,10 @@ function startTripReminders(): void {
   const tz = process.env.TZ || 'UTC';
   reminderTask = cron.schedule('0 9 * * *', async () => {
     try {
-      const { db } = require('./db/database');
+      const { db: dbInstance } = require('./db/database');
       const { notifyTripMembers } = require('./services/notifications');
 
-      const trips = db.prepare(`
+      const trips = dbInstance.prepare(`
         SELECT t.id, t.title, t.user_id, t.reminder_days FROM trips t
         WHERE t.reminder_days > 0
           AND t.start_date IS NOT NULL

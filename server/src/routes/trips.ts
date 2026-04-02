@@ -3,6 +3,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
+import { getBackend } from '../storage/factory';
+import { StoragePurpose } from '../storage/types';
 import { canAccessTrip } from '../db/database';
 import { authenticate, demoUploadBlock } from '../middleware/auth';
 import { broadcast } from '../websocket';
@@ -17,7 +19,6 @@ import {
   deleteTrip,
   getTripRaw,
   getTripOwner,
-  deleteOldCover,
   updateCoverImage,
   listMembers,
   addMember,
@@ -32,11 +33,11 @@ const router = express.Router();
 
 const MAX_COVER_SIZE = 20 * 1024 * 1024; // 20 MB
 
-const coversDir = path.join(__dirname, '../../uploads/covers');
+const tmpDir = path.join(__dirname, '../../data/tmp');
 const coverStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    if (!fs.existsSync(coversDir)) fs.mkdirSync(coversDir, { recursive: true });
-    cb(null, coversDir);
+    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+    cb(null, tmpDir);
   },
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname);
@@ -99,7 +100,7 @@ router.get('/:id', authenticate, (req: Request, res: Response) => {
 
 // ── Update trip ───────────────────────────────────────────────────────────
 
-router.put('/:id', authenticate, (req: Request, res: Response) => {
+router.put('/:id', authenticate, async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
   const access = canAccessTrip(req.params.id, authReq.user.id);
   if (!access) return res.status(404).json({ error: 'Trip not found' });
@@ -125,7 +126,19 @@ router.put('/:id', authenticate, (req: Request, res: Response) => {
   }
 
   try {
+    // Capture old cover before update for backend cleanup
+    const oldCover = req.body.cover_image !== undefined ? getTripRaw(req.params.id)?.cover_image : undefined;
     const result = updateTrip(req.params.id, authReq.user.id, req.body, authReq.user.role);
+
+    // Delete old cover from storage if cover_image was changed/cleared
+    if (oldCover && req.body.cover_image !== oldCover) {
+      try {
+        const backend = getBackend(StoragePurpose.COVERS);
+        await backend.delete(path.basename(oldCover));
+      } catch (e) {
+        console.error('Error deleting old cover:', e);
+      }
+    }
 
     if (Object.keys(result.changes).length > 0) {
       writeAudit({ userId: authReq.user.id, action: 'trip.update', ip: getClientIp(req), details: { tripId: Number(req.params.id), trip: result.newTitle, ...(result.ownerEmail ? { owner: result.ownerEmail } : {}), ...result.changes } });
@@ -153,7 +166,7 @@ router.put('/:id', authenticate, (req: Request, res: Response) => {
 
 // ── Cover upload ──────────────────────────────────────────────────────────
 
-router.post('/:id/cover', authenticate, demoUploadBlock, uploadCover.single('cover'), (req: Request, res: Response) => {
+router.post('/:id/cover', authenticate, demoUploadBlock, uploadCover.single('cover'), async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
   const access = canAccessTrip(req.params.id, authReq.user.id);
   const tripOwnerId = access?.user_id;
@@ -166,11 +179,36 @@ router.post('/:id/cover', authenticate, demoUploadBlock, uploadCover.single('cov
   if (!trip) return res.status(404).json({ error: 'Trip not found' });
   if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
 
-  deleteOldCover(trip.cover_image);
+  const tempPath = req.file.path;
+  const ext = path.extname(req.file.originalname);
+  const storageKey = `${uuidv4()}${ext}`;
 
-  const coverUrl = `/uploads/covers/${req.file.filename}`;
-  updateCoverImage(req.params.id, coverUrl);
-  res.json({ cover_image: coverUrl });
+  try {
+    const backend = getBackend(StoragePurpose.COVERS);
+
+    // Delete old cover if exists
+    if (trip.cover_image) {
+      try {
+        await backend.delete(path.basename(trip.cover_image));
+      } catch (e) {
+        console.error('Error deleting old cover:', e);
+      }
+    }
+
+    // Upload new cover
+    const stream = fs.createReadStream(tempPath);
+    await backend.store(storageKey, stream);
+
+    // Store full URL path for consistency with GET responses (backward-compatible with legacy data)
+    const coverPath = `/uploads/covers/${storageKey}`;
+    updateCoverImage(req.params.id, coverPath);
+    res.json({ cover_image: coverPath });
+  } catch (err: unknown) {
+    console.error('Cover upload error:', err);
+    res.status(500).json({ error: 'Failed to upload cover image' });
+  } finally {
+    try { fs.unlinkSync(tempPath); } catch {}
+  }
 });
 
 // ── Delete trip ───────────────────────────────────────────────────────────

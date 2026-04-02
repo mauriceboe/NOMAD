@@ -269,8 +269,16 @@ export default function BackupPanel() {
                     )}
                   </div>
                   <div className="flex items-center gap-3 mt-0.5">
-                    <span className="text-xs text-gray-400">{formatDate(backup.created_at)}</span>
-                    <span className="text-xs text-gray-400">{formatSize(backup.size)}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatDate(backup.created_at)}</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatSize(backup.size)}</span>
+                    {backup.targetName && (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                        {backup.targetName}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">

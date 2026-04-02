@@ -518,6 +518,38 @@ function runMigrations(db: Database.Database): void {
         CREATE INDEX IF NOT EXISTS idx_notifications_recipient_created ON notifications(recipient_id, created_at DESC);
       `);
     },
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS storage_targets (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          type TEXT NOT NULL CHECK(type IN ('s3')),
+          config_encrypted TEXT NOT NULL,
+          encrypt INTEGER NOT NULL DEFAULT 0,
+          enabled INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE TRIGGER IF NOT EXISTS storage_targets_updated_at
+          AFTER UPDATE ON storage_targets
+          FOR EACH ROW BEGIN
+            UPDATE storage_targets SET updated_at = datetime('now') WHERE id = OLD.id;
+          END;
+
+        CREATE TABLE IF NOT EXISTS storage_assignments (
+          purpose TEXT PRIMARY KEY CHECK(purpose IN ('backup','photos','files','covers','avatars')),
+          target_id INTEGER REFERENCES storage_targets(id) ON DELETE RESTRICT
+        );
+      `);
+    },
+    () => {
+      // Add enabled column to storage_targets (existing databases)
+      const cols = (db.prepare("PRAGMA table_info(storage_targets)").all() as { name: string }[]).map(c => c.name);
+      if (!cols.includes('enabled')) {
+        db.exec('ALTER TABLE storage_targets ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1');
+      }
+    },
   ];
 
   if (currentVersion < migrations.length) {

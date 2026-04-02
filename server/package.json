@@ -7,6 +7,8 @@
     "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1022.0",
+    "@aws-sdk/s3-request-presigner": "^3.1022.0",
     "@modelcontextprotocol/sdk": "^1.28.0",
     "archiver": "^6.0.1",
     "bcryptjs": "^2.4.3",
