@@ -75,7 +75,8 @@ function createPlaceIcon(place, orderNumbers, isSelected) {
         width:${size}px;height:${size}px;border-radius:50%;
         border:${borderWidth}px solid ${borderColor};
         box-shadow:${shadow};
-        overflow:hidden;background:${bgColor};
+        display:flex;
+        background:${bgColor};
         cursor:pointer;position:relative;
       ">
         <img src="${place.image_url}" width="${size}" height="${size}" style="display:block;border-radius:50%;object-fit:cover;" />
