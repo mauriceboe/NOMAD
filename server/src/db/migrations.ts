@@ -632,6 +632,65 @@ function runMigrations(db: Database.Database): void {
         }
       }
     },
+    () => {
+      // Add Synology credential columns for existing databases
+      try { db.exec('ALTER TABLE users ADD COLUMN synology_url TEXT'); } catch (err: any) { if (!err.message?.includes('duplicate column name')) throw err; }
+      try { db.exec('ALTER TABLE users ADD COLUMN synology_username TEXT'); } catch (err: any) { if (!err.message?.includes('duplicate column name')) throw err; }
+      try { db.exec('ALTER TABLE users ADD COLUMN synology_password TEXT'); } catch (err: any) { if (!err.message?.includes('duplicate column name')) throw err; }
+      try { db.exec('ALTER TABLE users ADD COLUMN synology_sid TEXT'); } catch (err: any) { if (!err.message?.includes('duplicate column name')) throw err; }
+    },
+    () => {
+      // Seed Synology Photos provider and fields in existing databases
+      try {
+        db.prepare(`
+          INSERT INTO photo_providers (id, name, description, icon, enabled, config, sort_order)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            name = excluded.name,
+            description = excluded.description,
+            icon = excluded.icon,
+            enabled = excluded.enabled,
+            config = excluded.config,
+            sort_order = excluded.sort_order
+        `).run(
+          'synologyphotos',
+          'Synology Photos',
+          'Synology Photos integration with separate account settings',
+          'Image',
+          0,
+          JSON.stringify({
+            settings_get: '/integrations/synologyphotos/settings',
+            settings_put: '/integrations/synologyphotos/settings',
+            status_get: '/integrations/synologyphotos/status',
+            test_get: '/integrations/synologyphotos/status',
+          }),
+          1,
+        );
+      } catch (err: any) {
+        if (!err.message?.includes('no such table')) throw err;
+      }
+      try {
+        const insertField = db.prepare(`
+          INSERT INTO photo_provider_fields
+          (provider_id, field_key, label, input_type, placeholder, required, secret, settings_key, payload_key, sort_order)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(provider_id, field_key) DO UPDATE SET
+            label = excluded.label,
+            input_type = excluded.input_type,
+            placeholder = excluded.placeholder,
+            required = excluded.required,
+            secret = excluded.secret,
+            settings_key = excluded.settings_key,
+            payload_key = excluded.payload_key,
+            sort_order = excluded.sort_order
+        `);
+        insertField.run('synologyphotos', 'synology_url', 'Server URL', 'url', 'https://synology.example.com', 1, 0, 'synology_url', 'synology_url', 0);
+        insertField.run('synologyphotos', 'synology_username', 'Username', 'text', 'Username', 1, 0, 'synology_username', 'synology_username', 1);
+        insertField.run('synologyphotos', 'synology_password', 'Password', 'password', 'Password', 1, 1, null, 'synology_password', 2);
+      } catch (err: any) {
+        if (!err.message?.includes('no such table')) throw err;
+      }
+    },
   ];
 
   if (currentVersion < migrations.length) {

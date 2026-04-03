@@ -281,6 +281,8 @@ import atlasRoutes from './routes/atlas';
 app.use('/api/addons/atlas', atlasRoutes);
 import immichRoutes from './routes/immich';
 app.use('/api/integrations/immich', immichRoutes);
+const synologyRoutes = require('./routes/synology').default;
+app.use('/api/integrations/synologyphotos', synologyRoutes);
 import memoriesRoutes from './routes/memories';
 app.use('/api/integrations/memories', memoriesRoutes);
 
