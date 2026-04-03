@@ -4,7 +4,7 @@ import { db } from '../db/database';
 import { JWT_SECRET } from '../config';
 
 /** Paths that never require MFA (public or pre-auth). */
-function isPublicApiPath(method: string, pathNoQuery: string): boolean {
+export function isPublicApiPath(method: string, pathNoQuery: string): boolean {
   if (method === 'GET' && pathNoQuery === '/api/health') return true;
   if (method === 'GET' && pathNoQuery === '/api/auth/app-config') return true;
   if (method === 'POST' && pathNoQuery === '/api/auth/login') return true;
@@ -17,7 +17,7 @@ function isPublicApiPath(method: string, pathNoQuery: string): boolean {
 }
 
 /** Authenticated paths allowed while MFA is not yet enabled (setup + lockout recovery). */
-function isMfaSetupExemptPath(method: string, pathNoQuery: string): boolean {
+export function isMfaSetupExemptPath(method: string, pathNoQuery: string): boolean {
   if (method === 'GET' && pathNoQuery === '/api/auth/me') return true;
   if (method === 'POST' && pathNoQuery === '/api/auth/mfa/setup') return true;
   if (method === 'POST' && pathNoQuery === '/api/auth/mfa/enable') return true;

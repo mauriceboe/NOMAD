@@ -116,7 +116,7 @@ const TTL_FORECAST_MS = 60 * 60 * 1000;      // 1 hour
 const TTL_CURRENT_MS  = 15 * 60 * 1000;      // 15 minutes
 const TTL_CLIMATE_MS  = 24 * 60 * 60 * 1000; // 24 hours
 
-function cacheKey(lat: string, lng: string, date?: string): string {
+export function cacheKey(lat: string, lng: string, date?: string): string {
   const rlat = parseFloat(lat).toFixed(2);
   const rlng = parseFloat(lng).toFixed(2);
   return `${rlat}_${rlng}_${date || 'current'}`;
@@ -138,7 +138,7 @@ function setCache(key: string, data: WeatherResult, ttlMs: number): void {
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-function estimateCondition(tempAvg: number, precipMm: number): string {
+export function estimateCondition(tempAvg: number, precipMm: number): string {
   if (precipMm > 5) return tempAvg <= 0 ? 'Snow' : 'Rain';
   if (precipMm > 1) return tempAvg <= 0 ? 'Snow' : 'Drizzle';
   if (precipMm > 0.3) return 'Clouds';

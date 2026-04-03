@@ -4,7 +4,7 @@ import { db } from '../db/database';
 import { JWT_SECRET } from '../config';
 import { AuthRequest, OptionalAuthRequest, User } from '../types';
 
-function extractToken(req: Request): string | null {
+export function extractToken(req: Request): string | null {
   // Prefer httpOnly cookie; fall back to Authorization: Bearer (MCP, API clients)
   const cookieToken = (req as any).cookies?.trek_session;
   if (cookieToken) return cookieToken;

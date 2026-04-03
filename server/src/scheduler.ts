@@ -21,7 +21,7 @@ interface BackupSettings {
   day_of_month: number;
 }
 
-function buildCronExpression(settings: BackupSettings): string {
+export function buildCronExpression(settings: BackupSettings): string {
   const hour = VALID_HOURS.has(settings.hour) ? settings.hour : 2;
   const dow = VALID_DAYS_OF_WEEK.has(settings.day_of_week) ? settings.day_of_week : 0;
   const dom = settings.day_of_month >= 1 && settings.day_of_month <= 28 ? settings.day_of_month : 1;
