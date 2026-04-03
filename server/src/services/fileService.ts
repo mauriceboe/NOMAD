@@ -193,23 +193,13 @@ export function restoreFile(id: string | number) {
 }
 
 export function permanentDeleteFile(file: TripFile) {
-  const { resolved } = resolveFilePath(file.filename);
-  if (fs.existsSync(resolved)) {
-    try { fs.unlinkSync(resolved); } catch (e) { console.error('Error deleting file:', e); }
-  }
   db.prepare('DELETE FROM trip_files WHERE id = ?').run(file.id);
 }
 
 export function emptyTrash(tripId: string | number): number {
-  const trashed = db.prepare('SELECT * FROM trip_files WHERE trip_id = ? AND deleted_at IS NOT NULL').all(tripId) as TripFile[];
-  for (const file of trashed) {
-    const { resolved } = resolveFilePath(file.filename);
-    if (fs.existsSync(resolved)) {
-      try { fs.unlinkSync(resolved); } catch (e) { console.error('Error deleting file:', e); }
-    }
-  }
+  const count = (db.prepare('SELECT COUNT(*) as n FROM trip_files WHERE trip_id = ? AND deleted_at IS NOT NULL').get(tripId) as { n: number }).n;
   db.prepare('DELETE FROM trip_files WHERE trip_id = ? AND deleted_at IS NOT NULL').run(tripId);
-  return trashed.length;
+  return count;
 }
 
 // ---------------------------------------------------------------------------

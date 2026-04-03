@@ -300,12 +300,9 @@ router.post('/rotate-jwt-secret', (req: Request, res: Response) => {
   if (result.error) return res.status(result.status!).json({ error: result.error });
   const authReq = req as AuthRequest;
   writeAudit({
-    user_id: authReq.user?.id ?? null,
-    username: authReq.user?.username ?? 'unknown',
+    userId: authReq.user?.id ?? null,
     action: 'admin.rotate_jwt_secret',
-    target_type: 'system',
-    target_id: null,
-    details: null,
+    details: { rotatedBy: authReq.user?.username ?? 'unknown' },
     ip: getClientIp(req),
   });
   res.json({ success: true });

@@ -30,6 +30,16 @@ env:
   # OIDC_SCOPE: "openid email profile groups"
   # Space-separated OIDC scopes to request. Must include scopes for any claim used by OIDC_ADMIN_CLAIM.
 
+  # External Storage Configuration (optional)
+  # Configure S3-compatible storage for backups, files, photos, covers, and avatars.
+  # If not set, local filesystem storage is used.
+  # STORAGE_S3_ENDPOINT: "https://s3.amazonaws.com"
+  # STORAGE_S3_REGION: "us-east-1"
+  # STORAGE_S3_BUCKET: "my-trek-bucket"
+  # STORAGE_S3_PATH_PREFIX: "trek/"
+  # STORAGE_S3_USE_PRESIGNED_URLS: "true"
+  # STORAGE_S3_ENCRYPT_AT_REST: "true"
+
 
 # Secret environment variables stored in a Kubernetes Secret.
 # JWT_SECRET is managed entirely by the server (auto-generated into the data PVC,
@@ -46,6 +56,12 @@ secretEnv:
   # If either is empty a random password is generated and printed to the server log.
   ADMIN_EMAIL: ""
   ADMIN_PASSWORD: ""
+
+  # S3 Storage Credentials (optional)
+  # Required if using external S3-compatible storage configured above.
+  # Uncomment and set these values to enable S3 storage.
+  # STORAGE_S3_ACCESS_KEY: "your-access-key"
+  # STORAGE_S3_SECRET_KEY: "your-secret-key"
 
 # If true, a random ENCRYPTION_KEY is generated at install and preserved across upgrades
 generateEncryptionKey: false

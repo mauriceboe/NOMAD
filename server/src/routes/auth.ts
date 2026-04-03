@@ -3,8 +3,11 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { v4 as uuid } from 'uuid';
+import { getBackend } from '../storage/factory';
+import { StoragePurpose } from '../storage/types';
+import { db } from '../db/database';
 import { authenticate, optionalAuth, demoUploadBlock } from '../middleware/auth';
-import { AuthRequest, OptionalAuthRequest } from '../types';
+import { AuthRequest, OptionalAuthRequest, User } from '../types';
 import { writeAudit, getClientIp } from '../services/auditLog';
 import { setAuthCookie, clearAuthCookie } from '../services/cookie';
 import {
@@ -20,8 +23,7 @@ import {
   updateApiKeys,
   updateSettings,
   getSettings,
-  saveAvatar,
-  deleteAvatar,
+  avatarUrl,
   listUsers,
   validateKeys,
   getAppSettings,
@@ -44,11 +46,11 @@ const router = express.Router();
 // Avatar upload (multer config stays in route — middleware concern)
 // ---------------------------------------------------------------------------
 
-const avatarDir = path.join(__dirname, '../../uploads/avatars');
-if (!fs.existsSync(avatarDir)) fs.mkdirSync(avatarDir, { recursive: true });
+const tmpDir = path.join(__dirname, '../../data/tmp');
+if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
 
 const avatarStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, avatarDir),
+  destination: (_req, _file, cb) => cb(null, tmpDir),
   filename: (_req, file, cb) => cb(null, uuid() + path.extname(file.originalname)),
 });
 const ALLOWED_AVATAR_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
@@ -196,15 +198,58 @@ router.get('/me/settings', authenticate, (req: Request, res: Response) => {
   res.json({ settings: result.settings });
 });
 
-router.post('/avatar', authenticate, demoUploadBlock, avatarUpload.single('avatar'), (req: Request, res: Response) => {
+router.post('/avatar', authenticate, demoUploadBlock, avatarUpload.single('avatar'), async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
   if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
-  res.json(saveAvatar(authReq.user.id, req.file.filename));
+
+  const tempPath = req.file.path;
+  const ext = path.extname(req.file.originalname);
+  const storageKey = `${uuid()}${ext}`;
+
+  try {
+    const backend = getBackend(StoragePurpose.AVATARS);
+
+    // Delete old avatar if exists
+    const current = db.prepare('SELECT avatar FROM users WHERE id = ?').get(authReq.user.id) as { avatar: string | null } | undefined;
+    if (current && current.avatar) {
+      try {
+        await backend.delete(current.avatar);
+      } catch (e) {
+        console.error('Error deleting old avatar:', e);
+      }
+    }
+
+    // Upload new avatar
+    const stream = fs.createReadStream(tempPath);
+    await backend.store(storageKey, stream);
+
+    // Store only the key, not a URL
+    db.prepare('UPDATE users SET avatar = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(storageKey, authReq.user.id);
+
+    const updated = db.prepare('SELECT id, username, email, role, avatar FROM users WHERE id = ?').get(authReq.user.id) as Pick<User, 'id' | 'username' | 'email' | 'role' | 'avatar'> | undefined;
+    res.json({ success: true, avatar_url: avatarUrl(updated || {}) });
+  } catch (err: unknown) {
+    console.error('Avatar upload error:', err);
+    res.status(500).json({ error: 'Failed to upload avatar' });
+  } finally {
+    try { fs.unlinkSync(tempPath); } catch {}
+  }
 });
 
-router.delete('/avatar', authenticate, (req: Request, res: Response) => {
+router.delete('/avatar', authenticate, async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
-  res.json(deleteAvatar(authReq.user.id));
+  const current = db.prepare('SELECT avatar FROM users WHERE id = ?').get(authReq.user.id) as { avatar: string | null } | undefined;
+  if (current && current.avatar) {
+    try {
+      const backend = getBackend(StoragePurpose.AVATARS);
+      await backend.delete(current.avatar);
+    } catch (e) {
+      console.error('Error deleting avatar:', e);
+    }
+  }
+
+  db.prepare('UPDATE users SET avatar = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(authReq.user.id);
+  res.json({ success: true });
 });
 
 router.get('/users', authenticate, (req: Request, res: Response) => {

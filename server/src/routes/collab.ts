@@ -3,6 +3,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
+import { getBackend } from '../storage/factory';
+import { StoragePurpose } from '../storage/types';
 import { authenticate } from '../middleware/auth';
 import { broadcast } from '../websocket';
 import { validateStringLengths } from '../middleware/validate';
@@ -31,10 +33,10 @@ import {
 } from '../services/collabService';
 
 const MAX_NOTE_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
-const filesDir = path.join(__dirname, '../../uploads/files');
+const tmpDir = path.join(__dirname, '../../data/tmp');
 const noteUpload = multer({
   storage: multer.diskStorage({
-    destination: (_req, _file, cb) => { if (!fs.existsSync(filesDir)) fs.mkdirSync(filesDir, { recursive: true }); cb(null, filesDir) },
+    destination: (_req, _file, cb) => { if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true }); cb(null, tmpDir) },
     filename: (_req, file, cb) => { cb(null, `${uuidv4()}${path.extname(file.originalname)}`) },
   }),
   limits: { fileSize: MAX_NOTE_FILE_SIZE },
@@ -99,7 +101,7 @@ router.put('/notes/:id', authenticate, (req: Request, res: Response) => {
   broadcast(tripId, 'collab:note:updated', { note: formatted }, req.headers['x-socket-id'] as string);
 });
 
-router.delete('/notes/:id', authenticate, (req: Request, res: Response) => {
+router.delete('/notes/:id', authenticate, async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
   const { tripId, id } = req.params;
   const access = verifyTripAccess(tripId, authReq.user.id);
@@ -107,7 +109,17 @@ router.delete('/notes/:id', authenticate, (req: Request, res: Response) => {
   if (!checkPermission('collab_edit', authReq.user.role, access.user_id, authReq.user.id, access.user_id !== authReq.user.id))
     return res.status(403).json({ error: 'No permission' });
 
+  // Collect file info BEFORE deleteNote removes the DB records
+  const noteFiles = db.prepare('SELECT id, filename FROM trip_files WHERE note_id = ?').all(id) as { id: number; filename: string }[];
   if (!deleteNote(tripId, id)) return res.status(404).json({ error: 'Note not found' });
+
+  // Delete attachments from storage backend
+  if (noteFiles.length > 0) {
+    const backend = getBackend(StoragePurpose.FILES);
+    for (const f of noteFiles) {
+      try { await backend.delete(f.filename); } catch (e) { console.error('Error deleting note file from storage:', e); }
+    }
+  }
 
   res.json({ success: true });
   broadcast(tripId, 'collab:note:deleted', { noteId: Number(id) }, req.headers['x-socket-id'] as string);
@@ -117,7 +129,7 @@ router.delete('/notes/:id', authenticate, (req: Request, res: Response) => {
 /*  Note files                                                         */
 /* ------------------------------------------------------------------ */
 
-router.post('/notes/:id/files', authenticate, noteUpload.single('file'), (req: Request, res: Response) => {
+router.post('/notes/:id/files', authenticate, noteUpload.single('file'), async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
   const { tripId, id } = req.params;
   const access = verifyTripAccess(Number(tripId), authReq.user.id);
@@ -126,14 +138,33 @@ router.post('/notes/:id/files', authenticate, noteUpload.single('file'), (req: R
     return res.status(403).json({ error: 'No permission to upload files' });
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-  const result = addNoteFile(tripId, id, req.file);
-  if (!result) return res.status(404).json({ error: 'Note not found' });
+  const tempPath = req.file.path;
+  const ext = path.extname(req.file.originalname);
+  const storageKey = `${uuidv4()}${ext}`; // bare key — addNoteFile prepends "files/" in DB
 
-  res.status(201).json(result);
-  broadcast(Number(tripId), 'collab:note:updated', { note: getFormattedNoteById(id) }, req.headers['x-socket-id'] as string);
+  try {
+    const backend = getBackend(StoragePurpose.FILES);
+    // Store under "files/<key>" so the key stored in DB ("files/<key>" via addNoteFile) matches
+    // what local.ts resolves (strips "files/" prefix) and what S3 stores (key as-is).
+    await backend.store(`files/${storageKey}`, fs.createReadStream(tempPath));
+
+    const result = addNoteFile(tripId, id, { ...req.file, filename: storageKey });
+    if (!result) {
+      try { await backend.delete(`files/${storageKey}`); } catch {}
+      return res.status(404).json({ error: 'Note not found' });
+    }
+
+    res.status(201).json(result);
+    broadcast(Number(tripId), 'collab:note:updated', { note: getFormattedNoteById(id) }, req.headers['x-socket-id'] as string);
+  } catch (err: unknown) {
+    console.error('Note file upload error:', err);
+    res.status(500).json({ error: 'Failed to upload file' });
+  } finally {
+    try { fs.unlinkSync(tempPath); } catch {}
+  }
 });
 
-router.delete('/notes/:id/files/:fileId', authenticate, (req: Request, res: Response) => {
+router.delete('/notes/:id/files/:fileId', authenticate, async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
   const { tripId, id, fileId } = req.params;
   const access = verifyTripAccess(Number(tripId), authReq.user.id);
@@ -141,7 +172,19 @@ router.delete('/notes/:id/files/:fileId', authenticate, (req: Request, res: Resp
   if (!checkPermission('collab_edit', authReq.user.role, access.user_id, authReq.user.id, access.user_id !== authReq.user.id))
     return res.status(403).json({ error: 'No permission' });
 
+  // Capture filename BEFORE deleteNoteFile removes the DB record
+  const fileRow = db.prepare('SELECT filename FROM trip_files WHERE id = ? AND note_id = ?').get(fileId, id) as { filename: string } | undefined;
   if (!deleteNoteFile(id, fileId)) return res.status(404).json({ error: 'File not found' });
+
+  // Delete from storage backend (fileRow.filename = 'files/<storageKey>')
+  if (fileRow) {
+    try {
+      const backend = getBackend(StoragePurpose.FILES);
+      await backend.delete(fileRow.filename);
+    } catch (e) {
+      console.error('Error deleting note file from storage:', e);
+    }
+  }
 
   res.json({ success: true });
   broadcast(Number(tripId), 'collab:note:updated', { note: getFormattedNoteById(id) }, req.headers['x-socket-id'] as string);

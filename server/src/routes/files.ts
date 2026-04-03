@@ -11,7 +11,6 @@ import { checkPermission } from '../services/permissions';
 import {
   MAX_FILE_SIZE,
   BLOCKED_EXTENSIONS,
-  filesDir,
   getAllowedExtensions,
   verifyTripAccess,
   formatFile,
@@ -32,18 +31,20 @@ import {
   deleteFileLink,
   getFileLinks,
 } from '../services/fileService';
+import { getBackend } from '../storage/factory';
+import { StoragePurpose } from '../storage/types';
 
 const router = express.Router({ mergeParams: true });
 
 // ---------------------------------------------------------------------------
-// Multer setup (HTTP middleware — stays in route)
+// Multer setup — saves to temp, then stream to storage backend
 // ---------------------------------------------------------------------------
 
+const tmpDir = path.join(__dirname, '../../data/tmp');
+if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    if (!fs.existsSync(filesDir)) fs.mkdirSync(filesDir, { recursive: true });
-    cb(null, filesDir);
-  },
+  destination: (_req, _file, cb) => cb(null, tmpDir),
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname);
     cb(null, `${uuidv4()}${ext}`);
@@ -73,8 +74,8 @@ const upload = multer({
 // Routes
 // ---------------------------------------------------------------------------
 
-// Authenticated file download (supports Bearer header or ?token= query param)
-router.get('/:id/download', (req: Request, res: Response) => {
+// Authenticated file download
+router.get('/:id/download', async (req: Request, res: Response) => {
   const { tripId, id } = req.params;
 
   const authHeader = req.headers['authorization'];
@@ -90,14 +91,22 @@ router.get('/:id/download', (req: Request, res: Response) => {
   const file = getFileById(id, tripId);
   if (!file) return res.status(404).json({ error: 'File not found' });
 
-  const { resolved, safe } = resolveFilePath(file.filename);
-  if (!safe) return res.status(403).json({ error: 'Forbidden' });
-  if (!fs.existsSync(resolved)) return res.status(404).json({ error: 'File not found' });
+  try {
+    const backend = getBackend(StoragePurpose.FILES);
+    const result = await backend.download(file.filename);
 
-  res.sendFile(resolved);
+    if (result.type === 'redirect') {
+      return res.redirect(302, result.url);
+    }
+
+    res.setHeader('Content-Disposition', `attachment; filename="${file.original_name}"`);
+    result.stream.pipe(res);
+  } catch {
+    res.status(404).json({ error: 'File not found' });
+  }
 });
 
-// List files (excludes soft-deleted by default)
+// List files
 router.get('/', authenticate, (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
   const { tripId } = req.params;
@@ -110,7 +119,7 @@ router.get('/', authenticate, (req: Request, res: Response) => {
 });
 
 // Upload file
-router.post('/', authenticate, requireTripAccess, demoUploadBlock, upload.single('file'), (req: Request, res: Response) => {
+router.post('/', authenticate, requireTripAccess, demoUploadBlock, upload.single('file'), async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
   const { tripId } = req.params;
   const { user_id: tripOwnerId } = authReq.trip!;
@@ -120,9 +129,22 @@ router.post('/', authenticate, requireTripAccess, demoUploadBlock, upload.single
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
   const { place_id, description, reservation_id } = req.body;
-  const created = createFile(tripId, req.file, authReq.user.id, { place_id, description, reservation_id });
-  res.status(201).json({ file: created });
-  broadcast(tripId, 'file:created', { file: created }, req.headers['x-socket-id'] as string);
+  const tempPath = req.file.path;
+  const storageKey = req.file.filename; // already uuid.ext from our multer config
+
+  try {
+    const backend = getBackend(StoragePurpose.FILES);
+    const stream = fs.createReadStream(tempPath);
+    await backend.store(storageKey, stream);
+
+    const created = createFile(tripId, { ...req.file, filename: storageKey }, authReq.user.id, { place_id, description, reservation_id });
+    res.status(201).json({ file: created });
+    broadcast(tripId, 'file:created', { file: created }, req.headers['x-socket-id'] as string);
+  } catch (err: unknown) {
+    res.status(500).json({ error: 'Upload failed' });
+  } finally {
+    if (fs.existsSync(tempPath)) { try { fs.unlinkSync(tempPath); } catch {} }
+  }
 });
 
 // Update file metadata
@@ -199,7 +221,7 @@ router.post('/:id/restore', authenticate, (req: Request, res: Response) => {
 });
 
 // Permanently delete from trash
-router.delete('/:id/permanent', authenticate, (req: Request, res: Response) => {
+router.delete('/:id/permanent', authenticate, async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
   const { tripId, id } = req.params;
 
@@ -211,13 +233,19 @@ router.delete('/:id/permanent', authenticate, (req: Request, res: Response) => {
   const file = getDeletedFile(id, tripId);
   if (!file) return res.status(404).json({ error: 'File not found in trash' });
 
+  try {
+    const backend = getBackend(StoragePurpose.FILES);
+    await backend.delete(file.filename);
+  } catch (e) {
+    console.error('Error deleting file from storage:', e);
+  }
   permanentDeleteFile(file);
   res.json({ success: true });
   broadcast(tripId, 'file:deleted', { fileId: Number(id) }, req.headers['x-socket-id'] as string);
 });
 
 // Empty entire trash
-router.delete('/trash/empty', authenticate, (req: Request, res: Response) => {
+router.delete('/trash/empty', authenticate, async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
   const { tripId } = req.params;
 
@@ -226,11 +254,17 @@ router.delete('/trash/empty', authenticate, (req: Request, res: Response) => {
   if (!checkPermission('file_delete', authReq.user.role, trip.user_id, authReq.user.id, trip.user_id !== authReq.user.id))
     return res.status(403).json({ error: 'No permission' });
 
+  const trashedFiles = listFiles(tripId, true);
+  const backend = getBackend(StoragePurpose.FILES);
+  for (const file of trashedFiles) {
+    try { await backend.delete(file.filename); } catch (e) { console.error('Error deleting file from storage:', e); }
+  }
+
   const deleted = emptyTrash(tripId);
   res.json({ success: true, deleted });
 });
 
-// Link a file to a reservation (many-to-many)
+// Link a file to a reservation/assignment/place
 router.post('/:id/link', authenticate, (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
   const { tripId, id } = req.params;
@@ -248,7 +282,7 @@ router.post('/:id/link', authenticate, (req: Request, res: Response) => {
   res.json({ success: true, links });
 });
 
-// Unlink a file from a reservation
+// Unlink a file
 router.delete('/:id/link/:linkId', authenticate, (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
   const { tripId, id, linkId } = req.params;

@@ -236,17 +236,6 @@ export function deleteTrip(tripId: string | number, userId: number, userRole: st
   return { tripId: Number(tripId), title: trip.title, ownerId: trip.user_id, isAdminDelete, ownerEmail };
 }
 
-// ── Cover image ───────────────────────────────────────────────────────────
-
-export function deleteOldCover(coverImage: string | null | undefined) {
-  if (!coverImage) return;
-  const oldPath = path.join(__dirname, '../../', coverImage.replace(/^\//, ''));
-  const resolvedPath = path.resolve(oldPath);
-  const uploadsDir = path.resolve(__dirname, '../../uploads');
-  if (resolvedPath.startsWith(uploadsDir) && fs.existsSync(resolvedPath)) {
-    fs.unlinkSync(resolvedPath);
-  }
-}
 
 export function updateCoverImage(tripId: string | number, coverUrl: string) {
   db.prepare('UPDATE trips SET cover_image=?, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(coverUrl, tripId);

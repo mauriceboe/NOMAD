@@ -22,3 +22,21 @@ data:
   {{- if .Values.env.OIDC_DISCOVERY_URL }}
   OIDC_DISCOVERY_URL: {{ .Values.env.OIDC_DISCOVERY_URL | quote }}
   {{- end }}
+  {{- if .Values.env.STORAGE_S3_ENDPOINT }}
+  STORAGE_S3_ENDPOINT: {{ .Values.env.STORAGE_S3_ENDPOINT | quote }}
+  {{- end }}
+  {{- if .Values.env.STORAGE_S3_REGION }}
+  STORAGE_S3_REGION: {{ .Values.env.STORAGE_S3_REGION | quote }}
+  {{- end }}
+  {{- if .Values.env.STORAGE_S3_BUCKET }}
+  STORAGE_S3_BUCKET: {{ .Values.env.STORAGE_S3_BUCKET | quote }}
+  {{- end }}
+  {{- if .Values.env.STORAGE_S3_PATH_PREFIX }}
+  STORAGE_S3_PATH_PREFIX: {{ .Values.env.STORAGE_S3_PATH_PREFIX | quote }}
+  {{- end }}
+  {{- if .Values.env.STORAGE_S3_USE_PRESIGNED_URLS }}
+  STORAGE_S3_USE_PRESIGNED_URLS: {{ .Values.env.STORAGE_S3_USE_PRESIGNED_URLS | quote }}
+  {{- end }}
+  {{- if .Values.env.STORAGE_S3_ENCRYPT_AT_REST }}
+  STORAGE_S3_ENCRYPT_AT_REST: {{ .Values.env.STORAGE_S3_ENCRYPT_AT_REST | quote }}
+  {{- end }}

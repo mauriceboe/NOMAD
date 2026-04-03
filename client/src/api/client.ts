@@ -339,4 +339,15 @@ export const inAppNotificationsApi = {
     apiClient.post(`/notifications/in-app/${id}/respond`, { response }).then(r => r.data),
 }
 
+export const storageApi = {
+  getTargets: () => apiClient.get('/storage/targets').then(r => r.data),
+  createTarget: (data: any) => apiClient.post('/storage/targets', data).then(r => r.data),
+  updateTarget: (id: number, data: any) => apiClient.put(`/storage/targets/${id}`, data).then(r => r.data),
+  deleteTarget: (id: number) => apiClient.delete(`/storage/targets/${id}`).then(r => r.data),
+  testTarget: (id: number) => apiClient.post(`/storage/targets/${id}/test`).then(r => r.data),
+  getAssignments: () => apiClient.get('/storage/assignments').then(r => r.data),
+  updateAssignment: (purpose: string, targetId: number | null) =>
+    apiClient.put(`/storage/assignments/${purpose}`, { target_id: targetId }).then(r => r.data),
+}
+
 export default apiClient

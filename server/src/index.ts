@@ -6,6 +6,8 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import fs from 'fs';
+import { db } from './db/database';
+import { envBootstrapStorage, bootstrapStorageAssignments } from './storage/bootstrap';
 
 const app = express();
 const DEBUG = String(process.env.DEBUG || 'false').toLowerCase() === 'true';
@@ -128,20 +130,56 @@ app.use(enforceGlobalMfaPolicy);
   });
 }
 
-// Avatars are public (shown on login, sharing screens)
+// Avatars and covers now served via file proxy
 import { authenticate } from './middleware/auth';
-app.use('/uploads/avatars', express.static(path.join(__dirname, '../uploads/avatars')));
-app.use('/uploads/covers', express.static(path.join(__dirname, '../uploads/covers')));
+import { getBackend } from './storage/factory';
+import { StoragePurpose } from './storage/types';
+
+// Serve avatars (public - shown on login, sharing screens)
+// Note: Presigned URLs are acceptable here as avatars are intentionally public
+app.get('/uploads/avatars/:filename', async (req: Request, res: Response) => {
+  const safeName = path.basename(req.params.filename);
+  try {
+    const backend = getBackend(StoragePurpose.AVATARS);
+    const result = await backend.download(safeName);
+    if (result.type === 'redirect') {
+      return res.redirect(302, result.url);
+    }
+    result.stream.on('error', () => res.status(404).send('Not found'));
+    result.stream.pipe(res);
+  } catch (err: unknown) {
+    console.error('Avatar download error:', err);
+    // Fallback: serve from local filesystem (covers old files and misconfigured backends)
+    const localPath = path.join(__dirname, '../uploads/avatars', safeName);
+    if (fs.existsSync(localPath)) return res.sendFile(localPath);
+    res.status(404).send('Not found');
+  }
+});
+
+// Serve covers (public - shown on trip cards)
+// Note: Presigned URLs are acceptable here as covers are intentionally public
+app.get('/uploads/covers/:filename', async (req: Request, res: Response) => {
+  const safeName = path.basename(req.params.filename);
+  try {
+    const backend = getBackend(StoragePurpose.COVERS);
+    const result = await backend.download(safeName);
+    if (result.type === 'redirect') {
+      return res.redirect(302, result.url);
+    }
+    result.stream.on('error', () => res.status(404).send('Not found'));
+    result.stream.pipe(res);
+  } catch (err: unknown) {
+    console.error('Cover download error:', err);
+    // Fallback: serve from local filesystem (covers old files and misconfigured backends)
+    const localPath = path.join(__dirname, '../uploads/covers', safeName);
+    if (fs.existsSync(localPath)) return res.sendFile(localPath);
+    res.status(404).send('Not found');
+  }
+});
 
 // Serve uploaded photos — require auth token or valid share token
-app.get('/uploads/photos/:filename', (req: Request, res: Response) => {
+app.get('/uploads/photos/:filename', async (req: Request, res: Response) => {
   const safeName = path.basename(req.params.filename);
-  const filePath = path.join(__dirname, '../uploads/photos', safeName);
-  const resolved = path.resolve(filePath);
-  if (!resolved.startsWith(path.resolve(__dirname, '../uploads/photos'))) {
-    return res.status(403).send('Forbidden');
-  }
-  if (!fs.existsSync(resolved)) return res.status(404).send('Not found');
 
   // Allow if authenticated or if a valid share token is present
   const authHeader = req.headers.authorization;
@@ -153,10 +191,21 @@ app.get('/uploads/photos/:filename', (req: Request, res: Response) => {
     jwt.verify(token, process.env.JWT_SECRET || require('./config').JWT_SECRET);
   } catch {
     // Check if it's a share token
-    const shareRow = addonDb.prepare('SELECT id FROM share_tokens WHERE token = ?').get(token);
+    const shareRow = db.prepare('SELECT id FROM share_tokens WHERE token = ?').get(token);
     if (!shareRow) return res.status(401).send('Authentication required');
   }
-  res.sendFile(resolved);
+
+  try {
+    const backend = getBackend(StoragePurpose.PHOTOS);
+    const result = await backend.download(safeName);
+    if (result.type === 'redirect') {
+      return res.redirect(302, result.url);
+    }
+    result.stream.pipe(res);
+  } catch (err: unknown) {
+    console.error('Photo download error:', err);
+    res.status(404).send('Not found');
+  }
 });
 
 // Block direct access to /uploads/files — served via authenticated /api/trips/:tripId/files/:id/download
@@ -184,6 +233,9 @@ import budgetRoutes from './routes/budget';
 import collabRoutes from './routes/collab';
 import backupRoutes from './routes/backup';
 import oidcRoutes from './routes/oidc';
+import storageTargetsRoutes from './routes/storageTargets';
+import storageAssignmentsRoutes from './routes/storageAssignments';
+import fileProxyRoutes from './routes/fileProxy';
 app.use('/api/auth', authRoutes);
 app.use('/api/auth/oidc', oidcRoutes);
 app.use('/api/trips', tripsRoutes);
@@ -201,13 +253,14 @@ app.use('/api', assignmentsRoutes);
 app.use('/api/tags', tagsRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/storage/targets', storageTargetsRoutes);
+app.use('/api/storage/assignments', storageAssignmentsRoutes);
+app.use('/api/files', fileProxyRoutes);
 
 // Public addons endpoint (authenticated but not admin-only)
-import { authenticate as addonAuth } from './middleware/auth';
-import {db as addonDb} from './db/database';
 import { Addon } from './types';
-app.get('/api/addons', addonAuth, (req: Request, res: Response) => {
-  const addons = addonDb.prepare('SELECT id, name, type, icon, enabled FROM addons WHERE enabled = 1 ORDER BY sort_order').all() as Pick<Addon, 'id' | 'name' | 'type' | 'icon' | 'enabled'>[];
+app.get('/api/addons', authenticate, (req: Request, res: Response) => {
+  const addons = db.prepare('SELECT id, name, type, icon, enabled FROM addons WHERE enabled = 1 ORDER BY sort_order').all() as Pick<Addon, 'id' | 'name' | 'type' | 'icon' | 'enabled'>[];
   res.json({ addons: addons.map(a => ({ ...a, enabled: !!a.enabled })) });
 });
 
@@ -288,6 +341,10 @@ const server = app.listen(PORT, () => {
   if (process.env.DEMO_MODE === 'true' && process.env.NODE_ENV === 'production') {
     sLogWarn('SECURITY WARNING: DEMO_MODE is enabled in production!');
   }
+  
+  envBootstrapStorage();
+  bootstrapStorageAssignments();
+  
   scheduler.start();
   scheduler.startTripReminders();
   scheduler.startDemoReset();

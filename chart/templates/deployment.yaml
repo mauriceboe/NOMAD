@@ -35,6 +35,11 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "trek.fullname" . }}-config
+            {{- if or .Values.secretEnv.STORAGE_S3_ACCESS_KEY .Values.secretEnv.STORAGE_S3_SECRET_KEY (eq .Values.existingSecret "") }}
+            - secretRef:
+                name: {{ default (printf "%s-secret" (include "trek.fullname" .)) .Values.existingSecret }}
+                optional: true
+            {{- end }}
           env:
             - name: ENCRYPTION_KEY
               valueFrom:
@@ -54,6 +59,20 @@ spec:
                   name: {{ default (printf "%s-secret" (include "trek.fullname" .)) .Values.existingSecret }}
                   key: ADMIN_PASSWORD
                   optional: true
+            {{- if .Values.secretEnv.STORAGE_S3_ACCESS_KEY }}
+            - name: STORAGE_S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-secret" (include "trek.fullname" .)) .Values.existingSecret }}
+                  key: STORAGE_S3_ACCESS_KEY
+            {{- end }}
+            {{- if .Values.secretEnv.STORAGE_S3_SECRET_KEY }}
+            - name: STORAGE_S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-secret" (include "trek.fullname" .)) .Values.existingSecret }}
+                  key: STORAGE_S3_SECRET_KEY
+            {{- end }}
           volumeMounts:
             - name: data
               mountPath: /app/data

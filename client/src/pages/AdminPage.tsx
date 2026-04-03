@@ -18,6 +18,8 @@ import PackingTemplateManager from '../components/Admin/PackingTemplateManager'
 import AuditLogPanel from '../components/Admin/AuditLogPanel'
 import AdminMcpTokensPanel from '../components/Admin/AdminMcpTokensPanel'
 import PermissionsPanel from '../components/Admin/PermissionsPanel'
+import StorageTargetsPanel from '../components/Admin/StorageTargetsPanel'
+import StorageAssignmentsPanel from '../components/Admin/StorageAssignmentsPanel'
 import { Users, Map, Briefcase, Shield, Trash2, Edit2, Camera, FileText, Eye, EyeOff, Save, CheckCircle, XCircle, Loader2, UserPlus, ArrowUpCircle, ExternalLink, Download, GitBranch, Sun, Link2, Copy, Plus, RefreshCw, AlertTriangle } from 'lucide-react'
 import CustomSelect from '../components/shared/CustomSelect'
 
@@ -69,6 +71,7 @@ export default function AdminPage(): React.ReactElement {
     { id: 'addons', label: t('admin.tabs.addons') },
     { id: 'settings', label: t('admin.tabs.settings') },
     { id: 'backup', label: t('admin.tabs.backup') },
+    { id: 'storage', label: t('admin.tabs.storage') },
     { id: 'audit', label: t('admin.tabs.audit') },
     ...(mcpEnabled ? [{ id: 'mcp-tokens', label: t('admin.tabs.mcpTokens') }] : []),
     { id: 'github', label: t('admin.tabs.github') },
@@ -1180,6 +1183,13 @@ export default function AdminPage(): React.ReactElement {
           )}
 
           {activeTab === 'backup' && <BackupPanel />}
+
+          {activeTab === 'storage' && (
+            <div className="space-y-6">
+              <StorageTargetsPanel />
+              <StorageAssignmentsPanel />
+            </div>
+          )}
 
           {activeTab === 'audit' && <AuditLogPanel serverTimezone={serverTimezone} />}
 
