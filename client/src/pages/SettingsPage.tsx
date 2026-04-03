@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useSettingsStore } from '../store/settingsStore'
@@ -13,6 +13,8 @@ import { useAddonStore } from '../store/addonStore'
 import type { LucideIcon } from 'lucide-react'
 import type { UserWithOidc } from '../types'
 import { getApiErrorMessage } from '../types'
+import { MapView } from '../components/Map/MapView'
+import type { Place } from '../types'
 
 interface MapPreset {
   name: string
@@ -128,6 +130,11 @@ export default function SettingsPage(): React.ReactElement {
   const [immichApiKey, setImmichApiKey] = useState('')
   const [immichConnected, setImmichConnected] = useState(false)
   const [immichTesting, setImmichTesting] = useState(false)
+
+  const handleMapClick = useCallback((mapInfo) => {
+    setDefaultLat(mapInfo.latlng.lat)
+    setDefaultLng(mapInfo.latlng.lng)
+  }, [])
 
   useEffect(() => {
     loadAddons()
@@ -245,6 +252,31 @@ export default function SettingsPage(): React.ReactElement {
   const [defaultLng, setDefaultLng] = useState<number | string>(settings.default_lng || 2.3522)
   const [defaultZoom, setDefaultZoom] = useState<number | string>(settings.default_zoom || 10)
 
+  const mapPlaces = useMemo(() => {
+      // Add center location to map places
+      let places: Place[] = []
+      places.push({
+        id: 1,
+        trip_id: 1,
+        name: "Default map center",
+        description: "",
+        lat: defaultLat as number,
+        lng: defaultLng as number,
+        address: "",
+        category_id: 0,
+        icon: null,
+        price: null,
+        image_url: null,
+        google_place_id: null,
+        osm_id: null,
+        route_geometry: null,
+        place_time: null,
+        end_time: null,
+        created_at: Date()
+      });
+      return places
+    }, [defaultLat, defaultLng])
+    
   // Display
   const [tempUnit, setTempUnit] = useState<string>(settings.temperature_unit || 'celsius')
 
@@ -471,6 +503,29 @@ export default function SettingsPage(): React.ReactElement {
               </div>
             </div>
 
+            <div>
+              <div style={{ position: 'relative', inset: 0, height:"200px", width: "100%" }}>
+                          <MapView
+                            places={mapPlaces}
+                            dayPlaces={[]}
+                            route={null}
+                            routeSegments={null}
+                            selectedPlaceId={null}
+                            onMarkerClick={null}
+                            onMapClick={handleMapClick}
+                            onMapContextMenu={null}
+                            center = {[settings.default_lat, settings.default_lng]}
+                            zoom={defaultZoom}
+                            tileUrl={mapTileUrl}
+                            fitKey={null}
+                            dayOrderMap={[]}
+                            leftWidth={0}
+                            rightWidth={0}
+                            hasInspector={false}
+                          />
+              </div>
+            </div>
+                
             <button
               onClick={saveMapSettings}
               disabled={saving.map}
