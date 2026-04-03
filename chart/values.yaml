@@ -15,17 +15,30 @@ service:
 env:
   NODE_ENV: production
   PORT: 3000
+  TZ: UTC
+  LOG_LEVEL: info
+  # APP_URL: ""
   # ALLOWED_ORIGINS: ""
   # NOTE: If using ingress, ensure env.ALLOWED_ORIGINS matches the domains in ingress.hosts for proper CORS configuration.
+  # FORCE_HTTPS: "false"
   # ALLOW_INTERNAL_NETWORK: "false"
   # Set to "true" if Immich or other integrated services are hosted on a private/RFC-1918 network address.
   # Loopback (127.x) and link-local/metadata addresses (169.254.x) are always blocked.
   # COOKIE_SECURE: "true"
   # Set to "false" to allow session cookies over plain HTTP (e.g. no ingress TLS). Not recommended for production.
+  # TRUST_PROXY: "1"
+  # OIDC_ISSUER: ""
+  # OIDC_CLIENT_ID: ""
+  # OIDC_CLIENT_SECRET: ""
+  # OIDC_DISPLAY_NAME: "SSO"
+  # OIDC_ONLY: "false"
+  # OIDC_ADMIN_CLAIM: ""
+  # OIDC_ADMIN_VALUE: ""
   # OIDC_DISCOVERY_URL: ""
   # Override the OIDC discovery endpoint for providers with non-standard paths (e.g. Authentik).
   # OIDC_SCOPE: "openid email profile groups"
   # Space-separated OIDC scopes to request. Must include scopes for any claim used by OIDC_ADMIN_CLAIM.
+  # DEMO_MODE: "false"
 
 
 # Secret environment variables stored in a Kubernetes Secret.

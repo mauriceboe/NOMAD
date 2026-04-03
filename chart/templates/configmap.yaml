@@ -5,17 +5,6 @@ metadata:
   labels:
     app: {{ include "trek.name" . }}
 data:
-  NODE_ENV: {{ .Values.env.NODE_ENV | quote }}
-  PORT: {{ .Values.env.PORT | quote }}
-  {{- if .Values.env.ALLOWED_ORIGINS }}
-  ALLOWED_ORIGINS: {{ .Values.env.ALLOWED_ORIGINS | quote }}
-  {{- end }}
-  {{- if .Values.env.ALLOW_INTERNAL_NETWORK }}
-  ALLOW_INTERNAL_NETWORK: {{ .Values.env.ALLOW_INTERNAL_NETWORK | quote }}
-  {{- end }}
-  {{- if .Values.env.COOKIE_SECURE }}
-  COOKIE_SECURE: {{ .Values.env.COOKIE_SECURE | quote }}
-  {{- end }}
-  {{- if .Values.env.OIDC_DISCOVERY_URL }}
-  OIDC_DISCOVERY_URL: {{ .Values.env.OIDC_DISCOVERY_URL | quote }}
+  {{- range $key, $value := .Values.env }}
+  {{ $key }}: {{ $value | quote }}
   {{- end }}
