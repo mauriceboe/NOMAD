@@ -518,6 +518,29 @@ function runMigrations(db: Database.Database): void {
         CREATE INDEX IF NOT EXISTS idx_notifications_recipient_created ON notifications(recipient_id, created_at DESC);
       `);
     },
+    () => {
+      const hasUserId = db.prepare(
+        "SELECT 1 FROM pragma_table_info('vacay_company_holidays') WHERE name = 'user_id'"
+      ).get();
+      if (hasUserId) return;
+
+      db.exec(`
+        CREATE TABLE vacay_company_holidays_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          plan_id INTEGER NOT NULL REFERENCES vacay_plans(id) ON DELETE CASCADE,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          date TEXT NOT NULL,
+          note TEXT DEFAULT '',
+          UNIQUE(plan_id, user_id, date)
+        );
+        INSERT INTO vacay_company_holidays_new (plan_id, user_id, date, note)
+        SELECT ch.plan_id, p.owner_id, ch.date, ch.note
+        FROM vacay_company_holidays ch
+        JOIN vacay_plans p ON p.id = ch.plan_id;
+        DROP TABLE vacay_company_holidays;
+        ALTER TABLE vacay_company_holidays_new RENAME TO vacay_company_holidays;
+      `);
+    },
   ];
 
   if (currentVersion < migrations.length) {
