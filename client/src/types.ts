@@ -341,16 +341,6 @@ export interface VacayEntry {
   person_name?: string
 }
 
-export interface VacayCompanyHoliday {
-  id?: number
-  date: string
-  user_id: number
-  plan_id?: number
-  note?: string
-  person_color?: string
-  person_name?: string
-}
-
 export interface VacayStat {
   user_id: number
   vacation_days: number
