@@ -154,6 +154,12 @@ export default function AtlasPage(): React.ReactElement {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
   const [countryDetail, setCountryDetail] = useState<CountryDetail | null>(null)
   const [geoData, setGeoData] = useState<GeoJsonFeatureCollection | null>(null)
+  const [visitedRegions, setVisitedRegions] = useState<Record<string, { code: string; name: string; placeCount: number }[]>>({})
+  const regionLayerRef = useRef<L.GeoJSON | null>(null)
+  const regionGeoCache = useRef<Record<string, GeoJsonFeatureCollection>>({})
+  const [showRegions, setShowRegions] = useState(false)
+  const [regionGeoLoaded, setRegionGeoLoaded] = useState(0)
+  const regionTooltipRef = useRef<HTMLDivElement>(null)
   const [confirmAction, setConfirmAction] = useState<{ type: 'mark' | 'unmark' | 'choose' | 'bucket'; code: string; name: string } | null>(null)
   const [bucketMonth, setBucketMonth] = useState(0)
   const [bucketYear, setBucketYear] = useState(0)
@@ -221,6 +227,33 @@ export default function AtlasPage(): React.ReactElement {
       .catch(() => {})
   }, [])
 
+  // Load visited regions from server + per-country GeoJSON (once on mount)
+  const regionsLoadedRef = useRef(false)
+  useEffect(() => {
+    if (regionsLoadedRef.current) return
+    regionsLoadedRef.current = true
+    apiClient.get(`/addons/atlas/regions?_t=${Date.now()}`)
+      .then(r => {
+        const regions = r.data?.regions || {}
+        setVisitedRegions(regions)
+        const countries = Object.keys(regions)
+        if (countries.length === 0) return
+        apiClient.get(`/addons/atlas/regions/geo?countries=${countries.join(',')}`)
+          .then(geoRes => {
+            const geo = geoRes.data
+            if (geo?.features) {
+              for (const c of countries) {
+                const features = geo.features.filter((f: any) => f.properties?.iso_a2?.toUpperCase() === c)
+                regionGeoCache.current[c] = { type: 'FeatureCollection', features }
+              }
+              setRegionGeoLoaded(v => v + 1)
+            }
+          })
+          .catch(() => {})
+      })
+      .catch(() => {})
+  }, [])
+
   // Initialize map — runs after loading is done and mapRef is available
   useEffect(() => {
     if (loading || !mapRef.current) return
@@ -264,7 +297,26 @@ export default function AtlasPage(): React.ReactElement {
       crossOrigin: true,
     }).addTo(map)
 
+    // Custom pane for region layer — below overlay (z-index 400) but above tiles
+    map.createPane('regionPane')
+    map.getPane('regionPane')!.style.zIndex = '399'
+
     mapInstance.current = map
+
+    // Zoom-based region switching — dim country layer directly
+    map.on('zoomend', () => {
+      const z = map.getZoom()
+      const shouldShow = z >= 5
+      setShowRegions(shouldShow)
+      const overlayPane = map.getPane('overlayPane')
+      if (overlayPane) overlayPane.style.opacity = shouldShow ? '0.35' : '1'
+      const regionPane = map.getPane('regionPane')
+      if (regionPane) {
+        regionPane.style.opacity = shouldShow ? '1' : '0'
+        regionPane.style.pointerEvents = shouldShow ? 'auto' : 'none'
+      }
+    })
+
     return () => { map.remove(); mapInstance.current = null }
   }, [dark, loading])
 
@@ -339,10 +391,7 @@ export default function AtlasPage(): React.ReactElement {
           })
           layer.on('click', () => {
             if (c.placeCount === 0 && c.tripCount === 0) {
-              // Manually marked only — show unmark popup
               handleUnmarkCountry(c.code)
-            } else {
-              loadCountryDetail(c.code)
             }
           })
           layer.on('mouseover', (e) => {
@@ -378,6 +427,108 @@ export default function AtlasPage(): React.ReactElement {
     // Restore map view after re-render
     mapInstance.current.setView(currentCenter, currentZoom, { animate: false })
   }, [geoData, data, dark])
+
+  // Render sub-national region layer (zoom >= 5)
+  useEffect(() => {
+    if (!mapInstance.current) return
+
+    // Remove existing region layer
+    if (regionLayerRef.current) {
+      mapInstance.current.removeLayer(regionLayerRef.current)
+      regionLayerRef.current = null
+    }
+
+    if (Object.keys(regionGeoCache.current).length === 0) return
+
+    // Build set of visited region codes first
+    const visitedRegionCodes = new Set<string>()
+    const visitedRegionNames = new Set<string>()
+    const regionPlaceCounts: Record<string, number> = {}
+    for (const [, regions] of Object.entries(visitedRegions)) {
+      for (const r of regions) {
+        visitedRegionCodes.add(r.code)
+        visitedRegionNames.add(r.name.toLowerCase())
+        regionPlaceCounts[r.code] = r.placeCount
+        regionPlaceCounts[r.name.toLowerCase()] = r.placeCount
+      }
+    }
+
+    // Match feature by ISO code OR region name
+    const isVisitedFeature = (f: any) => {
+      if (visitedRegionCodes.has(f.properties?.iso_3166_2)) return true
+      const name = (f.properties?.name || '').toLowerCase()
+      if (visitedRegionNames.has(name)) return true
+      // Fuzzy: check if any visited name is contained in feature name or vice versa
+      for (const vn of visitedRegionNames) {
+        if (name.includes(vn) || vn.includes(name)) return true
+      }
+      return false
+    }
+
+    // Only include visited region features (non-visited pass through to country layer)
+    const allFeatures: any[] = []
+    for (const geo of Object.values(regionGeoCache.current)) {
+      for (const f of geo.features) {
+        if (isVisitedFeature(f)) {
+          allFeatures.push(f)
+        }
+      }
+    }
+    if (allFeatures.length === 0) return
+
+    // Use same colors as country layer
+    const VISITED_COLORS = ['#6366f1','#ec4899','#14b8a6','#f97316','#8b5cf6','#ef4444','#3b82f6','#22c55e','#06b6d4','#f43f5e','#a855f7','#10b981','#0ea5e9','#e11d48','#0d9488','#7c3aed','#2563eb','#dc2626','#059669','#d946ef']
+    const countryA3Set = data ? data.countries.map(c => A2_TO_A3[c.code]).filter(Boolean) : []
+    const countryColorMap: Record<string, string> = {}
+    countryA3Set.forEach((a3, i) => { countryColorMap[a3] = VISITED_COLORS[i % VISITED_COLORS.length] })
+    // Map country A2 code to country color
+    const a2ColorMap: Record<string, string> = {}
+    if (data) data.countries.forEach(c => { if (A2_TO_A3[c.code] && countryColorMap[A2_TO_A3[c.code]]) a2ColorMap[c.code] = countryColorMap[A2_TO_A3[c.code]] })
+
+    const mergedGeo = { type: 'FeatureCollection', features: allFeatures }
+
+    const svgRenderer = L.svg({ pane: 'regionPane' })
+
+    regionLayerRef.current = L.geoJSON(mergedGeo as any, {
+      renderer: svgRenderer,
+      interactive: true,
+      pane: 'regionPane',
+      style: (feature) => {
+        const countryA2 = (feature?.properties?.iso_a2 || '').toUpperCase()
+        return {
+          fillColor: a2ColorMap[countryA2] || '#6366f1',
+          fillOpacity: 0.85,
+          color: dark ? '#888' : '#64748b',
+          weight: 1.2,
+        }
+      },
+      onEachFeature: (feature, layer) => {
+        const regionName = feature?.properties?.name || ''
+        const countryName = feature?.properties?.admin || ''
+        const regionCode = feature?.properties?.iso_3166_2 || ''
+        const count = regionPlaceCounts[regionCode] || regionPlaceCounts[regionName.toLowerCase()] || 0
+        layer.on('mouseover', (e: any) => {
+          e.target.setStyle({ fillOpacity: 0.95, weight: 2, color: dark ? '#818cf8' : '#4f46e5' })
+          const tt = regionTooltipRef.current
+          if (tt) {
+            tt.style.display = 'block'
+            tt.style.left = e.originalEvent.clientX + 12 + 'px'
+            tt.style.top = e.originalEvent.clientY - 10 + 'px'
+            tt.innerHTML = `<div style="font-weight:600;margin-bottom:3px">${regionName}</div><div style="opacity:0.5;font-size:10px">${countryName}</div><div style="margin-top:5px;font-size:11px"><b>${count}</b> ${count === 1 ? 'place' : 'places'}</div>`
+          }
+        })
+        layer.on('mousemove', (e: any) => {
+          const tt = regionTooltipRef.current
+          if (tt) { tt.style.left = e.originalEvent.clientX + 12 + 'px'; tt.style.top = e.originalEvent.clientY - 10 + 'px' }
+        })
+        layer.on('mouseout', (e: any) => {
+          regionLayerRef.current?.resetStyle(e.target)
+          const tt = regionTooltipRef.current
+          if (tt) tt.style.display = 'none'
+        })
+      },
+    }).addTo(mapInstance.current)
+  }, [regionGeoLoaded, visitedRegions, dark, t])
 
   const handleMarkCountry = (code: string, name: string): void => {
     setConfirmAction({ type: 'choose', code, name })
@@ -533,6 +684,18 @@ export default function AtlasPage(): React.ReactElement {
       <div style={{ position: 'fixed', top: 'var(--nav-h)', left: 0, right: 0, bottom: 0 }}>
         {/* Map */}
         <div ref={mapRef} style={{ position: 'absolute', inset: 0, zIndex: 1, background: dark ? '#1a1a2e' : '#f0f0f0' }} />
+
+        {/* Region tooltip (custom, always on top, ref-controlled to avoid re-renders) */}
+        <div ref={regionTooltipRef} style={{
+          position: 'fixed', display: 'none',
+          zIndex: 9999, pointerEvents: 'none',
+          background: dark ? 'rgba(15,15,20,0.92)' : 'rgba(255,255,255,0.96)',
+          color: dark ? '#fff' : '#111',
+          borderRadius: 10, padding: '10px 14px',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+          border: `1px solid ${dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
+          fontSize: 12, minWidth: 120,
+        }} />
         <div
           className="absolute z-20 flex justify-center"
           style={{ top: 14, left: 0, right: 0, pointerEvents: 'none' }}

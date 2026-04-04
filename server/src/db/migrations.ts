@@ -550,6 +550,19 @@ function runMigrations(db: Database.Database): void {
         );
       `);
     },
+    // Migration 69: Place region cache for sub-national Atlas regions
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS place_regions (
+          place_id INTEGER PRIMARY KEY REFERENCES places(id) ON DELETE CASCADE,
+          country_code TEXT NOT NULL,
+          region_code TEXT NOT NULL,
+          region_name TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_place_regions_country ON place_regions(country_code);
+        CREATE INDEX IF NOT EXISTS idx_place_regions_region ON place_regions(region_code);
+      `);
+    },
   ];
 
   if (currentVersion < migrations.length) {

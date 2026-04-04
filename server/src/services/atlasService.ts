@@ -2,6 +2,38 @@ import fetch from 'node-fetch';
 import { db } from '../db/database';
 import { Trip, Place } from '../types';
 
+// ── Admin-1 GeoJSON cache (sub-national regions) ─────────────────────────
+
+let admin1GeoCache: any = null;
+let admin1GeoLoading: Promise<any> | null = null;
+
+async function loadAdmin1Geo(): Promise<any> {
+  if (admin1GeoCache) return admin1GeoCache;
+  if (admin1GeoLoading) return admin1GeoLoading;
+  admin1GeoLoading = fetch(
+    'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_1_states_provinces.geojson',
+    { headers: { 'User-Agent': 'TREK Travel Planner' } }
+  ).then(r => r.json()).then(geo => {
+    admin1GeoCache = geo;
+    admin1GeoLoading = null;
+    console.log(`[Atlas] Cached admin-1 GeoJSON: ${geo.features?.length || 0} features`);
+    return geo;
+  }).catch(err => {
+    admin1GeoLoading = null;
+    console.error('[Atlas] Failed to load admin-1 GeoJSON:', err);
+    return null;
+  });
+  return admin1GeoLoading;
+}
+
+export async function getRegionGeo(countryCodes: string[]): Promise<any> {
+  const geo = await loadAdmin1Geo();
+  if (!geo) return { type: 'FeatureCollection', features: [] };
+  const codes = new Set(countryCodes.map(c => c.toUpperCase()));
+  const features = geo.features.filter((f: any) => codes.has(f.properties?.iso_a2?.toUpperCase()));
+  return { type: 'FeatureCollection', features };
+}
+
 // ── Geocode cache ───────────────────────────────────────────────────────────
 
 const geocodeCache = new Map<string, string | null>();
@@ -339,6 +371,91 @@ export function markCountryVisited(userId: number, code: string): void {
 
 export function unmarkCountryVisited(userId: number, code: string): void {
   db.prepare('DELETE FROM visited_countries WHERE user_id = ? AND country_code = ?').run(userId, code);
+}
+
+// ── Sub-national region resolution ────────────────────────────────────────
+
+interface RegionInfo { country_code: string; region_code: string; region_name: string }
+
+const regionCache = new Map<string, RegionInfo | null>();
+
+async function reverseGeocodeRegion(lat: number, lng: number): Promise<RegionInfo | null> {
+  const key = roundKey(lat, lng);
+  if (regionCache.has(key)) return regionCache.get(key)!;
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=8&accept-language=en`,
+      { headers: { 'User-Agent': 'TREK Travel Planner' } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json() as { address?: Record<string, string> };
+    const countryCode = data.address?.country_code?.toUpperCase() || null;
+    // Try finest ISO level first (lvl6 = departments/provinces), then lvl5, then lvl4 (states/regions)
+    let regionCode = data.address?.['ISO3166-2-lvl6'] || data.address?.['ISO3166-2-lvl5'] || data.address?.['ISO3166-2-lvl4'] || null;
+    // Normalize: FR-75C → FR-75 (strip trailing letter suffixes for GeoJSON compatibility)
+    if (regionCode && /^[A-Z]{2}-\d+[A-Z]$/i.test(regionCode)) {
+      regionCode = regionCode.replace(/[A-Z]$/i, '');
+    }
+    const regionName = data.address?.county || data.address?.state || data.address?.province || data.address?.region || data.address?.city || null;
+    if (!countryCode || !regionName) { regionCache.set(key, null); return null; }
+    const info: RegionInfo = {
+      country_code: countryCode,
+      region_code: regionCode || `${countryCode}-${regionName.substring(0, 3).toUpperCase()}`,
+      region_name: regionName,
+    };
+    regionCache.set(key, info);
+    return info;
+  } catch {
+    return null;
+  }
+}
+
+export async function getVisitedRegions(userId: number): Promise<{ regions: Record<string, { code: string; name: string; placeCount: number }[]> }> {
+  const trips = getUserTrips(userId);
+  const tripIds = trips.map(t => t.id);
+  const places = getPlacesForTrips(tripIds);
+
+  // Check DB cache first
+  const placeIds = places.filter(p => p.lat && p.lng).map(p => p.id);
+  const cached = placeIds.length > 0
+    ? db.prepare(`SELECT * FROM place_regions WHERE place_id IN (${placeIds.map(() => '?').join(',')})`).all(...placeIds) as { place_id: number; country_code: string; region_code: string; region_name: string }[]
+    : [];
+  const cachedMap = new Map(cached.map(c => [c.place_id, c]));
+
+  // Resolve uncached places (rate-limited to avoid hammering Nominatim)
+  const uncached = places.filter(p => p.lat && p.lng && !cachedMap.has(p.id));
+  const insertStmt = db.prepare('INSERT OR REPLACE INTO place_regions (place_id, country_code, region_code, region_name) VALUES (?, ?, ?, ?)');
+
+  for (const place of uncached) {
+    const info = await reverseGeocodeRegion(place.lat!, place.lng!);
+    if (info) {
+      insertStmt.run(place.id, info.country_code, info.region_code, info.region_name);
+      cachedMap.set(place.id, { place_id: place.id, ...info });
+    }
+    // Nominatim rate limit: 1 req/sec
+    if (uncached.indexOf(place) < uncached.length - 1) {
+      await new Promise(r => setTimeout(r, 1100));
+    }
+  }
+
+  // Group by country → regions with place counts
+  const regionMap: Record<string, Map<string, { code: string; name: string; placeCount: number }>> = {};
+  for (const [, entry] of cachedMap) {
+    if (!regionMap[entry.country_code]) regionMap[entry.country_code] = new Map();
+    const existing = regionMap[entry.country_code].get(entry.region_code);
+    if (existing) {
+      existing.placeCount++;
+    } else {
+      regionMap[entry.country_code].set(entry.region_code, { code: entry.region_code, name: entry.region_name, placeCount: 1 });
+    }
+  }
+
+  const result: Record<string, { code: string; name: string; placeCount: number }[]> = {};
+  for (const [country, regions] of Object.entries(regionMap)) {
+    result[country] = [...regions.values()];
+  }
+
+  return { regions: result };
 }
 
 // ── Bucket list CRUD ────────────────────────────────────────────────────────
