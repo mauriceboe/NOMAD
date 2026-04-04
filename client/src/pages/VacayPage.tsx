@@ -41,9 +41,14 @@ export default function VacayPage(): React.ReactElement {
     if (selectedYear) { loadEntries(selectedYear); loadStats(selectedYear); loadHolidays(selectedYear) }
   }, [selectedYear])
 
-  const handleAddYear = () => {
+  const handleAddNextYear = () => {
     const nextYear = years.length > 0 ? Math.max(...years) + 1 : new Date().getFullYear()
     addYear(nextYear)
+  }
+
+  const handleAddPrevYear = () => {
+    const prevYear = years.length > 0 ? Math.min(...years) - 1 : new Date().getFullYear()
+    addYear(prevYear)
   }
 
   if (loading) {
@@ -62,20 +67,27 @@ export default function VacayPage(): React.ReactElement {
     <>
       {/* Year Selector */}
       <div className="rounded-xl border p-3" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-primary)' }}>
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center mb-2">
           <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>{t('vacay.year')}</span>
-          <button onClick={handleAddYear} className="p-0.5 rounded transition-colors" style={{ color: 'var(--text-faint)' }} title={t('vacay.addYear')}>
-            <Plus size={14} />
-          </button>
         </div>
         <div className="flex items-center justify-between mb-2">
-          <button onClick={() => { const idx = years.indexOf(selectedYear); if (idx > 0) setSelectedYear(years[idx - 1]) }} disabled={years.indexOf(selectedYear) <= 0} className="p-1 lg:p-1 p-2 rounded-lg disabled:opacity-20 transition-colors" style={{ background: 'var(--bg-secondary)' }}>
-            <ChevronLeft size={16} style={{ color: 'var(--text-muted)' }} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={handleAddPrevYear} className="p-0.5 rounded transition-colors" style={{ color: 'var(--text-faint)' }} title={t('vacay.addPrevYear')}>
+              <Plus size={14} />
+            </button>
+            <button onClick={() => { const idx = years.indexOf(selectedYear); if (idx > 0) setSelectedYear(years[idx - 1]) }} disabled={years.indexOf(selectedYear) <= 0} className="p-1 rounded-lg disabled:opacity-20 transition-colors" style={{ background: 'var(--bg-secondary)' }}>
+              <ChevronLeft size={16} style={{ color: 'var(--text-muted)' }} />
+            </button>
+          </div>
           <span className="text-xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{selectedYear}</span>
-          <button onClick={() => { const idx = years.indexOf(selectedYear); if (idx < years.length - 1) setSelectedYear(years[idx + 1]) }} disabled={years.indexOf(selectedYear) >= years.length - 1} className="p-1 lg:p-1 p-2 rounded-lg disabled:opacity-20 transition-colors" style={{ background: 'var(--bg-secondary)' }}>
-            <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={() => { const idx = years.indexOf(selectedYear); if (idx < years.length - 1) setSelectedYear(years[idx + 1]) }} disabled={years.indexOf(selectedYear) >= years.length - 1} className="p-1 rounded-lg disabled:opacity-20 transition-colors" style={{ background: 'var(--bg-secondary)' }}>
+              <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
+            </button>
+            <button onClick={handleAddNextYear} className="p-0.5 rounded transition-colors" style={{ color: 'var(--text-faint)' }} title={t('vacay.addYear')}>
+              <Plus size={14} />
+            </button>
+          </div>
         </div>
         <div className="grid grid-cols-4 gap-1">
           {years.map(y => (

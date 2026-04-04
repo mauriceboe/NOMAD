@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <a href="https://discord.gg/J27gr9GH"><img src="https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white" alt="Discord" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg" alt="License: AGPL v3" /></a>
   <a href="https://hub.docker.com/r/mauriceboe/trek"><img src="https://img.shields.io/docker/pulls/mauriceboe/trek" alt="Docker Pulls" /></a>
   <a href="https://github.com/mauriceboe/TREK"><img src="https://img.shields.io/github/stars/mauriceboe/TREK" alt="GitHub Stars" /></a>
@@ -146,7 +147,7 @@ services:
       # - COOKIE_SECURE=false # Uncomment if accessing over plain HTTP (no HTTPS). Not recommended for production.
       - TRUST_PROXY=1 # Number of trusted proxies for X-Forwarded-For
       # - ALLOW_INTERNAL_NETWORK=true # Uncomment if Immich or other services are on your local network (RFC-1918 IPs)
-      - APP_URL=${APP_URL:-} # Base URL of this instance — required when OIDC is enabled; must match the redirect URI registered with your IdP
+      - APP_URL=${APP_URL:-} # Base URL of this instance — required when OIDC is enabled; must match the redirect URI registered with your IdP; Also used as the base URL for email notifications and other external links
       # - OIDC_ISSUER=https://auth.example.com # OpenID Connect provider URL
       # - OIDC_CLIENT_ID=trek # OpenID Connect client ID
       # - OIDC_CLIENT_SECRET=supersecret # OpenID Connect client secret
@@ -154,8 +155,12 @@ services:
       # - OIDC_ONLY=false # Set to true to disable local password auth entirely (SSO only)
       # - OIDC_ADMIN_CLAIM=groups # OIDC claim used to identify admin users
       # - OIDC_ADMIN_VALUE=app-trek-admins # Value of the OIDC claim that grants admin role
+      # - OIDC_SCOPE=openid email profile groups # Space-separated OIDC scopes to request (must include scopes for any claim used by OIDC_ADMIN_CLAIM)
       # - OIDC_DISCOVERY_URL= # Override the OIDC discovery endpoint for providers with non-standard paths (e.g. Authentik)
       # - DEMO_MODE=false # Enable demo mode (resets data hourly)
+      # - ADMIN_EMAIL=admin@trek.local # Initial admin e-mail — only used on first boot when no users exist
+      # - ADMIN_PASSWORD=changeme      # Initial admin password — only used on first boot when no users exist
+      # - MCP_RATE_LIMIT=60 # Max MCP API requests per user per minute (default: 60)
     volumes:
       - ./data:/app/data
       - ./uploads:/app/uploads
@@ -281,15 +286,23 @@ trek.yourdomain.com {
 | `COOKIE_SECURE` | Set to `false` to allow session cookies over plain HTTP (e.g. accessing via IP without HTTPS). Defaults to `true` in production. **Not recommended to disable in production.** | `true` |
 | `TRUST_PROXY` | Number of trusted reverse proxies for `X-Forwarded-For` | `1` |
 | `ALLOW_INTERNAL_NETWORK` | Allow outbound requests to private/RFC-1918 IP addresses. Set to `true` if Immich or other integrated services are hosted on your local network. Loopback (`127.x`) and link-local/metadata addresses (`169.254.x`) are always blocked regardless of this setting. | `false` |
+| `APP_URL` | Public base URL of this instance (e.g. `https://trek.example.com`). Required when OIDC is enabled — must match the redirect URI registered with your IdP. Also used as the base URL for external links in email notifications. | — |
 | **OIDC / SSO** | | |
 | `OIDC_ISSUER` | OpenID Connect provider URL | — |
 | `OIDC_CLIENT_ID` | OIDC client ID | — |
 | `OIDC_CLIENT_SECRET` | OIDC client secret | — |
 | `OIDC_DISPLAY_NAME` | Label shown on the SSO login button | `SSO` |
 | `OIDC_ONLY` | Disable local password auth entirely (first SSO login becomes admin) | `false` |
+| `OIDC_ADMIN_CLAIM` | OIDC claim used to identify admin users | — |
+| `OIDC_ADMIN_VALUE` | Value of the OIDC claim that grants admin role | — |
+| `OIDC_SCOPE` | Space-separated OIDC scopes to request. Must include scopes for any claim used by `OIDC_ADMIN_CLAIM` (e.g. add `groups` for group-based admin mapping) | `openid email profile groups` |
 | `OIDC_DISCOVERY_URL` | Override the auto-constructed OIDC discovery endpoint. Useful for providers that expose it at a non-standard path (e.g. Authentik: `https://auth.example.com/application/o/trek/.well-known/openid-configuration`) | — |
+| **Initial Setup** | | |
+| `ADMIN_EMAIL` | Email for the first admin account created on initial boot. Must be set together with `ADMIN_PASSWORD`. If either is omitted a random password is generated and printed to the server log. Has no effect once any user exists. | `admin@trek.local` |
+| `ADMIN_PASSWORD` | Password for the first admin account created on initial boot. Must be set together with `ADMIN_EMAIL`. | random |
 | **Other** | | |
 | `DEMO_MODE` | Enable demo mode (hourly data resets) | `false` |
+| `MCP_RATE_LIMIT` | Max MCP API requests per user per minute | `60` |
 
 ## Optional API Keys
 

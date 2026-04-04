@@ -29,11 +29,12 @@ interface PlacesSidebarProps {
   days: Day[]
   isMobile: boolean
   onCategoryFilterChange?: (categoryId: string) => void
+  pushUndo?: (label: string, undoFn: () => Promise<void> | void) => void
 }
 
 const PlacesSidebar = React.memo(function PlacesSidebar({
   tripId, places, categories, assignments, selectedDayId, selectedPlaceId,
-  onPlaceClick, onAddPlace, onAssignToDay, onEditPlace, onDeletePlace, days, isMobile, onCategoryFilterChange,
+  onPlaceClick, onAddPlace, onAssignToDay, onEditPlace, onDeletePlace, days, isMobile, onCategoryFilterChange, pushUndo,
 }: PlacesSidebarProps) {
   const { t } = useTranslation()
   const toast = useToast()
@@ -52,6 +53,15 @@ const PlacesSidebar = React.memo(function PlacesSidebar({
       const result = await placesApi.importGpx(tripId, file)
       await loadTrip(tripId)
       toast.success(t('places.gpxImported', { count: result.count }))
+      if (result.places?.length > 0) {
+        const importedIds: number[] = result.places.map((p: { id: number }) => p.id)
+        pushUndo?.(t('undo.importGpx'), async () => {
+          for (const id of importedIds) {
+            try { await placesApi.delete(tripId, id) } catch {}
+          }
+          await loadTrip(tripId)
+        })
+      }
     } catch (err: any) {
       toast.error(err?.response?.data?.error || t('places.gpxError'))
     }
@@ -70,6 +80,15 @@ const PlacesSidebar = React.memo(function PlacesSidebar({
       toast.success(t('places.googleListImported', { count: result.count, list: result.listName }))
       setGoogleListOpen(false)
       setGoogleListUrl('')
+      if (result.places?.length > 0) {
+        const importedIds: number[] = result.places.map((p: { id: number }) => p.id)
+        pushUndo?.(t('undo.importGoogleList'), async () => {
+          for (const id of importedIds) {
+            try { await placesApi.delete(tripId, id) } catch {}
+          }
+          await loadTrip(tripId)
+        })
+      }
     } catch (err: any) {
       toast.error(err?.response?.data?.error || t('places.googleListError'))
     } finally {
@@ -405,7 +424,7 @@ const PlacesSidebar = React.memo(function PlacesSidebar({
                           <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', flexShrink: 0 }}>{i + 1}</div>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{day.title || t('dayplan.dayN', { n: i + 1 })}</div>
-                            {day.date && <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>{new Date(day.date + 'T00:00:00').toLocaleDateString()}</div>}
+                            {day.date && <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>{new Date(day.date + 'T00:00:00Z').toLocaleDateString(undefined, { timeZone: 'UTC' })}</div>}
                           </div>
                           {(assignments[String(day.id)] || []).some(a => a.place?.id === dayPickerPlace.id) && <Check size={14} color="var(--text-faint)" />}
                         </button>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiClient, { adminApi, authApi, notificationsApi } from '../api/client'
+import DevNotificationsPanel from '../components/Admin/DevNotificationsPanel'
 import { useAuthStore } from '../store/authStore'
 import { useSettingsStore } from '../store/settingsStore'
 import { useAddonStore } from '../store/addonStore'
@@ -17,7 +18,7 @@ import PackingTemplateManager from '../components/Admin/PackingTemplateManager'
 import AuditLogPanel from '../components/Admin/AuditLogPanel'
 import AdminMcpTokensPanel from '../components/Admin/AdminMcpTokensPanel'
 import PermissionsPanel from '../components/Admin/PermissionsPanel'
-import { Users, Map, Briefcase, Shield, Trash2, Edit2, Camera, FileText, Eye, EyeOff, Save, CheckCircle, XCircle, Loader2, UserPlus, ArrowUpCircle, ExternalLink, Download, GitBranch, Sun, Link2, Copy, Plus, RefreshCw, AlertTriangle } from 'lucide-react'
+import { Users, Map, Briefcase, Shield, Trash2, Edit2, FileText, Eye, EyeOff, Save, CheckCircle, XCircle, Loader2, UserPlus, ArrowUpCircle, ExternalLink, Download, Sun, Link2, Copy, Plus, RefreshCw, AlertTriangle } from 'lucide-react'
 import CustomSelect from '../components/shared/CustomSelect'
 
 interface AdminUser {
@@ -61,6 +62,7 @@ export default function AdminPage(): React.ReactElement {
   const { t, locale } = useTranslation()
   const hour12 = useSettingsStore(s => s.settings.time_format) === '12h'
   const mcpEnabled = useAddonStore(s => s.isEnabled('mcp'))
+  const devMode = useAuthStore(s => s.devMode)
   const TABS = [
     { id: 'users', label: t('admin.tabs.users') },
     { id: 'config', label: t('admin.tabs.config') },
@@ -70,6 +72,7 @@ export default function AdminPage(): React.ReactElement {
     { id: 'audit', label: t('admin.tabs.audit') },
     ...(mcpEnabled ? [{ id: 'mcp-tokens', label: t('admin.tabs.mcpTokens') }] : []),
     { id: 'github', label: t('admin.tabs.github') },
+    ...(devMode ? [{ id: 'dev-notifications', label: 'Dev: Notifications' }] : []),
   ]
 
   const [activeTab, setActiveTab] = useState<string>('users')
@@ -1274,6 +1277,8 @@ export default function AdminPage(): React.ReactElement {
           {activeTab === 'mcp-tokens' && <AdminMcpTokensPanel />}
 
           {activeTab === 'github' && <GitHubPanel />}
+
+          {activeTab === 'dev-notifications' && <DevNotificationsPanel />}
         </div>
       </div>
 
@@ -1444,14 +1449,14 @@ export default function AdminPage(): React.ReactElement {
               <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 10, fontSize: 12, lineHeight: 1.8, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
                 className="bg-gray-900 dark:bg-gray-950 text-gray-100 border border-gray-700"
               >
-{`docker pull mauriceboe/nomad:latest
-docker stop nomad && docker rm nomad
-docker run -d --name nomad \\
+{`docker pull mauriceboe/trek:latest
+docker stop trek && docker rm trek
+docker run -d --name trek \\
   -p 3000:3000 \\
-  -v /opt/nomad/data:/app/data \\
-  -v /opt/nomad/uploads:/app/uploads \\
+  -v /opt/trek/data:/app/data \\
+  -v /opt/trek/uploads:/app/uploads \\
   --restart unless-stopped \\
-  mauriceboe/nomad:latest`}
+  mauriceboe/trek:latest`}
               </div>
 
               <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, fontSize: 12, lineHeight: 1.5 }}

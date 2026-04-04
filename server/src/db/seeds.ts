@@ -22,9 +22,21 @@ function seedAdminAccount(db: Database.Database): void {
     }
 
     const bcrypt = require('bcryptjs');
-    const password = crypto.randomBytes(12).toString('base64url');
+
+    const env_admin_email = process.env.ADMIN_EMAIL;
+    const env_admin_pw = process.env.ADMIN_PASSWORD;
+
+    let password;
+    let email;
+    if (env_admin_email && env_admin_pw) {
+      password = env_admin_pw;
+      email = env_admin_email;
+    } else {
+      password = crypto.randomBytes(12).toString('base64url');
+      email = 'admin@trek.local';
+    }
+
     const hash = bcrypt.hashSync(password, 12);
-    const email = 'admin@trek.local';
     const username = 'admin';
 
     db.prepare('INSERT INTO users (username, email, password_hash, role, must_change_password) VALUES (?, ?, ?, ?, 1)').run(username, email, hash, 'admin');

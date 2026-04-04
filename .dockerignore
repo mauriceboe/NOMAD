@@ -6,8 +6,8 @@ data
 uploads
 .git
 .github
-.env
-.env.*
+**/.env
+**/.env.*
 *.log
 *.md
 !client/**/*.md
@@ -21,8 +21,12 @@ unraid-template.xml
 *.db
 *.db-shm
 *.db-wal
-coverage
+**/coverage
 .DS_Store
 Thumbs.db
 .vscode
 .idea
+sonar-project.properties
+server/tests/
+server/vitest.config.ts
+server/reset-admin.js

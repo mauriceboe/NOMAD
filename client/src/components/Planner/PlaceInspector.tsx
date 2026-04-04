@@ -375,7 +375,7 @@ export default function PlaceInspector({
                         {res.reservation_time && (
                           <div>
                             <div style={{ fontSize: 8, fontWeight: 600, color: 'var(--text-faint)', textTransform: 'uppercase' }}>{t('reservations.date')}</div>
-                            <div style={{ fontSize: 10, fontWeight: 500, color: 'var(--text-primary)', marginTop: 1 }}>{new Date(res.reservation_time).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })}</div>
+                            <div style={{ fontSize: 10, fontWeight: 500, color: 'var(--text-primary)', marginTop: 1 }}>{new Date((res.reservation_time.includes('T') ? res.reservation_time.split('T')[0] : res.reservation_time) + 'T00:00:00Z').toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })}</div>
                           </div>
                         )}
                         {res.reservation_time?.includes('T') && (

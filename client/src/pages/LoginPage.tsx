@@ -50,7 +50,6 @@ export default function LoginPage(): React.ReactElement {
         setError('Invalid or expired invite link')
       })
       window.history.replaceState({}, '', window.location.pathname)
-      return
     }
 
     if (oidcCode) {
@@ -87,7 +86,7 @@ export default function LoginPage(): React.ReactElement {
       if (config) {
         setAppConfig(config)
         if (!config.has_users) setMode('register')
-        if (config.oidc_only_mode && config.oidc_configured && config.has_users) {
+        if (config.oidc_only_mode && config.oidc_configured && config.has_users && !invite) {
           window.location.href = '/api/auth/oidc/login'
         }
       }

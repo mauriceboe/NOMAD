@@ -26,7 +26,7 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 && (error.response?.data as { code?: string } | undefined)?.code === 'AUTH_REQUIRED') {
-      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register') && !window.location.pathname.startsWith('/shared/')) {
         window.location.href = '/login'
       }
     }
@@ -83,6 +83,7 @@ export const tripsApi = {
   getMembers: (id: number | string) => apiClient.get(`/trips/${id}/members`).then(r => r.data),
   addMember: (id: number | string, identifier: string) => apiClient.post(`/trips/${id}/members`, { identifier }).then(r => r.data),
   removeMember: (id: number | string, userId: number) => apiClient.delete(`/trips/${id}/members/${userId}`).then(r => r.data),
+  copy: (id: number | string, data?: { title?: string }) => apiClient.post(`/trips/${id}/copy`, data || {}).then(r => r.data),
 }
 
 export const daysApi = {
@@ -184,6 +185,8 @@ export const adminApi = {
   getPermissions: () => apiClient.get('/admin/permissions').then(r => r.data),
   updatePermissions: (permissions: Record<string, string>) => apiClient.put('/admin/permissions', { permissions }).then(r => r.data),
   rotateJwtSecret: () => apiClient.post('/admin/rotate-jwt-secret').then(r => r.data),
+  sendTestNotification: (data: Record<string, unknown>) =>
+    apiClient.post('/admin/dev/test-notification', data).then(r => r.data),
 }
 
 export const addonsApi = {
@@ -318,6 +321,25 @@ export const notificationsApi = {
   updatePreferences: (prefs: Record<string, boolean>) => apiClient.put('/notifications/preferences', prefs).then(r => r.data),
   testSmtp: (email?: string) => apiClient.post('/notifications/test-smtp', { email }).then(r => r.data),
   testWebhook: () => apiClient.post('/notifications/test-webhook').then(r => r.data),
+}
+
+export const inAppNotificationsApi = {
+  list: (params?: { limit?: number; offset?: number; unread_only?: boolean }) =>
+    apiClient.get('/notifications/in-app', { params }).then(r => r.data),
+  unreadCount: () =>
+    apiClient.get('/notifications/in-app/unread-count').then(r => r.data),
+  markRead: (id: number) =>
+    apiClient.put(`/notifications/in-app/${id}/read`).then(r => r.data),
+  markUnread: (id: number) =>
+    apiClient.put(`/notifications/in-app/${id}/unread`).then(r => r.data),
+  markAllRead: () =>
+    apiClient.put('/notifications/in-app/read-all').then(r => r.data),
+  delete: (id: number) =>
+    apiClient.delete(`/notifications/in-app/${id}`).then(r => r.data),
+  deleteAll: () =>
+    apiClient.delete('/notifications/in-app/all').then(r => r.data),
+  respond: (id: number, response: 'positive' | 'negative') =>
+    apiClient.post(`/notifications/in-app/${id}/respond`, { response }).then(r => r.data),
 }
 
 export default apiClient

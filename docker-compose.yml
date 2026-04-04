@@ -26,12 +26,19 @@ services:
 #     - COOKIE_SECURE=false # Uncomment if accessing over plain HTTP (no HTTPS). Not recommended for production.
       - TRUST_PROXY=1 # Number of trusted proxies (for X-Forwarded-For / real client IP)
       - ALLOW_INTERNAL_NETWORK=false # Set to true if Immich or other services are hosted on your local network (RFC-1918 IPs). Loopback and link-local addresses remain blocked regardless.
+#      - APP_URL=https://trek.example.com # Public base URL — required when OIDC is enabled (must match the redirect URI registered with your IdP); also used as base URL for links in email notifications
 #      - OIDC_ISSUER=https://auth.example.com # OpenID Connect provider URL
 #      - OIDC_CLIENT_ID=trek # OpenID Connect client ID
 #      - OIDC_CLIENT_SECRET=supersecret # OpenID Connect client secret
 #      - OIDC_DISPLAY_NAME=SSO # Label shown on the SSO login button
 #      - OIDC_ONLY=false # Set true to disable local password auth entirely (SSO only)
+#      - OIDC_ADMIN_CLAIM=groups # OIDC claim used to identify admin users
+#      - OIDC_ADMIN_VALUE=app-trek-admins # Value of the OIDC claim that grants admin role
+#      - OIDC_SCOPE=openid email profile groups # Space-separated OIDC scopes to request (must include scopes for any claim used by OIDC_ADMIN_CLAIM)
 #      - OIDC_DISCOVERY_URL= # Override the OIDC discovery endpoint for providers with non-standard paths (e.g. Authentik)
+#      - ADMIN_EMAIL=admin@trek.local # Initial admin e-mail — only used on first boot when no users exist
+#      - ADMIN_PASSWORD=changeme      # Initial admin password — only used on first boot when no users exist
+#      - MCP_RATE_LIMIT=60 # Max MCP API requests per user per minute (default: 60)
     volumes:
       - ./data:/app/data
       - ./uploads:/app/uploads

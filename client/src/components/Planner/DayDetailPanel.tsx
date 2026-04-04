@@ -154,9 +154,9 @@ export default function DayDetailPanel({ day, days, places, categories = [], tri
 
   if (!day) return null
 
-  const formattedDate = day.date ? new Date(day.date + 'T00:00:00').toLocaleDateString(
+  const formattedDate = day.date ? new Date(day.date + 'T00:00:00Z').toLocaleDateString(
     getLocaleForLanguage(language),
-    { weekday: 'long', day: 'numeric', month: 'long' }
+    { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }
   ) : null
 
   const placesWithCoords = places.filter(p => p.lat && p.lng)
@@ -445,7 +445,7 @@ export default function DayDetailPanel({ day, days, places, categories = [], tri
                           onChange={v => setHotelDayRange(prev => ({ start: v, end: Math.max(v, prev.end) }))}
                           options={days.map((d, i) => ({
                             value: d.id,
-                            label: `${d.title || t('planner.dayN', { n: i + 1 })}${d.date ? ` — ${new Date(d.date + 'T00:00:00').toLocaleDateString(locale, { day: 'numeric', month: 'short' })}` : ''}`,
+                            label: `${d.title || t('planner.dayN', { n: i + 1 })}${d.date ? ` — ${new Date(d.date + 'T00:00:00Z').toLocaleDateString(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' })}` : ''}`,
                           }))}
                           size="sm"
                         />
@@ -457,7 +457,7 @@ export default function DayDetailPanel({ day, days, places, categories = [], tri
                           onChange={v => setHotelDayRange(prev => ({ start: Math.min(prev.start, v), end: v }))}
                           options={days.map((d, i) => ({
                             value: d.id,
-                            label: `${d.title || t('planner.dayN', { n: i + 1 })}${d.date ? ` — ${new Date(d.date + 'T00:00:00').toLocaleDateString(locale, { day: 'numeric', month: 'short' })}` : ''}`,
+                            label: `${d.title || t('planner.dayN', { n: i + 1 })}${d.date ? ` — ${new Date(d.date + 'T00:00:00Z').toLocaleDateString(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' })}` : ''}`,
                           }))}
                           size="sm"
                         />

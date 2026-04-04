@@ -14,8 +14,8 @@ import ConfirmDialog from '../components/shared/ConfirmDialog'
 import { useToast } from '../components/shared/Toast'
 import {
   Plus, Calendar, Trash2, Edit2, Map, ChevronDown, ChevronUp,
-  Archive, ArchiveRestore, Clock, MapPin, Settings, X, ArrowRightLeft,
-  LayoutGrid, List,
+  Archive, ArchiveRestore, Clock, MapPin, Settings, X, ArrowRightLeft, Users,
+  LayoutGrid, List, Copy,
 } from 'lucide-react'
 import { useCanDo } from '../store/permissionsStore'
 
@@ -31,6 +31,7 @@ interface DashboardTrip {
   owner_username?: string
   day_count?: number
   place_count?: number
+  shared_count?: number
   [key: string]: string | number | boolean | null | undefined
 }
 
@@ -58,12 +59,12 @@ function getTripStatus(trip: DashboardTrip): string | null {
 
 function formatDate(dateStr: string | null | undefined, locale: string = 'en-US'): string | null {
   if (!dateStr) return null
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(dateStr + 'T00:00:00Z').toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
 }
 
 function formatDateShort(dateStr: string | null | undefined, locale: string = 'en-US'): string | null {
   if (!dateStr) return null
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString(locale, { day: 'numeric', month: 'short' })
+  return new Date(dateStr + 'T00:00:00Z').toLocaleDateString(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
 
 function sortTrips(trips: DashboardTrip[]): DashboardTrip[] {
@@ -141,6 +142,7 @@ function LiquidGlass({ children, dark, style, className = '', onClick }: LiquidG
 interface TripCardProps {
   trip: DashboardTrip
   onEdit?: (trip: DashboardTrip) => void
+  onCopy?: (trip: DashboardTrip) => void
   onDelete?: (trip: DashboardTrip) => void
   onArchive?: (id: number) => void
   onClick: (trip: DashboardTrip) => void
@@ -149,7 +151,7 @@ interface TripCardProps {
   dark?: boolean
 }
 
-function SpotlightCard({ trip, onEdit, onDelete, onArchive, onClick, t, locale, dark }: TripCardProps): React.ReactElement {
+function SpotlightCard({ trip, onEdit, onCopy, onDelete, onArchive, onClick, t, locale, dark }: TripCardProps): React.ReactElement {
   const status = getTripStatus(trip)
 
   const coverBg = trip.cover_image
@@ -188,10 +190,11 @@ function SpotlightCard({ trip, onEdit, onDelete, onArchive, onClick, t, locale, 
         </div>
 
         {/* Top-right actions */}
-        {(onEdit || onArchive || onDelete) && (
+        {(onEdit || onCopy || onArchive || onDelete) && (
         <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 6 }}
           onClick={e => e.stopPropagation()}>
           {onEdit && <IconBtn onClick={() => onEdit(trip)} title={t('common.edit')}><Edit2 size={14} /></IconBtn>}
+          {onCopy && <IconBtn onClick={() => onCopy(trip)} title={t('dashboard.copyTrip')}><Copy size={14} /></IconBtn>}
           {onArchive && <IconBtn onClick={() => onArchive(trip.id)} title={t('dashboard.archive')}><Archive size={14} /></IconBtn>}
           {onDelete && <IconBtn onClick={() => onDelete(trip)} title={t('common.delete')} danger><Trash2 size={14} /></IconBtn>}
         </div>
@@ -224,6 +227,9 @@ function SpotlightCard({ trip, onEdit, onDelete, onArchive, onClick, t, locale, 
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>
               <MapPin size={13} /> {trip.place_count || 0} {t('dashboard.places')}
             </div>
+            <div className="hidden md:flex" style={{ alignItems: 'center', gap: 5, color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>
+              <Users size={13} /> {trip.shared_count+1 || 0} {t('dashboard.members')}
+            </div>
           </div>
         </div>
       </div>
@@ -232,7 +238,7 @@ function SpotlightCard({ trip, onEdit, onDelete, onArchive, onClick, t, locale, 
 }
 
 // ── Regular Trip Card ────────────────────────────────────────────────────────
-function TripCard({ trip, onEdit, onDelete, onArchive, onClick, t, locale }: Omit<TripCardProps, 'dark'>): React.ReactElement {
+function TripCard({ trip, onEdit, onCopy, onDelete, onArchive, onClick, t, locale }: Omit<TripCardProps, 'dark'>): React.ReactElement {
   const status = getTripStatus(trip)
   const [hovered, setHovered] = useState(false)
 
@@ -307,12 +313,14 @@ function TripCard({ trip, onEdit, onDelete, onArchive, onClick, t, locale }: Omi
         <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
           <Stat label={t('dashboard.days')} value={trip.day_count || 0} />
           <Stat label={t('dashboard.places')} value={trip.place_count || 0} />
+          <Stat label={t('dashboard.members')} value={trip.shared_count+1 || 0} />
         </div>
 
-        {(onEdit || onArchive || onDelete) && (
+        {(onEdit || onCopy || onArchive || onDelete) && (
         <div style={{ display: 'flex', gap: 6, borderTop: '1px solid #f3f4f6', paddingTop: 10 }}
           onClick={e => e.stopPropagation()}>
           {onEdit && <CardAction onClick={() => onEdit(trip)} icon={<Edit2 size={12} />} label={t('common.edit')} />}
+          {onCopy && <CardAction onClick={() => onCopy(trip)} icon={<Copy size={12} />} label={t('dashboard.copyTrip')} />}
           {onArchive && <CardAction onClick={() => onArchive(trip.id)} icon={<Archive size={12} />} label={t('dashboard.archive')} />}
           {onDelete && <CardAction onClick={() => onDelete(trip)} icon={<Trash2 size={12} />} label={t('common.delete')} danger />}
         </div>
@@ -323,7 +331,7 @@ function TripCard({ trip, onEdit, onDelete, onArchive, onClick, t, locale }: Omi
 }
 
 // ── List View Item ──────────────────────────────────────────────────────────
-function TripListItem({ trip, onEdit, onDelete, onArchive, onClick, t, locale }: Omit<TripCardProps, 'dark'>): React.ReactElement {
+function TripListItem({ trip, onEdit, onCopy, onDelete, onArchive, onClick, t, locale }: Omit<TripCardProps, 'dark'>): React.ReactElement {
   const status = getTripStatus(trip)
   const [hovered, setHovered] = useState(false)
 
@@ -406,12 +414,16 @@ function TripListItem({ trip, onEdit, onDelete, onArchive, onClick, t, locale }:
         <div className="hidden md:flex" style={{ alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-muted)' }}>
           <MapPin size={11} /> {trip.place_count || 0}
         </div>
+        <div className="hidden md:flex" style={{ alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-muted)' }}>
+          <Users size={11} /> {trip.shared_count+1 || 0}
+        </div>
       </div>
 
       {/* Actions */}
-      {(onEdit || onArchive || onDelete) && (
+      {(onEdit || onCopy || onArchive || onDelete) && (
       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
         {onEdit && <CardAction onClick={() => onEdit(trip)} icon={<Edit2 size={12} />} label="" />}
+        {onCopy && <CardAction onClick={() => onCopy(trip)} icon={<Copy size={12} />} label="" />}
         {onArchive && <CardAction onClick={() => onArchive(trip.id)} icon={<Archive size={12} />} label="" />}
         {onDelete && <CardAction onClick={() => onDelete(trip)} icon={<Trash2 size={12} />} label="" danger />}
       </div>
@@ -424,6 +436,7 @@ function TripListItem({ trip, onEdit, onDelete, onArchive, onClick, t, locale }:
 interface ArchivedRowProps {
   trip: DashboardTrip
   onEdit?: (trip: DashboardTrip) => void
+  onCopy?: (trip: DashboardTrip) => void
   onUnarchive?: (id: number) => void
   onDelete?: (trip: DashboardTrip) => void
   onClick: (trip: DashboardTrip) => void
@@ -431,7 +444,7 @@ interface ArchivedRowProps {
   locale: string
 }
 
-function ArchivedRow({ trip, onEdit, onUnarchive, onDelete, onClick, t, locale }: ArchivedRowProps): React.ReactElement {
+function ArchivedRow({ trip, onEdit, onCopy, onUnarchive, onDelete, onClick, t, locale }: ArchivedRowProps): React.ReactElement {
   return (
     <div onClick={() => onClick(trip)} style={{
       display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px',
@@ -457,8 +470,13 @@ function ArchivedRow({ trip, onEdit, onUnarchive, onDelete, onClick, t, locale }
           </div>
         )}
       </div>
-      {(onEdit || onUnarchive || onDelete) && (
+      {(onEdit || onCopy || onUnarchive || onDelete) && (
       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+        {onCopy && <button onClick={() => onCopy(trip)} title={t('dashboard.copyTrip')} style={{ padding: '4px 8px', borderRadius: 8, border: '1px solid var(--border-primary)', background: 'var(--bg-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-muted)' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--text-faint)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-primary)'; e.currentTarget.style.color = 'var(--text-muted)' }}>
+          <Copy size={12} />
+        </button>}
         {onUnarchive && <button onClick={() => onUnarchive(trip.id)} title={t('dashboard.restore')} style={{ padding: '4px 8px', borderRadius: 8, border: '1px solid var(--border-primary)', background: 'var(--bg-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-muted)' }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--text-faint)'; e.currentTarget.style.color = 'var(--text-primary)' }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-primary)'; e.currentTarget.style.color = 'var(--text-muted)' }}>
@@ -649,6 +667,16 @@ export default function DashboardPage(): React.ReactElement {
     setArchivedTrips(prev => prev.map(update))
   }
 
+  const handleCopy = async (trip: DashboardTrip) => {
+    try {
+      const data = await tripsApi.copy(trip.id, { title: `${trip.title} (${t('dashboard.copySuffix')})` })
+      setTrips(prev => sortTrips([data.trip, ...prev]))
+      toast.success(t('dashboard.toast.copied'))
+    } catch {
+      toast.error(t('dashboard.toast.copyError'))
+    }
+  }
+
   const today = new Date().toISOString().split('T')[0]
   const spotlight = trips.find(t => t.start_date && t.end_date && t.start_date <= today && t.end_date >= today)
     || trips.find(t => t.start_date && t.start_date >= today)
@@ -797,6 +825,7 @@ export default function DashboardPage(): React.ReactElement {
               trip={spotlight}
               t={t} locale={locale} dark={dark}
               onEdit={(can('trip_edit', spotlight) || can('trip_cover_upload', spotlight)) ? tr => { setEditingTrip(tr); setShowForm(true) } : undefined}
+              onCopy={can('trip_create') ? handleCopy : undefined}
               onDelete={can('trip_delete', spotlight) ? handleDelete : undefined}
               onArchive={can('trip_archive', spotlight) ? handleArchive : undefined}
               onClick={tr => navigate(`/trips/${tr.id}`)}
@@ -813,6 +842,7 @@ export default function DashboardPage(): React.ReactElement {
                     trip={trip}
                     t={t} locale={locale}
                     onEdit={(can('trip_edit', trip) || can('trip_cover_upload', trip)) ? tr => { setEditingTrip(tr); setShowForm(true) } : undefined}
+                    onCopy={can('trip_create') ? handleCopy : undefined}
                     onDelete={can('trip_delete', trip) ? handleDelete : undefined}
                     onArchive={can('trip_archive', trip) ? handleArchive : undefined}
                     onClick={tr => navigate(`/trips/${tr.id}`)}
@@ -827,6 +857,7 @@ export default function DashboardPage(): React.ReactElement {
                     trip={trip}
                     t={t} locale={locale}
                     onEdit={(can('trip_edit', trip) || can('trip_cover_upload', trip)) ? tr => { setEditingTrip(tr); setShowForm(true) } : undefined}
+                    onCopy={can('trip_create') ? handleCopy : undefined}
                     onDelete={can('trip_delete', trip) ? handleDelete : undefined}
                     onArchive={can('trip_archive', trip) ? handleArchive : undefined}
                     onClick={tr => navigate(`/trips/${tr.id}`)}
@@ -857,6 +888,7 @@ export default function DashboardPage(): React.ReactElement {
                       trip={trip}
                       t={t} locale={locale}
                       onEdit={(can('trip_edit', trip) || can('trip_cover_upload', trip)) ? tr => { setEditingTrip(tr); setShowForm(true) } : undefined}
+                      onCopy={can('trip_create') ? handleCopy : undefined}
                       onUnarchive={can('trip_archive', trip) ? handleUnarchive : undefined}
                       onDelete={can('trip_delete', trip) ? handleDelete : undefined}
                       onClick={tr => navigate(`/trips/${tr.id}`)}

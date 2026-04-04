@@ -21,6 +21,7 @@ interface AuthState {
   isLoading: boolean
   error: string | null
   demoMode: boolean
+  devMode: boolean
   hasMapsKey: boolean
   serverTimezone: string
   /** Server policy: all users must enable MFA */
@@ -39,6 +40,7 @@ interface AuthState {
   uploadAvatar: (file: File) => Promise<AvatarResponse>
   deleteAvatar: () => Promise<void>
   setDemoMode: (val: boolean) => void
+  setDevMode: (val: boolean) => void
   setHasMapsKey: (val: boolean) => void
   setServerTimezone: (tz: string) => void
   setAppRequireMfa: (val: boolean) => void
@@ -46,18 +48,23 @@ interface AuthState {
   demoLogin: () => Promise<AuthResponse>
 }
 
+// Sequence counter to prevent stale loadUser responses from overwriting fresh auth state
+let authSequence = 0
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   isLoading: true,
   error: null,
   demoMode: localStorage.getItem('demo_mode') === 'true',
+  devMode: false,
   hasMapsKey: false,
   serverTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   appRequireMfa: false,
   tripRemindersEnabled: false,
 
   login: async (email: string, password: string) => {
+    authSequence++
     set({ isLoading: true, error: null })
     try {
       const data = await authApi.login({ email, password }) as AuthResponse & { mfa_required?: boolean; mfa_token?: string }
@@ -81,6 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   completeMfaLogin: async (mfaToken: string, code: string) => {
+    authSequence++
     set({ isLoading: true, error: null })
     try {
       const data = await authApi.verifyMfaLogin({ mfa_token: mfaToken, code: code.replace(/\s/g, '') })
@@ -100,6 +108,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   register: async (username: string, email: string, password: string, invite_token?: string) => {
+    authSequence++
     set({ isLoading: true, error: null })
     try {
       const data = await authApi.register({ username, email, password, invite_token })
@@ -135,10 +144,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   loadUser: async (opts?: { silent?: boolean }) => {
+    const seq = authSequence
     const silent = !!opts?.silent
     if (!silent) set({ isLoading: true })
     try {
       const data = await authApi.me()
+      if (seq !== authSequence) return // stale response — a login/register happened meanwhile
       set({
         user: data.user,
         isAuthenticated: true,
@@ -146,6 +157,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       })
       connect()
     } catch (err: unknown) {
+      if (seq !== authSequence) return // stale response — ignore
       // Only clear auth state on 401 (invalid/expired token), not on network errors
       const isAuthError = err && typeof err === 'object' && 'response' in err &&
         (err as { response?: { status?: number } }).response?.status === 401
@@ -209,12 +221,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ demoMode: val })
   },
 
+  setDevMode: (val: boolean) => set({ devMode: val }),
   setHasMapsKey: (val: boolean) => set({ hasMapsKey: val }),
   setServerTimezone: (tz: string) => set({ serverTimezone: tz }),
   setAppRequireMfa: (val: boolean) => set({ appRequireMfa: val }),
   setTripRemindersEnabled: (val: boolean) => set({ tripRemindersEnabled: val }),
 
   demoLogin: async () => {
+    authSequence++
     set({ isLoading: true, error: null })
     try {
       const data = await authApi.demoLogin()

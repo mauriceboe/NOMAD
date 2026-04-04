@@ -11,10 +11,12 @@ import SettingsPage from './pages/SettingsPage'
 import VacayPage from './pages/VacayPage'
 import AtlasPage from './pages/AtlasPage'
 import SharedTripPage from './pages/SharedTripPage'
+import InAppNotificationsPage from './pages/InAppNotificationsPage.tsx'
 import { ToastContainer } from './components/shared/Toast'
 import { TranslationProvider, useTranslation } from './i18n'
 import { authApi } from './api/client'
 import { usePermissionsStore, PermissionLevel } from './store/permissionsStore'
+import { useInAppNotificationListener } from './hooks/useInAppNotificationListener.ts'
 
 interface ProtectedRouteProps {
   children: ReactNode
@@ -75,13 +77,16 @@ function RootRedirect() {
 }
 
 export default function App() {
-  const { loadUser, isAuthenticated, demoMode, setDemoMode, setHasMapsKey, setServerTimezone, setAppRequireMfa, setTripRemindersEnabled } = useAuthStore()
+  const { loadUser, isAuthenticated, demoMode, setDemoMode, setDevMode, setHasMapsKey, setServerTimezone, setAppRequireMfa, setTripRemindersEnabled } = useAuthStore()
   const { loadSettings } = useSettingsStore()
 
   useEffect(() => {
-    loadUser()
-    authApi.getAppConfig().then(async (config: { demo_mode?: boolean; has_maps_key?: boolean; version?: string; timezone?: string; require_mfa?: boolean; trip_reminders_enabled?: boolean; permissions?: Record<string, PermissionLevel> }) => {
+    if (!location.pathname.startsWith('/shared/')) {
+      loadUser()
+    }
+    authApi.getAppConfig().then(async (config: { demo_mode?: boolean; dev_mode?: boolean; has_maps_key?: boolean; version?: string; timezone?: string; require_mfa?: boolean; trip_reminders_enabled?: boolean; permissions?: Record<string, PermissionLevel> }) => {
       if (config?.demo_mode) setDemoMode(true)
+      if (config?.dev_mode) setDevMode(true)
       if (config?.has_maps_key !== undefined) setHasMapsKey(config.has_maps_key)
       if (config?.timezone) setServerTimezone(config.timezone)
       if (config?.require_mfa !== undefined) setAppRequireMfa(!!config.require_mfa)
@@ -111,6 +116,8 @@ export default function App() {
   }, [])
 
   const { settings } = useSettingsStore()
+
+  useInAppNotificationListener()
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -208,6 +215,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <AtlasPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <InAppNotificationsPage />
             </ProtectedRoute>
           }
         />

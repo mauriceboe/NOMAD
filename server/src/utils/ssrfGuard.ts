@@ -1,6 +1,6 @@
-import dns from 'dns/promises';
-import http from 'http';
-import https from 'https';
+import dns from 'node:dns/promises';
+import http from 'node:http';
+import https from 'node:https';
 
 const ALLOW_INTERNAL_NETWORK = process.env.ALLOW_INTERNAL_NETWORK === 'true';
 
@@ -17,11 +17,11 @@ function isAlwaysBlocked(ip: string): boolean {
   const addr = ip.startsWith('[') ? ip.slice(1, -1) : ip;
 
   // Loopback
-  if (/^127\./.test(addr) || addr === '::1') return true;
+  if (addr.startsWith("127.") || addr === '::1') return true;
   // Unspecified
-  if (/^0\./.test(addr)) return true;
+  if (addr.startsWith("0.")) return true;
   // Link-local / cloud metadata
-  if (/^169\.254\./.test(addr) || /^fe80:/i.test(addr)) return true;
+  if (addr.startsWith("169.254.") || /^fe80:/i.test(addr)) return true;
   // IPv4-mapped loopback / link-local: ::ffff:127.x.x.x, ::ffff:169.254.x.x
   if (/^::ffff:127\./i.test(addr) || /^::ffff:169\.254\./i.test(addr)) return true;
 
@@ -33,9 +33,9 @@ function isPrivateNetwork(ip: string): boolean {
   const addr = ip.startsWith('[') ? ip.slice(1, -1) : ip;
 
   // RFC-1918 private ranges
-  if (/^10\./.test(addr)) return true;
+  if (addr.startsWith("10.")) return true;
   if (/^172\.(1[6-9]|2\d|3[01])\./.test(addr)) return true;
-  if (/^192\.168\./.test(addr)) return true;
+  if (addr.startsWith("192.168.")) return true;
   // CGNAT / Tailscale shared address space (100.64.0.0/10)
   if (/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(addr)) return true;
   // IPv6 ULA (fc00::/7)
@@ -53,7 +53,7 @@ function isInternalHostname(hostname: string): boolean {
   return h.endsWith('.local') || h.endsWith('.internal') || h === 'localhost';
 }
 
-export async function checkSsrf(rawUrl: string): Promise<SsrfResult> {
+export async function checkSsrf(rawUrl: string, bypassInternalIpAllowed: boolean = false): Promise<SsrfResult> {
   let url: URL;
   try {
     url = new URL(rawUrl);
@@ -91,7 +91,7 @@ export async function checkSsrf(rawUrl: string): Promise<SsrfResult> {
   }
 
   if (isPrivateNetwork(resolvedIp) || isInternalHostname(hostname)) {
-    if (!ALLOW_INTERNAL_NETWORK) {
+    if (!ALLOW_INTERNAL_NETWORK || bypassInternalIpAllowed) {
       return {
         allowed: false,
         isPrivate: true,

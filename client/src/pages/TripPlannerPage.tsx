@@ -23,7 +23,7 @@ import BudgetPanel from '../components/Budget/BudgetPanel'
 import CollabPanel from '../components/Collab/CollabPanel'
 import Navbar from '../components/Layout/Navbar'
 import { useToast } from '../components/shared/Toast'
-import { Map, X, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react'
+import { Map, X, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Ticket, PackageCheck, Wallet, FolderOpen, Camera, Users } from 'lucide-react'
 import { useTranslation } from '../i18n'
 import { addonsApi, accommodationsApi, authApi, tripsApi, assignmentsApi, mapsApi } from '../api/client'
 import ConfirmDialog from '../components/shared/ConfirmDialog'
@@ -31,6 +31,7 @@ import { useResizablePanels } from '../hooks/useResizablePanels'
 import { useTripWebSocket } from '../hooks/useTripWebSocket'
 import { useRouteCalculation } from '../hooks/useRouteCalculation'
 import { usePlaceSelection } from '../hooks/usePlaceSelection'
+import { usePlannerHistory } from '../hooks/usePlannerHistory'
 import type { Accommodation, TripMember, Day, Place, Reservation } from '../types'
 
 export default function TripPlannerPage(): React.ReactElement | null {
@@ -54,6 +55,13 @@ export default function TripPlannerPage(): React.ReactElement | null {
   const tripActions = useRef(useTripStore.getState()).current
   const can = useCanDo()
   const canUploadFiles = can('file_upload', trip)
+  const { pushUndo, undo, canUndo, lastActionLabel } = usePlannerHistory()
+
+  const handleUndo = useCallback(async () => {
+    const label = lastActionLabel
+    await undo()
+    toast.info(t('undo.done', { action: label ?? '' }))
+  }, [undo, lastActionLabel, toast])
 
   const [enabledAddons, setEnabledAddons] = useState<Record<string, boolean>>({ packing: true, budget: true, documents: true })
   const [tripAccommodations, setTripAccommodations] = useState<Accommodation[]>([])
@@ -83,13 +91,13 @@ export default function TripPlannerPage(): React.ReactElement | null {
   }, [])
 
   const TRIP_TABS = [
-    { id: 'plan', label: t('trip.tabs.plan') },
-    { id: 'buchungen', label: t('trip.tabs.reservations'), shortLabel: t('trip.tabs.reservationsShort') },
-    ...(enabledAddons.packing ? [{ id: 'packliste', label: t('trip.tabs.packing'), shortLabel: t('trip.tabs.packingShort') }] : []),
-    ...(enabledAddons.budget ? [{ id: 'finanzplan', label: t('trip.tabs.budget') }] : []),
-    ...(enabledAddons.documents ? [{ id: 'dateien', label: t('trip.tabs.files') }] : []),
-    ...(enabledAddons.memories ? [{ id: 'memories', label: t('memories.title') }] : []),
-    ...(enabledAddons.collab ? [{ id: 'collab', label: t('admin.addons.catalog.collab.name') }] : []),
+    { id: 'plan', label: t('trip.tabs.plan'), icon: Map },
+    { id: 'buchungen', label: t('trip.tabs.reservations'), shortLabel: t('trip.tabs.reservationsShort'), icon: Ticket },
+    ...(enabledAddons.packing ? [{ id: 'packliste', label: t('trip.tabs.packing'), shortLabel: t('trip.tabs.packingShort'), icon: PackageCheck }] : []),
+    ...(enabledAddons.budget ? [{ id: 'finanzplan', label: t('trip.tabs.budget'), icon: Wallet }] : []),
+    ...(enabledAddons.documents ? [{ id: 'dateien', label: t('trip.tabs.files'), icon: FolderOpen }] : []),
+    ...(enabledAddons.memories ? [{ id: 'memories', label: t('memories.title'), icon: Camera }] : []),
+    ...(enabledAddons.collab ? [{ id: 'collab', label: t('admin.addons.catalog.collab.name'), icon: Users }] : []),
   ]
 
   const [activeTab, setActiveTab] = useState<string>(() => {
@@ -273,8 +281,14 @@ export default function TripPlannerPage(): React.ReactElement | null {
         }
       }
       toast.success(t('trip.toast.placeAdded'))
+      if (place?.id) {
+        const capturedId = place.id
+        pushUndo(t('undo.addPlace'), async () => {
+          await tripActions.deletePlace(tripId, capturedId)
+        })
+      }
     }
-  }, [editingPlace, editingAssignmentId, tripId, toast])
+  }, [editingPlace, editingAssignmentId, tripId, toast, pushUndo])
 
   const handleDeletePlace = useCallback((placeId) => {
     setDeletePlaceId(placeId)
@@ -282,33 +296,83 @@ export default function TripPlannerPage(): React.ReactElement | null {
 
   const confirmDeletePlace = useCallback(async () => {
     if (!deletePlaceId) return
+    const state = useTripStore.getState()
+    const capturedPlace = state.places.find(p => p.id === deletePlaceId)
+    const capturedAssignments = Object.entries(state.assignments).flatMap(([dayId, as]) =>
+      as.filter(a => a.place?.id === deletePlaceId).map(a => ({ dayId: Number(dayId), orderIndex: a.order_index }))
+    )
     try {
       await tripActions.deletePlace(tripId, deletePlaceId)
       if (selectedPlaceId === deletePlaceId) setSelectedPlaceId(null)
       toast.success(t('trip.toast.placeDeleted'))
+      if (capturedPlace) {
+        pushUndo(t('undo.deletePlace'), async () => {
+          const newPlace = await tripActions.addPlace(tripId, {
+            name: capturedPlace.name,
+            description: capturedPlace.description,
+            lat: capturedPlace.lat,
+            lng: capturedPlace.lng,
+            address: capturedPlace.address,
+            category_id: capturedPlace.category_id,
+            icon: capturedPlace.icon,
+            price: capturedPlace.price,
+          })
+          for (const { dayId, orderIndex } of capturedAssignments) {
+            await tripActions.assignPlaceToDay(tripId, dayId, newPlace.id, orderIndex)
+          }
+        })
+      }
     } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Unknown error') }
-  }, [deletePlaceId, tripId, toast, selectedPlaceId])
+  }, [deletePlaceId, tripId, toast, selectedPlaceId, pushUndo])
 
   const handleAssignToDay = useCallback(async (placeId, dayId, position) => {
     const target = dayId || selectedDayId
     if (!target) { toast.error(t('trip.toast.selectDay')); return }
     try {
-      await tripActions.assignPlaceToDay(tripId, target, placeId, position)
+      const assignment = await tripActions.assignPlaceToDay(tripId, target, placeId, position)
       toast.success(t('trip.toast.assignedToDay'))
       updateRouteForDay(target)
+      if (assignment?.id) {
+        const capturedAssignmentId = assignment.id
+        const capturedTarget = target
+        pushUndo(t('undo.assignPlace'), async () => {
+          await tripActions.removeAssignment(tripId, capturedTarget, capturedAssignmentId)
+        })
+      }
     } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Unknown error') }
-  }, [selectedDayId, tripId, toast, updateRouteForDay])
+  }, [selectedDayId, tripId, toast, updateRouteForDay, pushUndo])
 
   const handleRemoveAssignment = useCallback(async (dayId, assignmentId) => {
+    const state = useTripStore.getState()
+    const capturedAssignment = (state.assignments[String(dayId)] || []).find(a => a.id === assignmentId)
+    const capturedPlaceId = capturedAssignment?.place?.id
+    const capturedOrderIndex = capturedAssignment?.order_index ?? 0
     try {
       await tripActions.removeAssignment(tripId, dayId, assignmentId)
+      if (capturedPlaceId != null) {
+        const capturedDayId = dayId
+        const capturedPos = capturedOrderIndex
+        pushUndo(t('undo.removeAssignment'), async () => {
+          await tripActions.assignPlaceToDay(tripId, capturedDayId, capturedPlaceId, capturedPos)
+        })
+      }
     }
     catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Unknown error') }
-  }, [tripId, toast, updateRouteForDay])
+  }, [tripId, toast, updateRouteForDay, pushUndo])
 
   const handleReorder = useCallback((dayId, orderedIds) => {
+    const prevIds = (useTripStore.getState().assignments[String(dayId)] || [])
+      .slice().sort((a, b) => a.order_index - b.order_index).map(a => a.id)
     try {
-      tripActions.reorderAssignments(tripId, dayId, orderedIds).catch(() => {})
+      tripActions.reorderAssignments(tripId, dayId, orderedIds)
+        .then(() => {
+          const capturedDayId = dayId
+          const capturedPrevIds = prevIds
+          pushUndo(t('undo.reorder'), async () => {
+            await tripActions.reorderAssignments(tripId, capturedDayId, capturedPrevIds)
+          })
+        })
+        .catch(() => {})
       // Update route immediately from orderedIds
       const dayItems = useTripStore.getState().assignments[String(dayId)] || []
       const ordered = orderedIds.map(id => dayItems.find(a => a.id === id)).filter(Boolean)
@@ -318,7 +382,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
       setRouteInfo(null)
     }
     catch { toast.error(t('trip.toast.reorderError')) }
-  }, [tripId, toast])
+  }, [tripId, toast, pushUndo])
 
   const handleUpdateDayTitle = useCallback(async (dayId, title) => {
     try { await tripActions.updateDayTitle(tripId, dayId, title) }
@@ -458,10 +522,12 @@ export default function TripPlannerPage(): React.ReactElement | null {
       }}>
         {TRIP_TABS.map(tab => {
           const isActive = activeTab === tab.id
+          const TabIcon = tab.icon
           return (
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
+              title={tab.label}
               style={{
                 flexShrink: 0,
                 padding: '5px 14px', borderRadius: 20, border: 'none', cursor: 'pointer',
@@ -469,13 +535,14 @@ export default function TripPlannerPage(): React.ReactElement | null {
                 background: isActive ? 'var(--accent)' : 'transparent',
                 color: isActive ? 'var(--accent-text)' : 'var(--text-muted)',
                 fontFamily: 'inherit', transition: 'all 0.15s',
+                display: 'flex', alignItems: 'center', gap: 5,
               }}
               onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = isActive ? 'var(--accent-text)' : 'var(--text-primary)' }}
               onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = isActive ? 'var(--accent-text)' : 'var(--text-muted)' }}
-            >{tab.shortLabel
-                ? <><span className="sm:hidden">{tab.shortLabel}</span><span className="hidden sm:inline">{tab.label}</span></>
-                : tab.label
-              }</button>
+            >
+              {TabIcon && <><TabIcon size={20} className="sm:hidden" /><TabIcon size={15} className="hidden sm:block" /></>}
+              <span className="hidden sm:inline">{tab.shortLabel || tab.label}</span>
+            </button>
           )
         })}
       </div>
@@ -556,6 +623,10 @@ export default function TripPlannerPage(): React.ReactElement | null {
                   accommodations={tripAccommodations}
                   onNavigateToFiles={() => handleTabChange('dateien')}
                   onExpandedDaysChange={setExpandedDayIds}
+                  pushUndo={pushUndo}
+                  canUndo={canUndo}
+                  lastActionLabel={lastActionLabel}
+                  onUndo={handleUndo}
                 />
                 {!leftCollapsed && (
                   <div
@@ -616,6 +687,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
                     onEditPlace={(place) => { setEditingPlace(place); setEditingAssignmentId(null); setShowPlaceForm(true) }}
                     onDeletePlace={(placeId) => handleDeletePlace(placeId)}
                     onCategoryFilterChange={setMapCategoryFilter}
+                    pushUndo={pushUndo}
                   />
                 </div>
               </div>
@@ -651,7 +723,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
                   reservations={reservations}
                   lat={geoPlace?.lat}
                   lng={geoPlace?.lng}
-                  onClose={() => setShowDayDetail(null)}
+                  onClose={() => { setShowDayDetail(null); handleSelectDay(null) }}
                   onAccommodationChange={loadAccommodations}
                   leftWidth={isMobile ? 0 : (leftCollapsed ? 0 : leftWidth)}
                   rightWidth={isMobile ? 0 : (rightCollapsed ? 0 : rightWidth)}
@@ -770,8 +842,8 @@ export default function TripPlannerPage(): React.ReactElement | null {
                   </div>
                   <div style={{ flex: 1, overflow: 'auto' }}>
                     {mobileSidebarOpen === 'left'
-                      ? <DayPlanSidebar tripId={tripId} trip={trip} days={days} places={places} categories={categories} assignments={assignments} selectedDayId={selectedDayId} selectedPlaceId={selectedPlaceId} selectedAssignmentId={selectedAssignmentId} onSelectDay={(id) => { handleSelectDay(id); setMobileSidebarOpen(null) }} onPlaceClick={(placeId, assignmentId) => { handlePlaceClick(placeId, assignmentId); setMobileSidebarOpen(null) }} onReorder={handleReorder} onUpdateDayTitle={handleUpdateDayTitle} onAssignToDay={handleAssignToDay} onRouteCalculated={(r) => { if (r) { setRoute(r.coordinates); setRouteInfo({ distance: r.distanceText, duration: r.durationText }) } }} reservations={reservations} onAddReservation={(dayId) => { setEditingReservation(null); tripActions.setSelectedDay(dayId); setShowReservationModal(true); setMobileSidebarOpen(null) }} onDayDetail={(day) => { setShowDayDetail(day); setSelectedPlaceId(null); setSelectedAssignmentId(null); setMobileSidebarOpen(null) }} accommodations={tripAccommodations} onNavigateToFiles={() => { setMobileSidebarOpen(null); handleTabChange('dateien') }} onExpandedDaysChange={setExpandedDayIds} />
-                      : <PlacesSidebar tripId={tripId} places={places} categories={categories} assignments={assignments} selectedDayId={selectedDayId} selectedPlaceId={selectedPlaceId} onPlaceClick={(placeId) => { handlePlaceClick(placeId); setMobileSidebarOpen(null) }} onAddPlace={() => { setEditingPlace(null); setShowPlaceForm(true); setMobileSidebarOpen(null) }} onAssignToDay={handleAssignToDay} onEditPlace={(place) => { setEditingPlace(place); setEditingAssignmentId(null); setShowPlaceForm(true); setMobileSidebarOpen(null) }} onDeletePlace={(placeId) => handleDeletePlace(placeId)} days={days} isMobile onCategoryFilterChange={setMapCategoryFilter} />
+                      ? <DayPlanSidebar tripId={tripId} trip={trip} days={days} places={places} categories={categories} assignments={assignments} selectedDayId={selectedDayId} selectedPlaceId={selectedPlaceId} selectedAssignmentId={selectedAssignmentId} onSelectDay={(id) => { handleSelectDay(id); setMobileSidebarOpen(null) }} onPlaceClick={(placeId, assignmentId) => { handlePlaceClick(placeId, assignmentId); setMobileSidebarOpen(null) }} onReorder={handleReorder} onUpdateDayTitle={handleUpdateDayTitle} onAssignToDay={handleAssignToDay} onRouteCalculated={(r) => { if (r) { setRoute(r.coordinates); setRouteInfo({ distance: r.distanceText, duration: r.durationText }) } }} reservations={reservations} onAddReservation={(dayId) => { setEditingReservation(null); tripActions.setSelectedDay(dayId); setShowReservationModal(true); setMobileSidebarOpen(null) }} onDayDetail={(day) => { setShowDayDetail(day); setSelectedPlaceId(null); setSelectedAssignmentId(null); setMobileSidebarOpen(null) }} accommodations={tripAccommodations} onNavigateToFiles={() => { setMobileSidebarOpen(null); handleTabChange('dateien') }} onExpandedDaysChange={setExpandedDayIds} pushUndo={pushUndo} canUndo={canUndo} lastActionLabel={lastActionLabel} onUndo={handleUndo} />
+                      : <PlacesSidebar tripId={tripId} places={places} categories={categories} assignments={assignments} selectedDayId={selectedDayId} selectedPlaceId={selectedPlaceId} onPlaceClick={(placeId) => { handlePlaceClick(placeId); setMobileSidebarOpen(null) }} onAddPlace={() => { setEditingPlace(null); setShowPlaceForm(true); setMobileSidebarOpen(null) }} onAssignToDay={handleAssignToDay} onEditPlace={(place) => { setEditingPlace(place); setEditingAssignmentId(null); setShowPlaceForm(true); setMobileSidebarOpen(null) }} onDeletePlace={(placeId) => handleDeletePlace(placeId)} days={days} isMobile onCategoryFilterChange={setMapCategoryFilter} pushUndo={pushUndo} />
                     }
                   </div>
                 </div>

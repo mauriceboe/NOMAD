@@ -61,15 +61,15 @@ function categoryIconSvg(iconName, color = '#6366f1', size = 24) {
 
 function shortDate(d, locale) {
   if (!d) return ''
-  return new Date(d + 'T00:00:00').toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })
+  return new Date(d + 'T00:00:00Z').toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
 
 function longDateRange(days, locale) {
   const dd = [...days].filter(d => d.date).sort((a, b) => a.day_number - b.day_number)
   if (!dd.length) return null
-  const f = new Date(dd[0].date + 'T00:00:00')
-  const l = new Date(dd[dd.length - 1].date + 'T00:00:00')
-  return `${f.toLocaleDateString(locale, { day: 'numeric', month: 'long' })} – ${l.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })}`
+  const f = new Date(dd[0].date + 'T00:00:00Z')
+  const l = new Date(dd[dd.length - 1].date + 'T00:00:00Z')
+  return `${f.toLocaleDateString(locale, { day: 'numeric', month: 'long', timeZone: 'UTC' })} – ${l.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}`
 }
 
 function dayCost(assignments, dayId, locale) {

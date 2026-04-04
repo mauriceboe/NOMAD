@@ -72,13 +72,17 @@ function createPlaceIcon(place, orderNumbers, isSelected) {
     const imgIcon = L.divIcon({
       className: '',
       html: `<div style="
-        width:${size}px;height:${size}px;border-radius:50%;
-        border:${borderWidth}px solid ${borderColor};
-        box-shadow:${shadow};
-        overflow:hidden;background:${bgColor};
+        width:${size}px;height:${size}px;
         cursor:pointer;position:relative;
       ">
-        <img src="${place.image_url}" width="${size}" height="${size}" style="display:block;border-radius:50%;object-fit:cover;" />
+        <div style="
+          width:${size}px;height:${size}px;border-radius:50%;
+          border:${borderWidth}px solid ${borderColor};
+          box-shadow:${shadow};
+          overflow:hidden;background:${bgColor};
+        ">
+          <img src="${place.image_url}" width="${size}" height="${size}" style="display:block;border-radius:50%;object-fit:cover;" />
+        </div>
         ${badgeHtml}
       </div>`,
       iconSize: [size, size],

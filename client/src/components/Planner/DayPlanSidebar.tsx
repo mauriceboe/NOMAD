@@ -4,7 +4,7 @@ declare global { interface Window { __dragData: DragDataPayload | null } }
 
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import ReactDOM from 'react-dom'
-import { ChevronDown, ChevronRight, ChevronUp, Navigation, RotateCcw, ExternalLink, Clock, Pencil, GripVertical, Ticket, Plus, FileText, Check, Trash2, Info, MapPin, Star, Heart, Camera, Lightbulb, Flag, Bookmark, Train, Bus, Plane, Car, Ship, Coffee, ShoppingBag, AlertTriangle, FileDown, Lock, Hotel, Utensils, Users } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronUp, Navigation, RotateCcw, ExternalLink, Clock, Pencil, GripVertical, Ticket, Plus, FileText, Check, Trash2, Info, MapPin, Star, Heart, Camera, Lightbulb, Flag, Bookmark, Train, Bus, Plane, Car, Ship, Coffee, ShoppingBag, AlertTriangle, FileDown, Lock, Hotel, Utensils, Users, Undo2 } from 'lucide-react'
 
 const RES_ICONS = { flight: Plane, hotel: Hotel, restaurant: Utensils, train: Train, car: Car, cruise: Ship, event: Ticket, tour: Users, other: FileText }
 import { assignmentsApi, reservationsApi } from '../../api/client'
@@ -80,6 +80,10 @@ interface DayPlanSidebarProps {
   onAddReservation: () => void
   onNavigateToFiles?: () => void
   onExpandedDaysChange?: (expandedDayIds: Set<number>) => void
+  pushUndo?: (label: string, undoFn: () => Promise<void> | void) => void
+  canUndo?: boolean
+  lastActionLabel?: string | null
+  onUndo?: () => void
 }
 
 const DayPlanSidebar = React.memo(function DayPlanSidebar({
@@ -93,6 +97,10 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
   onAddReservation,
   onNavigateToFiles,
   onExpandedDaysChange,
+  pushUndo,
+  canUndo = false,
+  lastActionLabel = null,
+  onUndo,
 }: DayPlanSidebarProps) {
   const toast = useToast()
   const { t, language, locale } = useTranslation()
@@ -119,6 +127,9 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
   const [draggingId, setDraggingId] = useState(null)
   const [lockedIds, setLockedIds] = useState(new Set())
   const [lockHoverId, setLockHoverId] = useState(null)
+  const [undoHover, setUndoHover] = useState(false)
+  const [pdfHover, setPdfHover] = useState(false)
+  const [icsHover, setIcsHover] = useState(false)
   const [dropTargetKey, _setDropTargetKey] = useState(null)
   const dropTargetRef = useRef(null)
   const setDropTargetKey = (key) => { dropTargetRef.current = key; _setDropTargetKey(key) }
@@ -395,6 +406,9 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
 
   // Unified reorder: assigns positions to ALL item types based on new visual order
   const applyMergedOrder = async (dayId: number, newOrder: { type: string; data: any }[]) => {
+    // Capture previous place order for undo
+    const prevAssignmentIds = getDayAssignments(dayId).map(a => a.id)
+
     // Places get sequential integer positions (0, 1, 2, ...)
     // Non-place items between place N-1 and place N get fractional positions
     const assignmentIds: number[] = []
@@ -436,6 +450,13 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
           if (res) res.day_plan_position = tu.day_plan_position
         }
         await reservationsApi.updatePositions(tripId, transportUpdates)
+      }
+      if (prevAssignmentIds.length) {
+        const capturedDayId = dayId
+        const capturedPrevIds = prevAssignmentIds
+        pushUndo?.(t('undo.reorder'), async () => {
+          await tripActions.reorderAssignments(tripId, capturedDayId, capturedPrevIds)
+        })
       }
     } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Unknown error') }
   }
@@ -599,18 +620,22 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
   }
 
   const toggleLock = (assignmentId) => {
+    const prevLocked = new Set(lockedIds)
     setLockedIds(prev => {
       const next = new Set(prev)
       if (next.has(assignmentId)) next.delete(assignmentId)
       else next.add(assignmentId)
       return next
     })
+    pushUndo?.(t('undo.lock'), () => { setLockedIds(prevLocked) })
   }
 
   const handleOptimize = async () => {
     if (!selectedDayId) return
     const da = getDayAssignments(selectedDayId)
     if (da.length < 3) return
+
+    const prevIds = da.map(a => a.id)
 
     // Separate locked (stay at their index) and unlocked assignments
     const locked = new Map() // index -> assignment
@@ -638,6 +663,10 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
 
     await onReorder(selectedDayId, result.map(a => a.id))
     toast.success(t('dayplan.toast.routeOptimized'))
+    const capturedDayId = selectedDayId
+    pushUndo?.(t('undo.optimize'), async () => {
+      await tripActions.reorderAssignments(tripId, capturedDayId, prevIds)
+    })
   }
 
   const handleGoogleMaps = () => {
@@ -656,7 +685,16 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
     if (placeId) {
       onAssignToDay?.(parseInt(placeId), dayId)
     } else if (assignmentId && fromDayId !== dayId) {
-      tripActions.moveAssignment(tripId, Number(assignmentId), fromDayId, dayId).catch((err: unknown) => toast.error(err instanceof Error ? err.message : 'Unknown error'))
+      const srcAssignment = (useTripStore.getState().assignments[String(fromDayId)] || []).find(a => a.id === Number(assignmentId))
+      const capturedFromDayId = fromDayId
+      const capturedOrderIndex = srcAssignment?.order_index ?? 0
+      tripActions.moveAssignment(tripId, Number(assignmentId), fromDayId, dayId)
+        .then(() => {
+          pushUndo?.(t('undo.moveDay'), async () => {
+            await tripActions.moveAssignment(tripId, Number(assignmentId), dayId, capturedFromDayId, capturedOrderIndex)
+          })
+        })
+        .catch((err: unknown) => toast.error(err instanceof Error ? err.message : 'Unknown error'))
     } else if (noteId && fromDayId !== dayId) {
       tripActions.moveDayNote(tripId, fromDayId, dayId, Number(noteId)).catch((err: unknown) => toast.error(err instanceof Error ? err.message : 'Unknown error'))
     }
@@ -705,62 +743,124 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
             <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', lineHeight: '1.3' }}>{trip?.title}</div>
             {(trip?.start_date || trip?.end_date) && (
               <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 3 }}>
-                {[trip.start_date, trip.end_date].filter(Boolean).map(d => new Date(d + 'T00:00:00').toLocaleDateString(locale, { day: 'numeric', month: 'short' })).join(' – ')}
+                {[trip.start_date, trip.end_date].filter(Boolean).map(d => new Date(d + 'T00:00:00Z').toLocaleDateString(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' })).join(' – ')}
                 {days.length > 0 && ` · ${days.length} ${t('dayplan.days')}`}
               </div>
             )}
           </div>
-          <button
-            onClick={async () => {
-              const flatNotes = Object.entries(dayNotes).flatMap(([dayId, notes]) =>
-                notes.map(n => ({ ...n, day_id: Number(dayId) }))
-              )
-              try {
-                await downloadTripPDF({ trip, days, places, assignments, categories, dayNotes: flatNotes, reservations, t, locale })
-              } catch (e) {
-                console.error('PDF error:', e)
-                toast.error(t('dayplan.pdfError') + ': ' + (e?.message || String(e)))
-              }
-            }}
-            title={t('dayplan.pdfTooltip')}
-            style={{
-              flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
-              padding: '5px 10px', borderRadius: 8, border: 'none',
-              background: 'var(--accent)', color: 'var(--accent-text)', fontSize: 11, fontWeight: 500,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >
-            <FileDown size={13} strokeWidth={2} />
-            {t('dayplan.pdf')}
-          </button>
-          <button
-            onClick={async () => {
-              try {
-                const res = await fetch(`/api/trips/${tripId}/export.ics`, {
-                  credentials: 'include',
-                })
-                if (!res.ok) throw new Error()
-                const blob = await res.blob()
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = `${trip?.title || 'trip'}.ics`
-                a.click()
-                URL.revokeObjectURL(url)
-              } catch { toast.error('ICS export failed') }
-            }}
-            title={t('dayplan.icsTooltip')}
-            style={{
-              flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
-              padding: '5px 10px', borderRadius: 8,
-              border: '1px solid var(--border-primary)', background: 'none',
-              color: 'var(--text-muted)', fontSize: 11, fontWeight: 500,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >
-            <FileDown size={13} strokeWidth={2} />
-            ICS
-          </button>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <button
+              onClick={async () => {
+                const flatNotes = Object.entries(dayNotes).flatMap(([dayId, notes]) =>
+                  notes.map(n => ({ ...n, day_id: Number(dayId) }))
+                )
+                try {
+                  await downloadTripPDF({ trip, days, places, assignments, categories, dayNotes: flatNotes, reservations, t, locale })
+                } catch (e) {
+                  console.error('PDF error:', e)
+                  toast.error(t('dayplan.pdfError') + ': ' + (e?.message || String(e)))
+                }
+              }}
+              onMouseEnter={() => setPdfHover(true)}
+              onMouseLeave={() => setPdfHover(false)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '5px 10px', borderRadius: 8, border: 'none',
+                background: 'var(--accent)', color: 'var(--accent-text)', fontSize: 11, fontWeight: 500,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              <FileDown size={13} strokeWidth={2} />
+              {t('dayplan.pdf')}
+            </button>
+            {pdfHover && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+                whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 200,
+                background: 'var(--bg-card, white)', color: 'var(--text-primary, #111827)',
+                fontSize: 11, fontWeight: 500, padding: '5px 10px',
+                borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                border: '1px solid var(--border-faint, #e5e7eb)',
+              }}>
+                {t('dayplan.pdfTooltip')}
+              </div>
+            )}
+          </div>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/trips/${tripId}/export.ics`, {
+                    credentials: 'include',
+                  })
+                  if (!res.ok) throw new Error()
+                  const blob = await res.blob()
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `${trip?.title || 'trip'}.ics`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                } catch { toast.error('ICS export failed') }
+              }}
+              onMouseEnter={() => setIcsHover(true)}
+              onMouseLeave={() => setIcsHover(false)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '5px 10px', borderRadius: 8,
+                border: '1px solid var(--border-primary)', background: 'none',
+                color: 'var(--text-muted)', fontSize: 11, fontWeight: 500,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              <FileDown size={13} strokeWidth={2} />
+              ICS
+            </button>
+            {icsHover && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+                whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 200,
+                background: 'var(--bg-card, white)', color: 'var(--text-primary, #111827)',
+                fontSize: 11, fontWeight: 500, padding: '5px 10px',
+                borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                border: '1px solid var(--border-faint, #e5e7eb)',
+              }}>
+                {t('dayplan.icsTooltip')}
+              </div>
+            )}
+          </div>
+          {onUndo && (
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <button
+                onClick={onUndo}
+                disabled={!canUndo}
+                onMouseEnter={() => setUndoHover(true)}
+                onMouseLeave={() => setUndoHover(false)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 30, height: 30, borderRadius: 8,
+                  border: '1px solid var(--border-primary)', background: 'none',
+                  color: canUndo ? 'var(--text-primary)' : 'var(--border-primary)',
+                  cursor: canUndo ? 'pointer' : 'default', fontFamily: 'inherit',
+                  transition: 'color 0.15s, border-color 0.15s',
+                }}
+              >
+                <Undo2 size={14} strokeWidth={2} />
+              </button>
+              {undoHover && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+                  whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 200,
+                  background: 'var(--bg-card, white)', color: 'var(--text-primary, #111827)',
+                  fontSize: 11, fontWeight: 500, padding: '5px 10px',
+                  borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  border: '1px solid var(--border-faint, #e5e7eb)',
+                }}>
+                  {canUndo && lastActionLabel ? t('undo.tooltip', { action: lastActionLabel }) : t('undo.button')}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -779,7 +879,7 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
           const placeItems = merged.filter(i => i.type === 'place')
 
           return (
-            <div key={day.id} style={{ borderBottom: '1px solid var(--border-faint)', contentVisibility: 'auto', containIntrinsicSize: '0 64px' }}>
+            <div key={day.id} style={{ borderBottom: '1px solid var(--border-faint)' }}>
               {/* Tages-Header — akzeptiert Drops aus der PlacesSidebar */}
               <div
                 onClick={() => { onSelectDay(day.id); if (onDayDetail) onDayDetail(day) }}
@@ -796,6 +896,7 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
                   outline: isDragTarget ? '2px dashed rgba(17,24,39,0.25)' : 'none',
                   outlineOffset: -2,
                   borderRadius: isDragTarget ? 8 : 0,
+                  touchAction: 'manipulation',
                 }}
                 onMouseEnter={e => { if (!isSelected && !isDragTarget) e.currentTarget.style.background = 'var(--bg-tertiary)' }}
                 onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = isDragTarget ? 'rgba(17,24,39,0.07)' : 'transparent' }}
@@ -1453,8 +1554,9 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
               value={ui.text}
               onChange={e => setNoteUi(prev => ({ ...prev, [dayId]: { ...prev[dayId], text: e.target.value } }))}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveNote(Number(dayId)) } if (e.key === 'Escape') cancelNote(Number(dayId)) }}
-              placeholder={t('dayplan.noteTitle')}
-              style={{ fontSize: 13, fontWeight: 500, border: '1px solid var(--border-primary)', borderRadius: 8, padding: '8px 10px', fontFamily: 'inherit', outline: 'none', width: '100%', boxSizing: 'border-box', color: 'var(--text-primary)' }}
+              placeholder={t('dayplan.noteTitle') + ' *'}
+              required
+              style={{ fontSize: 13, fontWeight: 500, border: `1px solid ${!ui.text?.trim() ? 'var(--border-primary)' : 'var(--border-primary)'}`, borderRadius: 8, padding: '8px 10px', fontFamily: 'inherit', outline: 'none', width: '100%', boxSizing: 'border-box', color: 'var(--text-primary)' }}
             />
             <textarea
               value={ui.time}
@@ -1468,7 +1570,7 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
             <div style={{ textAlign: 'right', fontSize: 11, color: (ui.time?.length || 0) >= 140 ? '#d97706' : 'var(--text-faint)', marginTop: -2 }}>{ui.time?.length || 0}/150</div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button onClick={() => cancelNote(Number(dayId))} style={{ fontSize: 12, background: 'none', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', color: 'var(--text-muted)', fontFamily: 'inherit' }}>{t('common.cancel')}</button>
-              <button onClick={() => saveNote(Number(dayId))} style={{ fontSize: 12, background: 'var(--accent)', color: 'var(--accent-text)', border: 'none', borderRadius: 8, padding: '6px 16px', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>
+              <button onClick={() => saveNote(Number(dayId))} disabled={!ui.text?.trim()} style={{ fontSize: 12, background: !ui.text?.trim() ? 'var(--border-primary)' : 'var(--accent)', color: !ui.text?.trim() ? 'var(--text-faint)' : 'var(--accent-text)', border: 'none', borderRadius: 8, padding: '6px 16px', cursor: !ui.text?.trim() ? 'not-allowed' : 'pointer', fontWeight: 600, fontFamily: 'inherit', transition: 'background 0.15s, color 0.15s' }}>
                 {ui.mode === 'add' ? t('common.add') : t('common.save')}
               </button>
             </div>
@@ -1569,7 +1671,7 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
                         {res.reservation_time?.includes('T')
                           ? new Date(res.reservation_time).toLocaleString(locale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: timeFormat === '12h' })
                           : res.reservation_time
-                            ? new Date(res.reservation_time + 'T00:00:00').toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })
+                            ? new Date(res.reservation_time + 'T00:00:00Z').toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
                             : ''
                         }
                         {res.reservation_end_time?.includes('T') && ` – ${new Date(res.reservation_end_time).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: timeFormat === '12h' })}`}

@@ -509,10 +509,12 @@ export function registerTools(server: McpServer, userId: number): void {
         place_id: z.number().int().positive().optional().describe('Hotel place to link (hotel type only)'),
         start_day_id: z.number().int().positive().optional().describe('Check-in day (hotel type only; requires place_id and end_day_id)'),
         end_day_id: z.number().int().positive().optional().describe('Check-out day (hotel type only; requires place_id and start_day_id)'),
+        check_in: z.string().max(10).optional().describe('Check-in time (e.g. "15:00", hotel type only)'),
+        check_out: z.string().max(10).optional().describe('Check-out time (e.g. "11:00", hotel type only)'),
         assignment_id: z.number().int().positive().optional().describe('Link to a day assignment (restaurant, train, car, cruise, event, tour, activity, other)'),
       },
     },
-    async ({ tripId, title, type, reservation_time, location, confirmation_number, notes, day_id, place_id, start_day_id, end_day_id, assignment_id }) => {
+    async ({ tripId, title, type, reservation_time, location, confirmation_number, notes, day_id, place_id, start_day_id, end_day_id, check_in, check_out, assignment_id }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
 
@@ -542,8 +544,8 @@ export function registerTools(server: McpServer, userId: number): void {
         let accommodationId: number | null = null;
         if (type === 'hotel' && place_id && start_day_id && end_day_id) {
           const accResult = db.prepare(
-            'INSERT INTO day_accommodations (trip_id, place_id, start_day_id, end_day_id, confirmation) VALUES (?, ?, ?, ?, ?)'
-          ).run(tripId, place_id, start_day_id, end_day_id, confirmation_number || null);
+            'INSERT INTO day_accommodations (trip_id, place_id, start_day_id, end_day_id, check_in, check_out, confirmation) VALUES (?, ?, ?, ?, ?, ?, ?)'
+          ).run(tripId, place_id, start_day_id, end_day_id, check_in || null, check_out || null, confirmation_number || null);
           accommodationId = accResult.lastInsertRowid as number;
         }
         const result = db.prepare(`
@@ -599,9 +601,11 @@ export function registerTools(server: McpServer, userId: number): void {
         place_id: z.number().int().positive().describe('The hotel place to link'),
         start_day_id: z.number().int().positive().describe('Check-in day ID'),
         end_day_id: z.number().int().positive().describe('Check-out day ID'),
+        check_in: z.string().max(10).optional().describe('Check-in time (e.g. "15:00")'),
+        check_out: z.string().max(10).optional().describe('Check-out time (e.g. "11:00")'),
       },
     },
-    async ({ tripId, reservationId, place_id, start_day_id, end_day_id }) => {
+    async ({ tripId, reservationId, place_id, start_day_id, end_day_id, check_in, check_out }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
       const reservation = db.prepare('SELECT * FROM reservations WHERE id = ? AND trip_id = ?').get(reservationId, tripId) as Record<string, unknown> | undefined;
@@ -619,12 +623,12 @@ export function registerTools(server: McpServer, userId: number): void {
       const isNewAccommodation = !accommodationId;
       db.transaction(() => {
         if (accommodationId) {
-          db.prepare('UPDATE day_accommodations SET place_id = ?, start_day_id = ?, end_day_id = ? WHERE id = ?')
-            .run(place_id, start_day_id, end_day_id, accommodationId);
+          db.prepare('UPDATE day_accommodations SET place_id = ?, start_day_id = ?, end_day_id = ?, check_in = COALESCE(?, check_in), check_out = COALESCE(?, check_out) WHERE id = ?')
+            .run(place_id, start_day_id, end_day_id, check_in || null, check_out || null, accommodationId);
         } else {
           const accResult = db.prepare(
-            'INSERT INTO day_accommodations (trip_id, place_id, start_day_id, end_day_id, confirmation) VALUES (?, ?, ?, ?, ?)'
-          ).run(tripId, place_id, start_day_id, end_day_id, reservation.confirmation_number || null);
+            'INSERT INTO day_accommodations (trip_id, place_id, start_day_id, end_day_id, check_in, check_out, confirmation) VALUES (?, ?, ?, ?, ?, ?, ?)'
+          ).run(tripId, place_id, start_day_id, end_day_id, check_in || null, check_out || null, reservation.confirmation_number || null);
           accommodationId = accResult.lastInsertRowid as number;
         }
         db.prepare('UPDATE reservations SET place_id = ?, accommodation_id = ? WHERE id = ?')

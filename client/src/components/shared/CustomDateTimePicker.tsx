@@ -21,9 +21,9 @@ export function CustomDatePicker({ value, onChange, placeholder, style = {}, com
   const ref = useRef<HTMLDivElement>(null)
   const dropRef = useRef<HTMLDivElement>(null)
 
-  const parsed = value ? new Date(value + 'T00:00:00') : null
-  const [viewYear, setViewYear] = useState(parsed?.getFullYear() || new Date().getFullYear())
-  const [viewMonth, setViewMonth] = useState(parsed?.getMonth() ?? new Date().getMonth())
+  const parsed = value ? new Date(value + 'T00:00:00Z') : null
+  const [viewYear, setViewYear] = useState(parsed?.getUTCFullYear() || new Date().getFullYear())
+  const [viewMonth, setViewMonth] = useState(parsed?.getUTCMonth() ?? new Date().getMonth())
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -36,7 +36,7 @@ export function CustomDatePicker({ value, onChange, placeholder, style = {}, com
   }, [open])
 
   useEffect(() => {
-    if (open && parsed) { setViewYear(parsed.getFullYear()); setViewMonth(parsed.getMonth()) }
+    if (open && parsed) { setViewYear(parsed.getUTCFullYear()); setViewMonth(parsed.getUTCMonth()) }
   }, [open])
 
   const prevMonth = () => { if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1) } else setViewMonth(m => m - 1) }
@@ -47,7 +47,7 @@ export function CustomDatePicker({ value, onChange, placeholder, style = {}, com
   const startDay = (getWeekday(viewYear, viewMonth, 1) + 6) % 7
   const weekdays = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, i + 1).toLocaleDateString(locale, { weekday: 'narrow' }))
 
-  const displayValue = parsed ? parsed.toLocaleDateString(locale, compact ? { day: '2-digit', month: '2-digit', year: '2-digit' } : { day: 'numeric', month: 'short', year: 'numeric' }) : null
+  const displayValue = parsed ? parsed.toLocaleDateString(locale, compact ? { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'UTC' } : { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : null
 
   const selectDay = (day: number) => {
     const y = String(viewYear)
@@ -57,7 +57,7 @@ export function CustomDatePicker({ value, onChange, placeholder, style = {}, com
     setOpen(false)
   }
 
-  const selectedDay = parsed && parsed.getFullYear() === viewYear && parsed.getMonth() === viewMonth ? parsed.getDate() : null
+  const selectedDay = parsed && parsed.getUTCFullYear() === viewYear && parsed.getUTCMonth() === viewMonth ? parsed.getUTCDate() : null
   const today = new Date()
   const isToday = (d: number) => today.getFullYear() === viewYear && today.getMonth() === viewMonth && today.getDate() === d
 

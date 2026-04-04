@@ -106,7 +106,7 @@ export default function SharedTripPage() {
         {(trip.start_date || trip.end_date) && (
           <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderRadius: 20, background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.08)' }}>
             <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.8 }}>
-              {[trip.start_date, trip.end_date].filter(Boolean).map((d: string) => new Date(d + 'T00:00:00').toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })).join(' — ')}
+              {[trip.start_date, trip.end_date].filter(Boolean).map((d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })).join(' — ')}
             </span>
             {days?.length > 0 && <span style={{ fontSize: 11, opacity: 0.4 }}>·</span>}
             {days?.length > 0 && <span style={{ fontSize: 11, opacity: 0.5 }}>{days.length} {t('shared.days')}</span>}
@@ -199,7 +199,7 @@ export default function SharedTripPage() {
                   <div style={{ width: 28, height: 28, borderRadius: '50%', background: selectedDay === day.id ? '#111827' : '#f3f4f6', color: selectedDay === day.id ? 'white' : '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{di + 1}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{day.title || `Day ${day.day_number}`}</div>
-                    {day.date && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>{new Date(day.date + 'T00:00:00').toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' })}</div>}
+                    {day.date && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>{new Date(day.date + 'T00:00:00Z').toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })}</div>}
                   </div>
                   {dayAccs.map((acc: any) => (
                     <span key={acc.id} style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: '#f3f4f6', color: '#6b7280', display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -274,7 +274,7 @@ export default function SharedTripPage() {
               const meta = typeof r.metadata === 'string' ? JSON.parse(r.metadata || '{}') : (r.metadata || {})
               const TIcon = TRANSPORT_ICONS[r.type] || Ticket
               const time = r.reservation_time?.includes('T') ? r.reservation_time.split('T')[1]?.substring(0, 5) : ''
-              const date = r.reservation_time ? new Date(r.reservation_time.includes('T') ? r.reservation_time : r.reservation_time + 'T00:00:00').toLocaleDateString(locale, { day: 'numeric', month: 'short' }) : ''
+              const date = r.reservation_time ? new Date((r.reservation_time.includes('T') ? r.reservation_time.split('T')[0] : r.reservation_time) + 'T00:00:00Z').toLocaleDateString(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' }) : ''
               return (
                 <div key={r.id} style={{ background: 'var(--bg-card, white)', borderRadius: 10, padding: '12px 16px', border: '1px solid var(--border-faint, #e5e7eb)', display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

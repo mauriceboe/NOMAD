@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useSettingsStore } from '../store/settingsStore'
@@ -6,13 +6,15 @@ import { SUPPORTED_LANGUAGES, useTranslation } from '../i18n'
 import Navbar from '../components/Layout/Navbar'
 import CustomSelect from '../components/shared/CustomSelect'
 import { useToast } from '../components/shared/Toast'
-import { Save, Map, Palette, User, Moon, Sun, Monitor, Shield, Camera, Trash2, Lock, KeyRound, AlertTriangle, Copy, Download, Printer, Terminal, Plus, Check } from 'lucide-react'
+import { Save, Map, Palette, User, Moon, Sun, Monitor, Shield, Camera, Trash2, Lock, KeyRound, AlertTriangle, Copy, Download, Printer, Terminal, Plus, Check, Info } from 'lucide-react'
 import { authApi, adminApi } from '../api/client'
 import apiClient from '../api/client'
 import { useAddonStore } from '../store/addonStore'
 import type { LucideIcon } from 'lucide-react'
 import type { UserWithOidc } from '../types'
 import { getApiErrorMessage } from '../types'
+import { MapView } from '../components/Map/MapView'
+import type { Place } from '../types'
 
 interface MapPreset {
   name: string
@@ -124,10 +126,19 @@ export default function SettingsPage(): React.ReactElement {
   // Addon gating (derived from store)
   const memoriesEnabled = addonEnabled('memories')
   const mcpEnabled = addonEnabled('mcp')
+  const [appVersion, setAppVersion] = useState<string | null>(null)
+  useEffect(() => {
+    authApi.getAppConfig?.().then(c => setAppVersion(c?.version)).catch(() => {})
+  }, [])
   const [immichUrl, setImmichUrl] = useState('')
   const [immichApiKey, setImmichApiKey] = useState('')
   const [immichConnected, setImmichConnected] = useState(false)
   const [immichTesting, setImmichTesting] = useState(false)
+
+  const handleMapClick = useCallback((mapInfo) => {
+    setDefaultLat(mapInfo.latlng.lat)
+    setDefaultLng(mapInfo.latlng.lng)
+  }, [])
 
   useEffect(() => {
     loadAddons()
@@ -148,7 +159,7 @@ export default function SettingsPage(): React.ReactElement {
     setSaving(s => ({ ...s, immich: true }))
     try {
       const saveRes = await apiClient.put('/integrations/immich/settings', { immich_url: immichUrl, immich_api_key: immichApiKey || undefined })
-      if (saveRes.data.warning) toast.warn(saveRes.data.warning)
+      if (saveRes.data.warning) toast.warning(saveRes.data.warning)
       toast.success(t('memories.saved'))
       const res = await apiClient.get('/integrations/immich/status')
       setImmichConnected(res.data.connected)
@@ -165,7 +176,12 @@ export default function SettingsPage(): React.ReactElement {
     try {
       const res = await apiClient.post('/integrations/immich/test', { immich_url: immichUrl, immich_api_key: immichApiKey })
       if (res.data.connected) {
-        toast.success(`${t('memories.connectionSuccess')} — ${res.data.user?.name || ''}`)
+        if (res.data.canonicalUrl) {
+          setImmichUrl(res.data.canonicalUrl)
+          toast.success(`${t('memories.connectionSuccess')} — ${res.data.user?.name || ''} (URL updated to ${res.data.canonicalUrl})`)
+        } else {
+          toast.success(`${t('memories.connectionSuccess')} — ${res.data.user?.name || ''}`)
+        }
         setImmichTestPassed(true)
       } else {
         toast.error(`${t('memories.connectionError')}: ${res.data.error}`)
@@ -245,6 +261,31 @@ export default function SettingsPage(): React.ReactElement {
   const [defaultLng, setDefaultLng] = useState<number | string>(settings.default_lng || 2.3522)
   const [defaultZoom, setDefaultZoom] = useState<number | string>(settings.default_zoom || 10)
 
+  const mapPlaces = useMemo(() => {
+      // Add center location to map places
+      let places: Place[] = []
+      places.push({
+        id: 1,
+        trip_id: 1,
+        name: "Default map center",
+        description: "",
+        lat: defaultLat as number,
+        lng: defaultLng as number,
+        address: "",
+        category_id: 0,
+        icon: null,
+        price: null,
+        image_url: null,
+        google_place_id: null,
+        osm_id: null,
+        route_geometry: null,
+        place_time: null,
+        end_time: null,
+        created_at: Date()
+      });
+      return places
+    }, [defaultLat, defaultLng])
+    
   // Display
   const [tempUnit, setTempUnit] = useState<string>(settings.temperature_unit || 'celsius')
 
@@ -471,6 +512,29 @@ export default function SettingsPage(): React.ReactElement {
               </div>
             </div>
 
+            <div>
+              <div style={{ position: 'relative', inset: 0, height:"200px", width: "100%" }}>
+                          <MapView
+                            places={mapPlaces}
+                            dayPlaces={[]}
+                            route={null}
+                            routeSegments={null}
+                            selectedPlaceId={null}
+                            onMarkerClick={null}
+                            onMapClick={handleMapClick}
+                            onMapContextMenu={null}
+                            center = {[settings.default_lat, settings.default_lng]}
+                            zoom={defaultZoom}
+                            tileUrl={mapTileUrl}
+                            fitKey={null}
+                            dayOrderMap={[]}
+                            leftWidth={0}
+                            rightWidth={0}
+                            hasInspector={false}
+                          />
+              </div>
+            </div>
+                
             <button
               onClick={saveMapSettings}
               disabled={saving.map}
@@ -1235,6 +1299,24 @@ export default function SettingsPage(): React.ReactElement {
               </button>
             </div>
           </Section>
+
+          {appVersion && (
+            <Section title={t('settings.about')} icon={Info}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg-tertiary)', borderRadius: 99, padding: '6px 14px' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>TREK</span>
+                  <span style={{ fontSize: 13, color: 'var(--text-faint)' }}>v{appVersion}</span>
+                </div>
+                <a href="https://discord.gg/nSdKaXgN" target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 99, background: 'var(--bg-tertiary)', transition: 'background 0.15s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#5865F220'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-tertiary)'}
+                  title="Discord">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--text-faint)"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.095 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+                </a>
+              </div>
+            </Section>
+          )}
 
           {/* Delete Account Confirmation */}
           {showDeleteConfirm === 'blocked' && (

@@ -10,9 +10,9 @@ export function formatDate(dateStr: string | null | undefined, locale: string, t
   if (!dateStr) return null
   const opts: Intl.DateTimeFormatOptions = {
     weekday: 'short', day: 'numeric', month: 'short',
+    timeZone: timeZone || 'UTC',
   }
-  if (timeZone) opts.timeZone = timeZone
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString(locale, opts)
+  return new Date(dateStr + 'T00:00:00Z').toLocaleDateString(locale, opts)
 }
 
 export function formatTime(timeStr: string | null | undefined, locale: string, timeFormat: string): string {

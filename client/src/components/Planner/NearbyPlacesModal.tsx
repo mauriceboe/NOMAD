@@ -94,7 +94,7 @@ export default function NearbyPlacesModal({
       category_id: suggestedCategoryId || undefined,
     })
     setAddedIds(prev => new Set(prev).add(key))
-  }, [onAddPlace])
+  }, [onAddPlace, suggestedCategoryId])
 
   const handleBack = () => {
     setSelectedType(null)

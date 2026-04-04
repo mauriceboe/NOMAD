@@ -44,6 +44,7 @@ function getWebhookUrl(): string | null {
 }
 
 function getAppUrl(): string {
+  if (process.env.APP_URL) return process.env.APP_URL;
   const origins = process.env.ALLOWED_ORIGINS;
   if (origins) {
     const first = origins.split(',')[0]?.trim();
@@ -174,14 +175,14 @@ const EVENT_TEXTS: Record<string, Record<EventType, EventTextFn>> = {
 };
 
 // Get localized event text
-function getEventText(lang: string, event: EventType, params: Record<string, string>): EventText {
+export function getEventText(lang: string, event: EventType, params: Record<string, string>): EventText {
   const texts = EVENT_TEXTS[lang] || EVENT_TEXTS.en;
   return texts[event](params);
 }
 
 // ── Email HTML builder ─────────────────────────────────────────────────────
 
-function buildEmailHtml(subject: string, body: string, lang: string): string {
+export function buildEmailHtml(subject: string, body: string, lang: string): string {
   const s = I18N[lang] || I18N.en;
   const appUrl = getAppUrl();
   const ctaHref = appUrl || '#';
@@ -255,7 +256,7 @@ async function sendEmail(to: string, subject: string, body: string, userId?: num
   }
 }
 
-function buildWebhookBody(url: string, payload: { event: string; title: string; body: string; tripName?: string }): string {
+export function buildWebhookBody(url: string, payload: { event: string; title: string; body: string; tripName?: string }): string {
   const isDiscord = /discord(?:app)?\.com\/api\/webhooks\//.test(url);
   const isSlack = /hooks\.slack\.com\//.test(url);
 
