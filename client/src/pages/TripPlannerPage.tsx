@@ -367,16 +367,10 @@ export default function TripPlannerPage(): React.ReactElement | null {
           })
         })
         .catch(() => {})
-      // Update route immediately from orderedIds
-      const dayItems = useTripStore.getState().assignments[String(dayId)] || []
-      const ordered = orderedIds.map(id => dayItems.find(a => a.id === id)).filter(Boolean)
-      const waypoints = ordered.map(a => a.place).filter(p => p?.lat && p?.lng)
-      if (waypoints.length >= 2) setRoute(waypoints.map(p => [p.lat, p.lng]))
-      else setRoute(null)
-      setRouteInfo(null)
+      updateRouteForDay(dayId)
     }
     catch { toast.error(t('trip.toast.reorderError')) }
-  }, [tripId, toast, pushUndo])
+  }, [tripId, toast, pushUndo, updateRouteForDay])
 
   const handleUpdateDayTitle = useCallback(async (dayId, title) => {
     try { await tripActions.updateDayTitle(tripId, dayId, title) }

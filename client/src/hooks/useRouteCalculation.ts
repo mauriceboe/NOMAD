@@ -39,7 +39,7 @@ export function useRouteCalculation(tripStore: TripStoreState, selectedDayId: nu
     if (waypoints.length < 2) { setRoute(null); setRouteInfo(null); setRouteSegments([]); return }
     const profile = getRouteProfile(waypoints)
     if (!routeCalcEnabled) {
-      setRoute(waypoints.map((p) => [p.lat!, p.lng!]))
+      setRoute(null)
       setRouteInfo(null)
       setRouteSegments([])
       return
@@ -58,7 +58,7 @@ export function useRouteCalculation(tripStore: TripStoreState, selectedDayId: nu
       }
     } catch (err: unknown) {
       if ((err instanceof Error && err.name !== 'AbortError') || !(err instanceof Error)) {
-        setRoute(waypoints.map((p) => [p.lat!, p.lng!]))
+        setRoute(null)
         setRouteInfo(null)
         setRouteSegments([])
       }

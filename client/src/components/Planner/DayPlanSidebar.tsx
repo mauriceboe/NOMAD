@@ -670,21 +670,24 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
 
     const currentGeoAssignments = dayAssignments.filter(a => a.place?.lat && a.place?.lng)
     const nextGeoAssignments = result.filter(a => a.place?.lat && a.place?.lng)
-    if (currentGeoAssignments.length < 2 || nextGeoAssignments.length < 2) return null
-
-    const [currentRoute, nextRoute] = await Promise.all([
-      calculateRoute(
-        currentGeoAssignments.map(a => ({ lat: a.place.lat, lng: a.place.lng })),
-        profile
-      ),
-      calculateRoute(
-        nextGeoAssignments.map(a => ({ lat: a.place.lat, lng: a.place.lng })),
-        profile
-      ),
-    ])
-
-    const secondsSaved = Math.round(currentRoute.duration - nextRoute.duration)
-    if (secondsSaved <= 1) return null
+    let currentRoute = null
+    let nextRoute = null
+    let secondsSaved = 0
+    if (currentGeoAssignments.length >= 2 && nextGeoAssignments.length >= 2) {
+      try {
+        ;[currentRoute, nextRoute] = await Promise.all([
+          calculateRoute(
+            currentGeoAssignments.map(a => ({ lat: a.place.lat, lng: a.place.lng })),
+            profile
+          ),
+          calculateRoute(
+            nextGeoAssignments.map(a => ({ lat: a.place.lat, lng: a.place.lng })),
+            profile
+          ),
+        ])
+        secondsSaved = Math.max(0, Math.round(currentRoute.duration - nextRoute.duration))
+      } catch {}
+    }
 
     return {
       dayId,
@@ -1589,7 +1592,7 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
                         </div>
                       )}
 
-                      {optimizationPreview?.dayId === day.id && (
+                      {optimizationPreview?.dayId === day.id && optimizationPreview.currentRoute && optimizationPreview.nextRoute && optimizationPreview.secondsSaved > 0 && (
                         <div style={{
                           display: 'flex',
                           alignItems: 'center',
