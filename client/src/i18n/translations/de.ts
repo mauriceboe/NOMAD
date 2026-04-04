@@ -938,6 +938,7 @@ const de: Record<string, string | { name: string; category: string }[]> = {
   'reservations.price': 'Preis',
   'reservations.budgetCategory': 'Budgetkategorie',
   'reservations.budgetCategoryPlaceholder': 'z.B. Transport, Unterkunft',
+  'reservations.budgetCategoryAuto': 'Auto (aus Buchungstyp)',
   'reservations.budgetHint': 'Beim Speichern wird automatisch ein Budgeteintrag erstellt.',
   'reservations.departureDate': 'Abflug',
   'reservations.arrivalDate': 'Ankunft',

@@ -71,6 +71,13 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
   const { t, locale } = useTranslation()
   const fileInputRef = useRef(null)
 
+  const budgetItems = useTripStore(s => s.budgetItems)
+  const budgetCategories = useMemo(() => {
+    const cats = new Set<string>()
+    budgetItems.forEach(i => { if (i.category) cats.add(i.category) })
+    return Array.from(cats).sort()
+  }, [budgetItems])
+
   const [form, setForm] = useState({
     title: '', type: 'other', status: 'pending',
     reservation_time: '', reservation_end_time: '', end_date: '', location: '', confirmation_number: '',
@@ -204,7 +211,7 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
       if (form.price && parseFloat(form.price) > 0) {
         saveData.create_budget_entry = {
           total_price: parseFloat(form.price),
-          category: form.budget_category || form.type || 'Other',
+          category: form.budget_category || t(`reservations.type.${form.type}`) || 'Other',
         }
       }
       // If hotel with place + days, pass hotel data for auto-creation or update
@@ -643,15 +650,23 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
         <div style={{ display: 'flex', gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <label style={labelStyle}>{t('reservations.price')}</label>
-            <input type="number" step="0.01" min="0" value={form.price} onChange={e => set('price', e.target.value)}
+            <input type="text" inputMode="decimal" value={form.price}
+              onChange={e => { const v = e.target.value; if (v === '' || /^\d*\.?\d{0,2}$/.test(v)) set('price', v) }}
               placeholder="0.00"
               style={inputStyle} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <label style={labelStyle}>{t('reservations.budgetCategory')}</label>
-            <input type="text" value={form.budget_category} onChange={e => set('budget_category', e.target.value)}
-              placeholder={t('reservations.budgetCategoryPlaceholder')}
-              style={inputStyle} />
+            <CustomSelect
+              value={form.budget_category}
+              onChange={v => set('budget_category', v)}
+              options={[
+                { value: '', label: t('reservations.budgetCategoryAuto') },
+                ...budgetCategories.map(c => ({ value: c, label: c })),
+              ]}
+              placeholder={t('reservations.budgetCategoryAuto')}
+              size="sm"
+            />
           </div>
         </div>
         {form.price && parseFloat(form.price) > 0 && (
