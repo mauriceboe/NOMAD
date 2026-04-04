@@ -71,7 +71,7 @@ interface DayPlanSidebarProps {
   accommodations?: Assignment[]
   onReorder: (dayId: number, orderedIds: number[]) => void
   onUpdateDayTitle: (dayId: number, title: string) => void
-  onRouteCalculated: (dayId: number, route: RouteResult | null) => void
+  onRouteCalculated: (route: RouteResult | null) => void
   onAssignToDay: (placeId: number, dayId: number) => void
   onRemoveAssignment: (assignmentId: number, dayId: number) => void
   onEditPlace: (place: Place) => void

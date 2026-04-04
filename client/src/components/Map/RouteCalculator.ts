@@ -39,12 +39,12 @@ export async function calculateRoute(
   const coordinates: [number, number][] = route.geometry.coordinates.map(([lng, lat]: [number, number]) => [lat, lng])
 
   const distance: number = route.distance
-  const duration = profile === 'driving'
-    ? route.duration
-    : estimateDurationFromDistance(distance, profile)
+  const duration: number = route.duration
 
   const walkingDuration = distance / (5000 / 3600)
-  const drivingDuration: number = route.duration
+  const drivingDuration: number = profile === 'driving'
+    ? route.duration
+    : estimateDurationFromDistance(distance, 'driving')
 
   return {
     coordinates,
@@ -118,11 +118,7 @@ export async function calculateSegments(
     const mid: [number, number] = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2]
     const walkingDuration = leg.distance / (5000 / 3600)
     const cyclingDuration = leg.distance / (15000 / 3600)
-    const duration = profile === 'driving'
-      ? leg.duration
-      : profile === 'cycling'
-        ? cyclingDuration
-        : walkingDuration
+    const duration = leg.duration
     return {
       mid, from, to,
       durationText: formatDuration(duration),
