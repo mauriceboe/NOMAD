@@ -47,14 +47,15 @@ export function useRouteCalculation(tripStore: TripStoreState, selectedDayId: nu
     const controller = new AbortController()
     routeAbortRef.current = controller
     try {
-      const [routeResult, segments] = await Promise.all([
-        calculateRoute(waypoints as { lat: number; lng: number }[], profile, { signal: controller.signal }),
-        calculateSegments(waypoints as { lat: number; lng: number }[], profile, { signal: controller.signal }),
-      ])
-      if (!controller.signal.aborted) {
-        setRoute(routeResult.coordinates)
-        setRouteInfo(routeResult)
-        setRouteSegments(segments)
+      const routeResult = await calculateRoute(waypoints as { lat: number; lng: number }[], profile, { signal: controller.signal })
+      if (controller.signal.aborted) return
+      setRoute(routeResult.coordinates)
+      setRouteInfo(routeResult)
+      try {
+        const segments = await calculateSegments(waypoints as { lat: number; lng: number }[], profile, { signal: controller.signal })
+        if (!controller.signal.aborted) setRouteSegments(segments)
+      } catch {
+        if (!controller.signal.aborted) setRouteSegments([])
       }
     } catch (err: unknown) {
       if ((err instanceof Error && err.name !== 'AbortError') || !(err instanceof Error)) {

@@ -124,6 +124,7 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
   const [editTitle, setEditTitle] = useState('')
   const [isCalculating, setIsCalculating] = useState(false)
   const [routeInfo, setRouteInfo] = useState(null)
+  const [routeUnavailable, setRouteUnavailable] = useState(false)
   const [draggingId, setDraggingId] = useState(null)
   const [lockedIds, setLockedIds] = useState(new Set())
   const [lockHoverId, setLockHoverId] = useState(null)
@@ -623,6 +624,7 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
       .map(p => ({ lat: p.lat, lng: p.lng }))
     if (waypoints.length < 2) {
       setRouteInfo(null)
+      setRouteUnavailable(false)
       onRouteCalculated?.(null)
       return
     }
@@ -630,6 +632,7 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
     const profile = getRouteProfileForAssignments(dayAssignments)
     const result = await calculateRoute(waypoints, profile)
     setRouteInfo({ distance: result.distanceText, duration: result.durationText })
+    setRouteUnavailable(false)
     onRouteCalculated?.(result)
   }
 
@@ -709,7 +712,11 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
     setIsCalculating(true)
     try {
       await updateDisplayedRoute(geoAssignments)
-    } catch { toast.error(t('dayplan.toast.routeError')) }
+    } catch {
+      setRouteInfo(null)
+      setRouteUnavailable(true)
+      toast.error(t('dayplan.toast.routeError'))
+    }
     finally { setIsCalculating(false) }
   }
 
@@ -743,11 +750,18 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
 
   const handleOptimize = async () => {
     if (!selectedDayId) return
+    const dayAssignments = getDayAssignments(selectedDayId)
+    const unlockedAssignments = dayAssignments.filter(a => !lockedIds.has(a.id))
+    const unlockedWithCoords = unlockedAssignments.filter(a => a.place?.lat && a.place?.lng)
+    if (unlockedWithCoords.length < 2) {
+      toast.error(t('dayplan.toast.needTwoPlaces'))
+      return
+    }
+
     const preview = optimizationPreview?.dayId === selectedDayId
       ? optimizationPreview
       : await buildOptimizationPreview(selectedDayId)
     if (!preview) {
-      toast.error(t('dayplan.toast.needTwoPlaces'))
       return
     }
 
@@ -1589,6 +1603,12 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
                           <span>{routeInfo.distance}</span>
                           <span style={{ color: 'var(--text-faint)' }}>·</span>
                           <span>{routeInfo.duration}</span>
+                        </div>
+                      )}
+
+                      {!routeInfo && routeUnavailable && (
+                        <div style={{ display: 'flex', justifyContent: 'center', fontSize: 11, color: 'var(--text-faint)', background: 'var(--bg-hover)', borderRadius: 8, padding: '6px 10px' }}>
+                          {t('dayplan.toast.routeError')}
                         </div>
                       )}
 
