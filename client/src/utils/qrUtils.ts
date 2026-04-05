@@ -51,55 +51,74 @@ export function decodePackingList(dataString: string): { category: string, items
     }
   }
 
-  // Try CSV format
-  const lines = trimmed.split('\n').map(l => l.trim()).filter(Boolean)
-  if (lines.length < 2) {
-    throw new Error('Invalid QR code format')
-  }
-
-  // Check for header (optional but good for validation)
-  const isHeader = lines[0].toLowerCase().includes('item') && lines[0].toLowerCase().includes('category')
-  const startIdx = isHeader ? 1 : 0
-  
+  // Robust CSV parser that handles quotes and potential newlines within fields
   const items: Partial<PackingItem>[] = []
   let detectedCategory = 'Imported'
-
-  for (let i = startIdx; i < lines.length; i++) {
-    // Basic CSV parser that handles quotes
-    const parts: string[] = []
-    let current = ''
-    let inQuotes = false
+  
+  let currentField = ''
+  let inQuotes = false
+  let currentRow: string[] = []
+  
+  for (let i = 0; i < trimmed.length; i++) {
+    const char = trimmed[i]
+    const nextChar = trimmed[i + 1]
     
-    for (let j = 0; j < lines[i].length; j++) {
-      const char = lines[i][j]
-      if (char === '"') {
-        if (inQuotes && lines[i][j+1] === '"') {
-          current += '"'
-          j++
-        } else {
-          inQuotes = !inQuotes
-        }
-      } else if (char === ',' && !inQuotes) {
-        parts.push(current.trim())
-        current = ''
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        currentField += '"'
+        i++ // Skip double quote
       } else {
-        current += char
+        inQuotes = !inQuotes
       }
+    } else if (char === ',' && !inQuotes) {
+      currentRow.push(currentField.trim())
+      currentField = ''
+    } else if ((char === '\n' || (char === '\r' && nextChar === '\n')) && !inQuotes) {
+      if (char === '\r') i++ // Skip \n after \r
+      currentRow.push(currentField.trim())
+      
+      // Process row
+      const isHeader = items.length === 0 && currentRow.some(f => f.toLowerCase().includes('item') || f.toLowerCase().includes('category'))
+      if (!isHeader && currentRow.length > 0) {
+        if (currentRow.length >= 2) {
+          detectedCategory = currentRow[0] || detectedCategory
+          items.push({
+            name: currentRow[1],
+            category: detectedCategory,
+            quantity: parseInt(currentRow[2], 10) || 1,
+            checked: 0
+          })
+        } else if (currentRow.length === 1 && currentRow[0]) {
+          items.push({
+            name: currentRow[0],
+            category: detectedCategory,
+            quantity: 1,
+            checked: 0
+          })
+        }
+      }
+      
+      currentField = ''
+      currentRow = []
+    } else {
+      currentField += char
     }
-    parts.push(current.trim())
-
-    if (parts.length >= 2) {
-      detectedCategory = parts[0] || detectedCategory
+  }
+  
+  // Handle last row if no trailing newline
+  if (currentField || currentRow.length > 0) {
+    currentRow.push(currentField.trim())
+    if (currentRow.length >= 2) {
+      detectedCategory = currentRow[0] || detectedCategory
       items.push({
-        name: parts[1],
+        name: currentRow[1],
         category: detectedCategory,
-        quantity: parseInt(parts[2], 10) || 1,
+        quantity: parseInt(currentRow[2], 10) || 1,
         checked: 0
       })
-    } else if (parts.length === 1 && parts[0]) {
-      // Fallback for single column list
+    } else if (currentRow.length === 1 && currentRow[0]) {
       items.push({
-        name: parts[0],
+        name: currentRow[0],
         category: detectedCategory,
         quantity: 1,
         checked: 0

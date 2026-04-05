@@ -640,10 +640,10 @@ function KategorieGruppe({ kategorie, items, tripId, allCategories, onRename, on
           {showMenu && (
             <div style={{ position: 'absolute', right: 0, top: '100%', zIndex: 50, background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.1)', padding: 4, minWidth: 170 }}
               onMouseLeave={() => setShowMenu(false)}>
-              {canEdit && <MenuItem icon={<Pencil size={13} />} label={t('packing.menuRename')} onClick={() => { setEditingName(true); setShowMenu(false) }} />}
-              <MenuItem icon={<CheckCheck size={13} />} label={t('packing.menuCheckAll')} onClick={() => { handleCheckAll(); setShowMenu(false) }} />
-              <MenuItem icon={<RotateCcw size={13} />} label={t('packing.menuUncheckAll')} onClick={() => { handleUncheckAll(); setShowMenu(false) }} />
-              <MenuItem icon={<QrCode size={13} />} label={t('packing.exportQr', 'Export to QR code')} onClick={() => { setShowQrModal(true); setShowMenu(false) }} />
+              {canEdit && <MenuItem icon={<Pencil size={13} />} label={t('packing.menuRename')} onClick={() => { setEditingName(true); setShowMenu(false) }} danger={false} />}
+              <MenuItem icon={<CheckCheck size={13} />} label={t('packing.menuCheckAll')} onClick={() => { handleCheckAll(); setShowMenu(false) }} danger={false} />
+              <MenuItem icon={<RotateCcw size={13} />} label={t('packing.menuUncheckAll')} onClick={() => { handleUncheckAll(); setShowMenu(false) }} danger={false} />
+              <MenuItem icon={<QrCode size={13} />} label={t('packing.exportQr', 'Export to QR code')} onClick={() => { setShowQrModal(true); setShowMenu(false) }} danger={false} />
               {canEdit && <>
               <div style={{ height: 1, background: 'var(--bg-tertiary)', margin: '4px 0' }} />
               <MenuItem icon={<Trash2 size={13} />} label={t('packing.menuDeleteCat')} danger onClick={handleDeleteAll} />
