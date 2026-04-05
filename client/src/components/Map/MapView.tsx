@@ -189,11 +189,35 @@ function BoundsController({ places, fitKey, paddingOpts }: BoundsControllerProps
     if (fitKey === prevFitKey.current) return
     prevFitKey.current = fitKey
     if (places.length === 0) return
-    if (!isMapLive()) return
-    try {
-      const bounds = L.latLngBounds(places.map(p => [p.lat, p.lng]))
-      if (bounds.isValid()) map.fitBounds(bounds, { ...paddingOpts, maxZoom: 16, animate: false })
-    } catch {}
+    const fit = () => {
+      if (!isMapLive()) return
+      const container = map.getContainer()
+      if (!container || container.clientWidth < 80 || container.clientHeight < 80) return
+      try {
+        const bounds = L.latLngBounds(places.map(p => [p.lat, p.lng]))
+        if (!bounds.isValid()) return
+        map.fitBounds(bounds, { ...paddingOpts, maxZoom: 16, animate: false })
+        map.invalidateSize({ animate: false, pan: false })
+      } catch {}
+    }
+
+    const raf1 = requestAnimationFrame(() => {
+      fit()
+      requestAnimationFrame(() => {
+        fit()
+        requestAnimationFrame(fit)
+      })
+    })
+    const timeout1 = window.setTimeout(fit, 120)
+    const timeout2 = window.setTimeout(fit, 350)
+    const timeout3 = window.setTimeout(fit, 800)
+
+    return () => {
+      cancelAnimationFrame(raf1)
+      window.clearTimeout(timeout1)
+      window.clearTimeout(timeout2)
+      window.clearTimeout(timeout3)
+    }
   }, [fitKey, places, paddingOpts, map])
 
   return null
