@@ -17,11 +17,13 @@ export function QRScannerModal({ title, onScan, onClose }: QRScannerModalProps) 
   const [error, setError] = useState<string | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
 
-  // Force stop all video tracks on the page
-  const killAllVideoTracks = () => {
+  // Force stop video tracks within this specific modal instance
+  const killLocalVideoTracks = () => {
     try {
-      // 1. Stop tracks from the scanner's internal stream if possible
-      document.querySelectorAll('video').forEach(video => {
+      const container = document.getElementById('qr-reader-instance')
+      if (!container) return
+
+      container.querySelectorAll('video').forEach(video => {
         const stream = video.srcObject
         if (stream instanceof MediaStream) {
           stream.getTracks().forEach(track => {
@@ -31,13 +33,8 @@ export function QRScannerModal({ title, onScan, onClose }: QRScannerModalProps) 
           video.srcObject = null
         }
       })
-      
-      // 2. Clear any lingering tracks from navigator
-      if (navigator.mediaDevices && (navigator.mediaDevices as any).getDisplayMedia) {
-        // Fallback for some browsers
-      }
     } catch (e) {
-      console.error("Error killing video tracks:", e)
+      console.error("Error killing local video tracks:", e)
     }
   }
 
@@ -60,7 +57,7 @@ export function QRScannerModal({ title, onScan, onClose }: QRScannerModalProps) 
             try {
               if (scanner.isScanning) {
                 await scanner.stop()
-                killAllVideoTracks()
+                killLocalVideoTracks()
               }
             } catch (e) {}
             onScan(decodedText)
@@ -94,7 +91,7 @@ export function QRScannerModal({ title, onScan, onClose }: QRScannerModalProps) 
               scannerRef.current.clear()
             } catch (e) {}
             scannerRef.current = null
-            killAllVideoTracks()
+            killLocalVideoTracks()
           }
         }
       }
@@ -112,7 +109,7 @@ export function QRScannerModal({ title, onScan, onClose }: QRScannerModalProps) 
       // If camera is active, stop it before scanning file
       if (s.isScanning) {
         await s.stop()
-        killAllVideoTracks()
+        killLocalVideoTracks()
       }
       
       const decodedText = await s.scanFile(file, true)
