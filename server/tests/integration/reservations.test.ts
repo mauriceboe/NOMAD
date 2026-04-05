@@ -41,7 +41,7 @@ import { createApp } from '../../src/app';
 import { createTables } from '../../src/db/schema';
 import { runMigrations } from '../../src/db/migrations';
 import { resetTestDb } from '../helpers/test-db';
-import { createUser, createTrip, createDay, createReservation, addTripMember } from '../helpers/factories';
+import { createUser, createTrip, createDay, createPlace, createReservation, addTripMember } from '../helpers/factories';
 import { authCookie } from '../helpers/auth';
 import { resetRateLimiters } from '../../src/routes/auth';
 
@@ -105,14 +105,30 @@ describe('Create reservation', () => {
   it('RESV-002 — POST with create_accommodation creates an accommodation record', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
-    const day = createDay(testDb, trip.id, { date: '2025-06-01' });
+    const place = createPlace(testDb, trip.id, { name: 'Grand Hotel' });
+    const day1 = createDay(testDb, trip.id, { date: '2025-06-01' });
+    const day2 = createDay(testDb, trip.id, { date: '2025-06-03' });
 
     const res = await request(app)
       .post(`/api/trips/${trip.id}/reservations`)
       .set('Cookie', authCookie(user.id))
-      .send({ title: 'Grand Hotel', type: 'hotel', day_id: day.id, create_accommodation: true });
+      .send({
+        title: 'Grand Hotel Stay',
+        type: 'hotel',
+        day_id: day1.id,
+        create_accommodation: {
+          place_id: place.id,
+          start_day_id: day1.id,
+          end_day_id: day2.id,
+        },
+      });
     expect(res.status).toBe(201);
     expect(res.body.reservation).toBeDefined();
+    // Verify accommodation was actually created in the DB
+    const acc = testDb.prepare('SELECT * FROM day_accommodations WHERE place_id = ?').get(place.id) as any;
+    expect(acc).toBeDefined();
+    expect(acc.start_day_id).toBe(day1.id);
+    expect(acc.end_day_id).toBe(day2.id);
   });
 });
 

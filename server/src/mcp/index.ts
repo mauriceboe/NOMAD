@@ -107,10 +107,14 @@ function verifyToken(authHeader: string | undefined): VerifiedAuth | null {
   }
 }
 
-const recordUsageStmt = db.prepare('INSERT INTO mcp_token_usage (token_id) VALUES (?)');
+// Lazy-initialized to avoid module-level db.prepare() before migrations run
+let recordUsageStmt: ReturnType<typeof db.prepare> | null = null;
 
 function recordTokenUsage(tokenId: number): void {
   try {
+    if (!recordUsageStmt) {
+      recordUsageStmt = db.prepare('INSERT INTO mcp_token_usage (token_id) VALUES (?)');
+    }
     recordUsageStmt.run(tokenId);
   } catch { /* non-critical */ }
 }
