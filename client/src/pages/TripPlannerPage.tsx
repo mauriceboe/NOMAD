@@ -498,10 +498,6 @@ export default function TripPlannerPage(): React.ReactElement | null {
         background: 'var(--bg-primary)', ...fontStyle,
       }}>
         <style>{`
-          @keyframes planeFloat {
-            0%, 100% { transform: translateY(0px) rotate(-2deg); }
-            50% { transform: translateY(-12px) rotate(2deg); }
-          }
           @keyframes dotPulse {
             0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
             40% { opacity: 1; transform: scale(1); }
@@ -511,10 +507,13 @@ export default function TripPlannerPage(): React.ReactElement | null {
             to { opacity: 1; transform: translateY(0); }
           }
         `}</style>
-        <div style={{ animation: 'planeFloat 2.5s ease-in-out infinite', marginBottom: 28 }}>
-          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}>
-            <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" />
-          </svg>
+        <div style={{ marginBottom: 28 }}>
+          <img
+            src={document.documentElement.classList.contains('dark') ? '/icons/trek-loading-light.gif' : '/icons/trek-loading-dark.gif'}
+            alt="Loading"
+            width={64}
+            height={64}
+          />
         </div>
         <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.3px', marginBottom: 6, animation: 'fadeInUp 0.5s ease-out' }}>
           {trip?.title || 'TREK'}
