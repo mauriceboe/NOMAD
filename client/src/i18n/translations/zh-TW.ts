@@ -544,6 +544,18 @@ const zhTW: Record<string, string> = {
   'admin.mcpTokens.deleteSuccess': '權杖已刪除',
   'admin.mcpTokens.deleteError': '刪除權杖失敗',
   'admin.mcpTokens.loadError': '載入權杖失敗',
+  'admin.mcpTokens.usageTab': '使用量',
+  'admin.mcpTokens.tokensTab': '權杖',
+  'admin.mcpTokens.usage.title': 'MCP 權杖使用量',
+  'admin.mcpTokens.usage.subtitle': '所有 MCP API 權杖的請求統計',
+  'admin.mcpTokens.usage.hourlyChart': '請求量 — 最近 24 小時',
+  'admin.mcpTokens.usage.dailyChart': '請求量 — 最近 30 天',
+  'admin.mcpTokens.usage.byToken': '各權杖明細',
+  'admin.mcpTokens.usage.last24h': '24 小時',
+  'admin.mcpTokens.usage.last30d': '30 天',
+  'admin.mcpTokens.usage.noData': '尚無使用資料',
+  'admin.mcpTokens.usage.loadError': '載入使用資料失敗',
+  'admin.mcpTokens.usage.requests': '次請求',
 
   // GitHub
   'admin.tabs.github': 'GitHub',

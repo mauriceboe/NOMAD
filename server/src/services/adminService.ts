@@ -499,6 +499,43 @@ export function deleteMcpToken(id: string) {
   return {};
 }
 
+// ── MCP Token Usage Stats ──────────────────────────────────────────────────
+
+export function getMcpTokenUsage() {
+  // Hourly counts for the last 24 hours
+  const hourly = db.prepare(`
+    SELECT strftime('%Y-%m-%dT%H:00:00', requested_at) AS hour, COUNT(*) AS count
+    FROM mcp_token_usage
+    WHERE requested_at >= datetime('now', '-24 hours')
+    GROUP BY hour
+    ORDER BY hour ASC
+  `).all() as { hour: string; count: number }[];
+
+  // Daily counts for the last 30 days
+  const daily = db.prepare(`
+    SELECT strftime('%Y-%m-%d', requested_at) AS day, COUNT(*) AS count
+    FROM mcp_token_usage
+    WHERE requested_at >= datetime('now', '-30 days')
+    GROUP BY day
+    ORDER BY day ASC
+  `).all() as { day: string; count: number }[];
+
+  // Per-token totals for last 30 days
+  const byToken = db.prepare(`
+    SELECT t.id, t.name, t.token_prefix, u.username,
+           COUNT(mu.id) AS total_30d,
+           SUM(CASE WHEN mu.requested_at >= datetime('now', '-24 hours') THEN 1 ELSE 0 END) AS total_24h
+    FROM mcp_tokens t
+    JOIN users u ON t.user_id = u.id
+    LEFT JOIN mcp_token_usage mu ON mu.token_id = t.id
+      AND mu.requested_at >= datetime('now', '-30 days')
+    GROUP BY t.id
+    ORDER BY total_30d DESC
+  `).all() as { id: number; name: string; token_prefix: string; username: string; total_30d: number; total_24h: number }[];
+
+  return { hourly, daily, byToken };
+}
+
 // ── JWT Rotation ───────────────────────────────────────────────────────────
 
 export function rotateJwtSecret(): { error?: string; status?: number } {

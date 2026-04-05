@@ -287,6 +287,10 @@ router.get('/mcp-tokens', (_req: Request, res: Response) => {
   res.json({ tokens: svc.listMcpTokens() });
 });
 
+router.get('/mcp-tokens/usage', (_req: Request, res: Response) => {
+  res.json(svc.getMcpTokenUsage());
+});
+
 router.delete('/mcp-tokens/:id', (req: Request, res: Response) => {
   const result = svc.deleteMcpToken(req.params.id);
   if ('error' in result) return res.status(result.status!).json({ error: result.error });

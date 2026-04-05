@@ -81,6 +81,9 @@ jobs:
       - name: Prepare platform tag-safe name
         run: echo "PLATFORM_PAIR=$(echo ${{ matrix.platform }} | sed 's|/|-|g')" >> $GITHUB_ENV
 
+      - name: Derive Docker Hub username from DOCKERHUB_REPO
+        run: echo "DOCKERHUB_USERNAME=$(echo '${{ secrets.DOCKERHUB_REPO }}' | cut -d/ -f1)" >> $GITHUB_ENV
+
       - uses: actions/checkout@v4
         with:
           ref: main
@@ -89,7 +92,7 @@ jobs:
 
       - uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push by digest
@@ -98,7 +101,7 @@ jobs:
         with:
           context: .
           platforms: ${{ matrix.platform }}
-          outputs: type=image,name=mauriceboe/trek,push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ secrets.DOCKERHUB_REPO }},push-by-digest=true,name-canonical=true,push=true
           no-cache: true
 
       - name: Export digest
@@ -132,22 +135,24 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
+      - name: Derive Docker Hub username from DOCKERHUB_REPO
+        run: echo "DOCKERHUB_USERNAME=$(echo '${{ secrets.DOCKERHUB_REPO }}' | cut -d/ -f1)" >> $GITHUB_ENV
+
       - uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Create and push multi-arch manifest
         working-directory: /tmp/digests
         run: |
           VERSION=${{ needs.version-bump.outputs.version }}
-          mapfile -t digests < <(printf 'mauriceboe/trek@sha256:%s\n' *)
+          REPO=${{ secrets.DOCKERHUB_REPO }}
+          mapfile -t digests < <(printf "${REPO}@sha256:%s\n" *)
           docker buildx imagetools create \
-            -t mauriceboe/trek:latest \
-            -t mauriceboe/trek:$VERSION \
-            -t mauriceboe/nomad:latest \
-            -t mauriceboe/nomad:$VERSION \
+            -t ${REPO}:latest \
+            -t ${REPO}:${VERSION} \
             "${digests[@]}"
 
       - name: Inspect manifest
-        run: docker buildx imagetools inspect mauriceboe/trek:latest
+        run: docker buildx imagetools inspect ${{ secrets.DOCKERHUB_REPO }}:latest

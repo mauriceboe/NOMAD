@@ -345,9 +345,10 @@ describe('exchangeCodeForToken', () => {
     const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('https://auth.example.com/token');
     expect(options.method).toBe('POST');
-    const body = options.body as string;
-    expect(body).toContain('code=code-xyz');
-    expect(body).toContain('client_id=clientA');
+    // body is a URLSearchParams object; convert to string to check fields
+    const bodyStr = (options.body as URLSearchParams).toString();
+    expect(bodyStr).toContain('code=code-xyz');
+    expect(bodyStr).toContain('client_id=clientA');
   });
 });
 
@@ -379,5 +380,188 @@ describe('frontendUrl', () => {
     const url = frontendUrl('/oidc/callback');
     expect(url).toBe('http://localhost:5173/oidc/callback');
     process.env.NODE_ENV = original;
+  });
+});
+
+// ── getAppUrl ─────────────────────────────────────────────────────────────────
+
+import { getAppUrl, touchLastLogin } from '../../../src/services/oidcService';
+
+describe('getAppUrl', () => {
+  afterEach(() => {
+    delete process.env.APP_URL;
+    mockGet.mockReset();
+  });
+
+  it('OIDC-090 — returns APP_URL from environment', () => {
+    vi.stubEnv('APP_URL', 'https://trek.example.com');
+    const url = getAppUrl();
+    expect(url).toBe('https://trek.example.com');
+  });
+
+  it('OIDC-091 — returns null when neither env nor DB has APP_URL', () => {
+    delete process.env.APP_URL;
+    mockGet.mockReturnValue(undefined);
+    const url = getAppUrl();
+    expect(url).toBeNull();
+  });
+});
+
+// ── touchLastLogin ────────────────────────────────────────────────────────────
+
+describe('touchLastLogin', () => {
+  it('OIDC-100 — calls DB update for last_login', () => {
+    touchLastLogin(42);
+    expect(mockRun).toHaveBeenCalledOnce();
+  });
+});
+
+// ── findOrCreateUser ──────────────────────────────────────────────────────────
+
+// We need bcryptjs mocked to avoid slow hashing in user-creation paths
+vi.mock('bcryptjs', () => ({
+  default: {
+    hashSync: vi.fn(() => '$2a$10$mockedHashForTesting'),
+    compareSync: vi.fn(() => true),
+  },
+  hashSync: vi.fn(() => '$2a$10$mockedHashForTesting'),
+  compareSync: vi.fn(() => true),
+}));
+
+import { findOrCreateUser } from '../../../src/services/oidcService';
+
+const mockOidcConfig = {
+  issuer: 'https://auth.example.com',
+  clientId: 'client-id',
+  clientSecret: 'client-secret',
+  displayName: 'My SSO',
+  discoveryUrl: null,
+  allowRegistration: true,
+  defaultRole: 'user' as const,
+};
+
+const mockUserInfo = {
+  sub: 'oidc-sub-12345',
+  email: 'alice@example.com',
+  name: 'Alice Smith',
+};
+
+describe('findOrCreateUser', () => {
+  afterEach(() => {
+    mockGet.mockReset();
+    mockRun.mockReset();
+    delete process.env.OIDC_ADMIN_VALUE;
+    delete process.env.OIDC_ADMIN_CLAIM;
+    vi.unstubAllEnvs();
+  });
+
+  it('OIDC-110 — returns existing user found by oidc_sub', () => {
+    const existingUser = { id: 1, username: 'alice', email: 'alice@example.com', role: 'user', oidc_sub: 'oidc-sub-12345', oidc_issuer: 'https://auth.example.com' };
+    mockGet.mockReturnValueOnce(existingUser); // sub lookup hits
+
+    const result = findOrCreateUser(mockUserInfo, mockOidcConfig);
+    expect('user' in result).toBe(true);
+    if ('user' in result) {
+      expect(result.user.email).toBe('alice@example.com');
+    }
+  });
+
+  it('OIDC-111 — links OIDC identity when user found by email but not yet linked', () => {
+    const existingUser = { id: 2, username: 'bob', email: 'alice@example.com', role: 'user', oidc_sub: null, oidc_issuer: null };
+    mockGet.mockReturnValueOnce(undefined)  // sub lookup: miss
+          .mockReturnValueOnce(existingUser); // email lookup: hit
+
+    const result = findOrCreateUser(mockUserInfo, mockOidcConfig);
+    expect('user' in result).toBe(true);
+    // DB UPDATE should have been called to link the sub
+    expect(mockRun).toHaveBeenCalledOnce();
+  });
+
+  it('OIDC-112 — updates role when OIDC_ADMIN_VALUE is set and role changed', () => {
+    vi.stubEnv('OIDC_ADMIN_VALUE', 'admins');
+    vi.stubEnv('OIDC_ADMIN_CLAIM', 'groups');
+    const existingUser = { id: 3, username: 'charlie', email: 'alice@example.com', role: 'user', oidc_sub: 'oidc-sub-12345', oidc_issuer: 'https://auth.example.com' };
+    mockGet.mockReturnValueOnce(existingUser);
+
+    // userInfo has groups: ['admins'] so resolved role is 'admin', but user.role is 'user' -> update
+    const result = findOrCreateUser(
+      { ...mockUserInfo, groups: ['admins'] },
+      mockOidcConfig,
+    );
+    expect('user' in result).toBe(true);
+    if ('user' in result) {
+      expect(result.user.role).toBe('admin');
+    }
+    // Role UPDATE should have been called
+    expect(mockRun).toHaveBeenCalledOnce();
+  });
+
+  it('OIDC-113 — creates new user when no existing user and first user registration', () => {
+    // sub lookup: miss
+    mockGet.mockReturnValueOnce(undefined)
+          // email lookup: miss
+          .mockReturnValueOnce(undefined)
+          // user count: 0 (first user)
+          .mockReturnValueOnce({ count: 0 })
+          // username collision check: no collision
+          .mockReturnValueOnce(undefined);
+    mockRun.mockReturnValue({ changes: 1, lastInsertRowid: 42 });
+
+    const result = findOrCreateUser(mockUserInfo, mockOidcConfig);
+    expect('user' in result).toBe(true);
+    if ('user' in result) {
+      expect(result.user.id).toBe(42);
+      // First user should be admin
+      expect(result.user.role).toBe('admin');
+    }
+  });
+
+  it('OIDC-114 — returns error when registration is disabled and no invite', () => {
+    mockGet.mockReturnValueOnce(undefined)  // sub lookup
+          .mockReturnValueOnce(undefined)  // email lookup
+          .mockReturnValueOnce({ count: 5 })  // user count: not first
+          // no inviteToken -> skip invite check
+          // registration setting check
+          .mockReturnValueOnce({ value: 'false' }); // registration disabled
+
+    const result = findOrCreateUser(mockUserInfo, mockOidcConfig);
+    expect('error' in result).toBe(true);
+    if ('error' in result) {
+      expect(result.error).toBe('registration_disabled');
+    }
+  });
+
+  it('OIDC-115 — creates new user when registration is open', () => {
+    mockGet.mockReturnValueOnce(undefined)  // sub lookup
+          .mockReturnValueOnce(undefined)  // email lookup
+          .mockReturnValueOnce({ count: 3 })  // user count: not first
+          // registration setting check
+          .mockReturnValueOnce({ value: 'true' })  // registration enabled
+          // username collision check
+          .mockReturnValueOnce(undefined);
+    mockRun.mockReturnValue({ changes: 1, lastInsertRowid: 10 });
+
+    const result = findOrCreateUser(mockUserInfo, mockOidcConfig);
+    expect('user' in result).toBe(true);
+    if ('user' in result) {
+      expect(result.user.id).toBe(10);
+      expect(result.user.role).toBe('user'); // not first user
+    }
+  });
+
+  it('OIDC-116 — avoids username collision by appending suffix', () => {
+    mockGet.mockReturnValueOnce(undefined)  // sub lookup
+          .mockReturnValueOnce(undefined)  // email lookup
+          .mockReturnValueOnce({ count: 1 })  // user count
+          .mockReturnValueOnce(undefined)  // registration setting (not found -> use default)
+          .mockReturnValueOnce({ id: 5 });   // username collision: existing user
+    mockRun.mockReturnValue({ changes: 1, lastInsertRowid: 99 });
+
+    const result = findOrCreateUser(mockUserInfo, mockOidcConfig);
+    expect('user' in result).toBe(true);
+    if ('user' in result) {
+      // Username should have been suffixed
+      expect(result.user.username).toMatch(/AliceSmith_\d+/);
+    }
   });
 });

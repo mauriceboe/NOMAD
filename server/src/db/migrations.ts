@@ -518,6 +518,16 @@ function runMigrations(db: Database.Database): void {
         CREATE INDEX IF NOT EXISTS idx_notifications_recipient_created ON notifications(recipient_id, created_at DESC);
       `);
     },
+    // MCP token usage tracking
+    () => db.exec(`
+      CREATE TABLE IF NOT EXISTS mcp_token_usage (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        token_id INTEGER NOT NULL REFERENCES mcp_tokens(id) ON DELETE CASCADE,
+        requested_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_mcp_token_usage_token_id ON mcp_token_usage(token_id);
+      CREATE INDEX IF NOT EXISTS idx_mcp_token_usage_requested_at ON mcp_token_usage(requested_at);
+    `),
   ];
 
   if (currentVersion < migrations.length) {

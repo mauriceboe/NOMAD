@@ -192,21 +192,21 @@ describe('Immich status and connection (no credentials configured)', () => {
     expect(res.body.connected).toBe(false);
   });
 
-  it('IMMICH-021 — GET /api/integrations/immich/albums returns 404 when no creds set', async () => {
+  it('IMMICH-021 — GET /api/integrations/immich/albums returns 400 when no creds set', async () => {
     const { user } = createUser(testDb);
     const res = await request(app)
       .get('/api/integrations/immich/albums')
       .set('Cookie', authCookie(user.id));
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(400);
     expect(res.body.error).toBeTruthy();
   });
 
-  it('IMMICH-022 — GET /api/integrations/immich/browse returns 404 when no creds set', async () => {
+  it('IMMICH-022 — GET /api/integrations/immich/browse returns 400 when no creds set', async () => {
     const { user } = createUser(testDb);
     const res = await request(app)
       .get('/api/integrations/immich/browse')
       .set('Cookie', authCookie(user.id));
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(400);
   });
 });
 

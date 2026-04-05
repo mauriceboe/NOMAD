@@ -68,7 +68,12 @@ const sessionSweepInterval = setInterval(() => {
 // Prevent the interval from keeping the process alive if nothing else is running
 sessionSweepInterval.unref();
 
-function verifyToken(authHeader: string | undefined): User | null {
+interface VerifiedAuth {
+  user: User;
+  tokenId: number | null;
+}
+
+function verifyToken(authHeader: string | undefined): VerifiedAuth | null {
   const token = authHeader && authHeader.split(' ')[1];
   if (!token) return null;
 
@@ -76,15 +81,16 @@ function verifyToken(authHeader: string | undefined): User | null {
   if (token.startsWith('trek_')) {
     const hash = createHash('sha256').update(token).digest('hex');
     const row = db.prepare(`
-      SELECT u.id, u.username, u.email, u.role
+      SELECT u.id, u.username, u.email, u.role, mt.id AS token_id
       FROM mcp_tokens mt
       JOIN users u ON mt.user_id = u.id
       WHERE mt.token_hash = ?
-    `).get(hash) as User | undefined;
+    `).get(hash) as (User & { token_id: number }) | undefined;
     if (row) {
+      const { token_id, ...user } = row;
       // Update last_used_at (fire-and-forget, non-blocking)
       db.prepare('UPDATE mcp_tokens SET last_used_at = CURRENT_TIMESTAMP WHERE token_hash = ?').run(hash);
-      return row;
+      return { user: user as User, tokenId: token_id };
     }
     return null;
   }
@@ -95,10 +101,18 @@ function verifyToken(authHeader: string | undefined): User | null {
     const user = db.prepare(
       'SELECT id, username, email, role FROM users WHERE id = ?'
     ).get(decoded.id) as User | undefined;
-    return user || null;
+    return user ? { user, tokenId: null } : null;
   } catch {
     return null;
   }
+}
+
+const recordUsageStmt = db.prepare('INSERT INTO mcp_token_usage (token_id) VALUES (?)');
+
+function recordTokenUsage(tokenId: number): void {
+  try {
+    recordUsageStmt.run(tokenId);
+  } catch { /* non-critical */ }
 }
 
 export async function mcpHandler(req: Request, res: Response): Promise<void> {
@@ -108,16 +122,19 @@ export async function mcpHandler(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const user = verifyToken(req.headers['authorization']);
-  if (!user) {
+  const auth = verifyToken(req.headers['authorization']);
+  if (!auth) {
     res.status(401).json({ error: 'Access token required' });
     return;
   }
+  const { user, tokenId } = auth;
 
   if (isRateLimited(user.id)) {
     res.status(429).json({ error: 'Too many requests. Please slow down.' });
     return;
   }
+
+  if (tokenId !== null) recordTokenUsage(tokenId);
 
   const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
