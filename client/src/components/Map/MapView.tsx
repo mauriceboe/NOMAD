@@ -459,6 +459,7 @@ export const MapView = memo(function MapView({
 
   // photoUrls: only base64 thumbs for smooth map zoom
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>(getAllThumbs)
+  const [mountNonce, setMountNonce] = useState(0)
 
   // Fetch photos via shared service — subscribe to thumb (base64) availability
   const placeIds = useMemo(() => places.map(p => p.id).join(','), [places])
@@ -559,9 +560,19 @@ export const MapView = memo(function MapView({
 
   const resolvedTileUrl = resolveTileUrl(tileUrl)
 
+  useEffect(() => {
+    // A short delayed remount makes the planner map behave more like a hard refresh:
+    // mount once after fixed layout, blurred sidebars, and route transitions have settled.
+    const timeout = window.setTimeout(() => {
+      setMountNonce((value) => value + 1)
+    }, 180)
+
+    return () => window.clearTimeout(timeout)
+  }, [])
+
   return (
     <MapContainer
-      key={resolvedTileUrl}
+      key={`${resolvedTileUrl}:${mountNonce}`}
       id="trek-map"
       center={center}
       zoom={zoom}
@@ -570,7 +581,7 @@ export const MapView = memo(function MapView({
       style={{ width: '100%', height: '100%', background: '#e5e7eb' }}
     >
       <TileLayer
-        key={resolvedTileUrl}
+        key={`${resolvedTileUrl}:${mountNonce}`}
         url={resolvedTileUrl}
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         maxZoom={19}
