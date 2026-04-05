@@ -34,6 +34,7 @@ const ADMIN_SETTINGS_KEYS = [
   'notification_webhook_url', 'notification_channel',
   'notify_trip_invite', 'notify_booking_change', 'notify_trip_reminder',
   'notify_vacay_invite', 'notify_photos_shared', 'notify_collab_message', 'notify_packing_tagged',
+  'nearby_categories', 'nearby_radius', 'nearby_max_results',
 ];
 
 const avatarDir = path.join(__dirname, '../../uploads/avatars');
@@ -217,6 +218,9 @@ export function getAppConfig(authenticatedUser: { id: number } | null) {
     timezone: process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     notification_channel: notifChannel,
     trip_reminders_enabled: tripRemindersEnabled,
+    nearby_categories: (db.prepare("SELECT value FROM app_settings WHERE key = 'nearby_categories'").get() as { value: string } | undefined)?.value || 'food,attractions,shopping,nightlife,outdoors,transport,services,accommodation',
+    nearby_radius: Number((db.prepare("SELECT value FROM app_settings WHERE key = 'nearby_radius'").get() as { value: string } | undefined)?.value) || 1500,
+    nearby_max_results: Number((db.prepare("SELECT value FROM app_settings WHERE key = 'nearby_max_results'").get() as { value: string } | undefined)?.value) || 20,
     permissions: authenticatedUser ? getAllPermissions() : undefined,
     dev_mode: process.env.NODE_ENV === 'development',
   };

@@ -11,6 +11,7 @@ import PlacesSidebar from '../components/Planner/PlacesSidebar'
 import PlaceInspector from '../components/Planner/PlaceInspector'
 import DayDetailPanel from '../components/Planner/DayDetailPanel'
 import PlaceFormModal from '../components/Planner/PlaceFormModal'
+import NearbyPlacesModal from '../components/Planner/NearbyPlacesModal'
 import TripFormModal from '../components/Trips/TripFormModal'
 import TripMembersModal from '../components/Trips/TripMembersModal'
 import { ReservationModal } from '../components/Planner/ReservationModal'
@@ -100,6 +101,8 @@ export default function TripPlannerPage(): React.ReactElement | null {
   const [enabledAddons, setEnabledAddons] = useState<Record<string, boolean>>({ packing: true, budget: true, documents: true })
   const [tripAccommodations, setTripAccommodations] = useState<Accommodation[]>([])
   const [allowedFileTypes, setAllowedFileTypes] = useState<string | null>(null)
+  const [nearbyCategories, setNearbyCategories] = useState<string | undefined>(undefined)
+  const [nearbyRadius, setNearbyRadius] = useState<number>(1500)
   const [tripMembers, setTripMembers] = useState<TripMember[]>([])
 
   const loadAccommodations = useCallback(() => {
@@ -117,6 +120,8 @@ export default function TripPlannerPage(): React.ReactElement | null {
     }).catch(() => {})
     authApi.getAppConfig().then(config => {
       if (config.allowed_file_types) setAllowedFileTypes(config.allowed_file_types)
+      if (config.nearby_categories) setNearbyCategories(config.nearby_categories)
+      if (config.nearby_radius) setNearbyRadius(config.nearby_radius)
     }).catch(() => {})
   }, [])
 
@@ -155,6 +160,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
   const [fitKey, setFitKey] = useState<number>(0)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<'left' | 'right' | null>(null)
   const [deletePlaceId, setDeletePlaceId] = useState<number | null>(null)
+  const [nearbyTarget, setNearbyTarget] = useState<{ lat: number; lng: number; name: string } | null>(null)
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
   useEffect(() => {
@@ -802,6 +808,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
                   } catch {}
                 }}
                 onUpdatePlace={async (placeId, data) => { try { await tripActions.updatePlace(tripId, placeId, data) } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Unknown error') } }}
+                onFindNearby={selectedPlace?.lat && selectedPlace?.lng ? () => setNearbyTarget({ lat: selectedPlace.lat!, lng: selectedPlace.lng!, name: selectedPlace.name }) : undefined}
                 leftWidth={(isMobile || window.innerWidth < 900) ? 0 : (leftCollapsed ? 0 : leftWidth)}
                 rightWidth={(isMobile || window.innerWidth < 900) ? 0 : (rightCollapsed ? 0 : rightWidth)}
               />
@@ -851,6 +858,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
                       } catch {}
                     }}
                     onUpdatePlace={async (placeId, data) => { try { await tripActions.updatePlace(tripId, placeId, data) } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Unknown error') } }}
+                    onFindNearby={selectedPlace?.lat && selectedPlace?.lng ? () => { setNearbyTarget({ lat: selectedPlace.lat!, lng: selectedPlace.lng!, name: selectedPlace.name }); setSelectedPlaceId(null) } : undefined}
                     leftWidth={0}
                     rightWidth={0}
                   />
@@ -943,6 +951,25 @@ export default function TripPlannerPage(): React.ReactElement | null {
       <TripFormModal isOpen={showTripForm} onClose={() => setShowTripForm(false)} onSave={async (data) => { await tripActions.updateTrip(tripId, data); toast.success(t('trip.toast.tripUpdated')) }} trip={trip} />
       <TripMembersModal isOpen={showMembersModal} onClose={() => setShowMembersModal(false)} tripId={tripId} tripTitle={trip?.title} />
       <ReservationModal isOpen={showReservationModal} onClose={() => { setShowReservationModal(false); setEditingReservation(null) }} onSave={handleSaveReservation} reservation={editingReservation} days={days} places={places} assignments={assignments} selectedDayId={selectedDayId} files={files} onFileUpload={canUploadFiles ? (fd) => tripActions.addFile(tripId, fd) : undefined} onFileDelete={(id) => tripActions.deleteFile(tripId, id)} accommodations={tripAccommodations} />
+      {nearbyTarget && (
+        <NearbyPlacesModal
+          isOpen={!!nearbyTarget}
+          onClose={() => setNearbyTarget(null)}
+          lat={nearbyTarget.lat}
+          lng={nearbyTarget.lng}
+          locationName={nearbyTarget.name}
+          enabledCategories={nearbyCategories}
+          defaultRadius={nearbyRadius}
+          onAddPlace={async (data) => {
+            try {
+              await tripActions.addPlace(tripId, data)
+              toast.success(t('trip.toast.placeAdded'))
+            } catch (err: unknown) {
+              toast.error(err instanceof Error ? err.message : 'Failed to add place')
+            }
+          }}
+        />
+      )}
       <ConfirmDialog
         isOpen={!!deletePlaceId}
         onClose={() => setDeletePlaceId(null)}

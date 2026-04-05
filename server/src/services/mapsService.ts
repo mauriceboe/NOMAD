@@ -529,3 +529,143 @@ export async function resolveGoogleMapsUrl(url: string): Promise<{ lat: number; 
 
   return { lat, lng, name, address };
 }
+
+// ── Nearby Search ───────────────────────────────────────────────────────────
+
+const NEARBY_CATEGORY_DEFAULTS: Record<string, { keywords: string[]; icon: string; color: string; name: string }> = {
+  food: { keywords: ['food', 'restaurant', 'dining', 'essen', 'gastronomie', 'cafe'], icon: 'UtensilsCrossed', color: '#f97316', name: 'Food & Drink' },
+  attractions: { keywords: ['attraction', 'sightseeing', 'sehenswürdigkeit', 'museum', 'landmark'], icon: 'Landmark', color: '#8b5cf6', name: 'Attractions' },
+  shopping: { keywords: ['shopping', 'shop', 'store', 'einkauf', 'market'], icon: 'ShoppingBag', color: '#ec4899', name: 'Shopping' },
+  nightlife: { keywords: ['nightlife', 'bar', 'club', 'nachtleben', 'party'], icon: 'Beer', color: '#6366f1', name: 'Nightlife' },
+  outdoors: { keywords: ['outdoor', 'nature', 'park', 'hike', 'natur', 'freizeit'], icon: 'TreePine', color: '#22c55e', name: 'Outdoors' },
+  transport: { keywords: ['transport', 'transit', 'station', 'verkehr', 'bus', 'train'], icon: 'Bus', color: '#3b82f6', name: 'Transport' },
+  services: { keywords: ['service', 'bank', 'pharmacy', 'hospital', 'dienstleistung'], icon: 'Building2', color: '#64748b', name: 'Services' },
+  accommodation: { keywords: ['accommodation', 'hotel', 'hostel', 'lodging', 'unterkunft'], icon: 'BedDouble', color: '#0ea5e9', name: 'Accommodation' },
+};
+
+function resolveNearbyCategoryId(type: string): number | null {
+  const mapping = NEARBY_CATEGORY_DEFAULTS[type];
+  if (!mapping) return null;
+  const allCategories = db.prepare('SELECT id, name FROM categories').all() as { id: number; name: string }[];
+  const match = allCategories.find(cat =>
+    mapping.keywords.some(kw => cat.name.toLowerCase().includes(kw))
+  );
+  return match?.id ?? null;
+}
+
+const NEARBY_TYPE_GROUPS: Record<string, string[]> = {
+  food: ['restaurant', 'cafe', 'bakery', 'bar', 'fast_food_restaurant', 'coffee_shop', 'ice_cream_shop'],
+  attractions: ['tourist_attraction', 'museum', 'art_gallery', 'amusement_park', 'aquarium', 'zoo', 'national_park'],
+  shopping: ['shopping_mall', 'clothing_store', 'book_store', 'gift_shop', 'market', 'supermarket'],
+  nightlife: ['night_club', 'bar', 'casino', 'movie_theater'],
+  outdoors: ['park', 'hiking_area', 'campground', 'beach', 'ski_resort', 'golf_course'],
+  transport: ['transit_station', 'train_station', 'bus_station', 'airport', 'car_rental'],
+  services: ['bank', 'atm', 'hospital', 'pharmacy', 'post_office', 'gas_station'],
+  accommodation: ['hotel', 'lodging', 'motel', 'bed_and_breakfast', 'hostel', 'campground'],
+};
+
+export async function searchNearby(
+  userId: number,
+  lat: number,
+  lng: number,
+  type: string,
+  radius?: number,
+  lang?: string,
+): Promise<{ places: Record<string, unknown>[]; source: string; suggested_category_id: number | null }> {
+  if (!NEARBY_TYPE_GROUPS[type]) {
+    throw Object.assign(new Error(`Invalid type. Must be one of: ${Object.keys(NEARBY_TYPE_GROUPS).join(', ')}`), { status: 400 });
+  }
+
+  if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    throw Object.assign(new Error('Invalid coordinates'), { status: 400 });
+  }
+
+  const adminRadius = Number((db.prepare("SELECT value FROM app_settings WHERE key = 'nearby_radius'").get() as { value: string } | undefined)?.value) || 1500;
+  const adminMaxResults = Math.min(Math.max(Number((db.prepare("SELECT value FROM app_settings WHERE key = 'nearby_max_results'").get() as { value: string } | undefined)?.value) || 20, 1), 20);
+  const searchRadius = Math.min(Math.max(Number(radius) || adminRadius, 100), 50000);
+  const includedTypes = NEARBY_TYPE_GROUPS[type];
+  const suggestedCategoryId = resolveNearbyCategoryId(type);
+  const apiKey = getMapsKey(userId);
+
+  if (!apiKey) {
+    const osmTypeMap: Record<string, string> = {
+      food: 'amenity~"restaurant|cafe|fast_food|bar|bakery|ice_cream"',
+      attractions: 'tourism~"attraction|museum|gallery|theme_park|zoo|aquarium"',
+      shopping: 'shop',
+      nightlife: 'amenity~"nightclub|bar|cinema|casino"',
+      outdoors: 'leisure~"park|nature_reserve|garden|playground|pitch"',
+      transport: 'public_transport~"station|stop_position"',
+      services: 'amenity~"bank|atm|hospital|pharmacy|post_office|fuel"',
+      accommodation: 'tourism~"hotel|motel|hostel|guest_house|camp_site"',
+    };
+    const osmFilter = osmTypeMap[type];
+    if (!osmFilter) throw Object.assign(new Error('Unsupported type for OpenStreetMap search'), { status: 400 });
+
+    const query = `[out:json][timeout:10];(node[${osmFilter}](around:${searchRadius},${lat},${lng});way[${osmFilter}](around:${searchRadius},${lat},${lng}););out center tags ${adminMaxResults};`;
+    const overpassRes = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `data=${encodeURIComponent(query)}`,
+    });
+    if (!overpassRes.ok) throw Object.assign(new Error('Overpass API error'), { status: 500 });
+
+    const overpassData = await overpassRes.json() as { elements?: { osm_type?: string; type?: string; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }[] };
+    const places = (overpassData.elements || []).map(el => {
+      const elLat = el.lat || el.center?.lat || null;
+      const elLng = el.lon || el.center?.lon || null;
+      const elType = el.osm_type || el.type || 'node';
+      return {
+        google_place_id: null,
+        osm_id: `${elType}:${el.id}`,
+        name: el.tags?.name || el.tags?.['name:en'] || '',
+        address: [el.tags?.['addr:street'], el.tags?.['addr:housenumber'], el.tags?.['addr:city']].filter(Boolean).join(', ') || '',
+        lat: elLat,
+        lng: elLng,
+        rating: null,
+        website: el.tags?.website || el.tags?.['contact:website'] || null,
+        phone: el.tags?.phone || el.tags?.['contact:phone'] || null,
+        source: 'openstreetmap',
+      };
+    }).filter(p => p.name && p.lat && p.lng);
+    return { places, source: 'openstreetmap', suggested_category_id: suggestedCategoryId };
+  }
+
+  const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': apiKey,
+      'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.websiteUri,places.nationalPhoneNumber,places.types',
+    },
+    body: JSON.stringify({
+      includedTypes,
+      maxResultCount: adminMaxResults,
+      languageCode: lang || 'en',
+      locationRestriction: {
+        circle: {
+          center: { latitude: lat, longitude: lng },
+          radius: searchRadius,
+        },
+      },
+    }),
+  });
+
+  const data = await response.json() as { places?: GooglePlaceResult[]; error?: { message?: string } };
+  if (!response.ok) {
+    throw Object.assign(new Error(data.error?.message || 'Google Places API error'), { status: response.status });
+  }
+
+  const places = (data.places || []).map((p: GooglePlaceResult) => ({
+    google_place_id: p.id,
+    name: p.displayName?.text || '',
+    address: p.formattedAddress || '',
+    lat: p.location?.latitude || null,
+    lng: p.location?.longitude || null,
+    rating: p.rating || null,
+    website: p.websiteUri || null,
+    phone: p.nationalPhoneNumber || null,
+    source: 'google',
+  }));
+
+  return { places, source: 'google', suggested_category_id: suggestedCategoryId };
+}

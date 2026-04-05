@@ -5,6 +5,7 @@ import {
   searchPlaces,
   getPlaceDetails,
   getPlacePhoto,
+  searchNearby,
   reverseGeocode,
   resolveGoogleMapsUrl,
 } from '../services/mapsService';
@@ -59,6 +60,26 @@ router.get('/place-photo/:placeId', authenticate, async (req: Request, res: Resp
     const status = (err as { status?: number }).status || 500;
     const message = err instanceof Error ? err.message : 'Error fetching photo';
     if (status >= 500) console.error('Place photo error:', err);
+    res.status(status).json({ error: message });
+  }
+});
+
+// POST /nearby
+router.post('/nearby', authenticate, async (req: Request, res: Response) => {
+  const authReq = req as AuthRequest;
+  const { lat, lng, type, radius } = req.body;
+
+  if (!lat || !lng || !type) {
+    return res.status(400).json({ error: 'lat, lng and type are required' });
+  }
+
+  try {
+    const result = await searchNearby(authReq.user.id, Number(lat), Number(lng), type, Number(radius), req.query.lang as string);
+    res.json(result);
+  } catch (err: unknown) {
+    const status = (err as { status?: number }).status || 500;
+    const message = err instanceof Error ? err.message : 'Nearby search error';
+    console.error('Nearby search error:', err);
     res.status(status).json({ error: message });
   }
 });

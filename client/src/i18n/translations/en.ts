@@ -461,6 +461,12 @@ const en: Record<string, string | { name: string; category: string }[]> = {
   'admin.fileTypesHint': 'Configure which file types users can upload.',
   'admin.fileTypesFormat': 'Comma-separated extensions (e.g. jpg,png,pdf,doc). Use * to allow all types.',
   'admin.fileTypesSaved': 'File type settings saved',
+  'admin.nearbyTitle': 'Nearby Places',
+  'admin.nearbyHint': 'Configure which categories appear in the "Find Nearby" feature and the default search radius.',
+  'admin.nearbyCategories': 'Enabled Categories',
+  'admin.nearbyRadius': 'Default Search Radius',
+  'admin.nearbyMaxResults': 'Max Results',
+  'admin.nearbySaved': 'Nearby places settings saved',
 
   // Packing Templates & Bag Tracking
   'admin.bagTracking.title': 'Bag Tracking',
@@ -855,6 +861,23 @@ const en: Record<string, string | { name: string; category: string }[]> = {
   'inspector.editRes': 'Edit Reservation',
   'inspector.participants': 'Participants',
   'inspector.trackStats': 'Track Stats',
+  'inspector.findNearby': 'Find Nearby',
+  // Nearby Places
+  'nearby.title': 'Explore Nearby',
+  'nearby.searchingNear': 'Searching near',
+  'nearby.searching': 'Searching nearby places...',
+  'nearby.noResults': 'No places found nearby. Try a different category.',
+  'nearby.searchError': 'Failed to search nearby places.',
+  'nearby.add': 'Add',
+  'nearby.added': 'Added',
+  'nearby.types.food': 'Food & Drink',
+  'nearby.types.attractions': 'Attractions',
+  'nearby.types.shopping': 'Shopping',
+  'nearby.types.nightlife': 'Nightlife',
+  'nearby.types.outdoors': 'Outdoors',
+  'nearby.types.transport': 'Transport',
+  'nearby.types.services': 'Services',
+  'nearby.types.accommodation': 'Accommodation',
 
   // Reservations
   'reservations.title': 'Bookings',
