@@ -7,8 +7,11 @@ import { packingApi, tripsApi, adminApi } from '../../api/client'
 import ReactDOM from 'react-dom'
 import {
   CheckSquare, Square, Trash2, Plus, ChevronDown, ChevronRight,
-  X, Pencil, Check, MoreHorizontal, CheckCheck, RotateCcw, Luggage, UserPlus, Package, FolderPlus, Upload,
+  X, Pencil, Check, MoreHorizontal, CheckCheck, RotateCcw, Luggage, UserPlus, Package, FolderPlus, Upload, QrCode
 } from 'lucide-react'
+import { QRDisplayModal } from '../shared/QRDisplayModal'
+import { QRScannerModal } from '../shared/QRScannerModal'
+import { encodePackingList, decodePackingList } from '../../utils/qrUtils'
 import type { PackingItem } from '../../types'
 
 const VORSCHLAEGE = [
@@ -335,6 +338,7 @@ function KategorieGruppe({ kategorie, items, tripId, allCategories, onRename, on
   const [showMenu, setShowMenu] = useState(false)
   const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false)
   const [showAddItem, setShowAddItem] = useState(false)
+  const [showQrModal, setShowQrModal] = useState(false)
   const [newItemName, setNewItemName] = useState('')
   const addItemRef = useRef<HTMLInputElement>(null)
   const assigneeDropdownRef = useRef<HTMLDivElement>(null)
@@ -509,6 +513,7 @@ function KategorieGruppe({ kategorie, items, tripId, allCategories, onRename, on
               {canEdit && <MenuItem icon={<Pencil size={13} />} label={t('packing.menuRename')} onClick={() => { setEditingName(true); setShowMenu(false) }} />}
               <MenuItem icon={<CheckCheck size={13} />} label={t('packing.menuCheckAll')} onClick={() => { handleCheckAll(); setShowMenu(false) }} />
               <MenuItem icon={<RotateCcw size={13} />} label={t('packing.menuUncheckAll')} onClick={() => { handleUncheckAll(); setShowMenu(false) }} />
+              <MenuItem icon={<QrCode size={13} />} label={t('packing.exportQr', 'Export to QR code')} onClick={() => { setShowQrModal(true); setShowMenu(false) }} />
               {canEdit && <>
               <div style={{ height: 1, background: 'var(--bg-tertiary)', margin: '4px 0' }} />
               <MenuItem icon={<Trash2 size={13} />} label={t('packing.menuDeleteCat')} danger onClick={handleDeleteAll} />
@@ -517,6 +522,14 @@ function KategorieGruppe({ kategorie, items, tripId, allCategories, onRename, on
           )}
         </div>
       </div>
+
+      {showQrModal && (
+        <QRDisplayModal
+          title={`Export ${kategorie}`}
+          value={encodePackingList(kategorie, items)}
+          onClose={() => setShowQrModal(false)}
+        />
+      )}
 
       {offen && (
         <div style={{ padding: '4px 4px 6px' }}>
@@ -743,6 +756,7 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false)
   const [applyingTemplate, setApplyingTemplate] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
+  const [showQrScanner, setShowQrScanner] = useState(false)
   const [importText, setImportText] = useState('')
   const csvInputRef = useRef<HTMLInputElement>(null)
   const templateDropdownRef = useRef<HTMLDivElement>(null)
@@ -811,6 +825,29 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
     const reader = new FileReader()
     reader.onload = () => { if (typeof reader.result === 'string') setImportText(reader.result) }
     reader.readAsText(file)
+  }
+
+  const handleScanQr = async (decodedText: string) => {
+    try {
+      const { category, items } = decodePackingList(decodedText)
+      if (items.length === 0) return
+      
+      const parsed = items.map(item => ({
+        name: item.name!,
+        category: category,
+        weight_grams: undefined,
+        bag: undefined,
+        checked: false
+      }))
+      
+      const result = await packingApi.bulkImport(tripId, parsed)
+      toast.success(t('packing.importSuccess', { count: result.count }))
+      setShowQrScanner(false)
+      setShowImportModal(false)
+      window.location.reload()
+    } catch (err) {
+      toast.error('Invalid or unsupported QR Code')
+    }
   }
 
   const font = { fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif" }
@@ -1200,7 +1237,7 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
               }}
             />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <input ref={csvInputRef} type="file" accept=".csv,.txt" style={{ display: 'none' }} onChange={handleCsvFile} />
                 <button onClick={() => csvInputRef.current?.click()} style={{
                   display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px',
@@ -1208,6 +1245,13 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
                   fontSize: 11, color: 'var(--text-faint)', cursor: 'pointer', fontFamily: 'inherit',
                 }}>
                   <Upload size={11} /> {t('packing.importCsv')}
+                </button>
+                <button onClick={() => setShowQrScanner(true)} style={{
+                  display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px',
+                  border: '1px dashed var(--border-primary)', borderRadius: 8, background: 'none',
+                  fontSize: 11, color: 'var(--text-faint)', cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                  <QrCode size={11} /> Scan QR
                 </button>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -1225,6 +1269,14 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
           </div>
         </div>,
         document.body
+      )}
+
+      {showQrScanner && (
+        <QRScannerModal
+          title="Scan Packing List"
+          onScan={handleScanQr}
+          onClose={() => setShowQrScanner(false)}
+        />
       )}
     </div>
   )
