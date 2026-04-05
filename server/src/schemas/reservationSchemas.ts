@@ -16,7 +16,14 @@ export const CreateReservationSchema = z.object({
   accommodation_id: z.number().int().optional().nullable(),
   status: z.string().max(50).optional(),
   metadata: z.string().optional().nullable(),
-  create_accommodation: z.boolean().optional(),
+  create_accommodation: z.object({
+    place_id: z.number().int(),
+    start_day_id: z.number().int(),
+    end_day_id: z.number().int(),
+    check_in: z.string().max(50).optional().nullable(),
+    check_out: z.string().max(50).optional().nullable(),
+    confirmation: z.string().max(100).optional().nullable(),
+  }).optional(),
 });
 
 export const UpdateReservationSchema = z.object({

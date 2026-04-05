@@ -84,6 +84,7 @@ function ReservationCard({ r, tripId, onEdit, onDelete, files = [], onNavigateTo
   }
 
   const fmtDate = (str) => {
+    if (/^\d{2}:\d{2}(:\d{2})?$/.test(str)) return str.slice(0, 5)
     const dateOnly = str.includes('T') ? str.split('T')[0] : str
     return new Date(dateOnly + 'T00:00:00Z').toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
   }

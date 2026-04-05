@@ -46,6 +46,8 @@ const NOTE_ICONS = [
   { id: 'Bookmark', Icon: Bookmark },
 ]
 const NOTE_ICON_MAP = Object.fromEntries(NOTE_ICONS.map(({ id, Icon }) => [id, Icon]))
+
+const isTimeOnly = (s: string) => /^\d{2}:\d{2}(:\d{2})?$/.test(s)
 function getNoteIcon(iconId: string): React.ComponentType<{ size?: number; className?: string }> {
   return NOTE_ICON_MAP[iconId] ?? FileText
 }
@@ -1670,9 +1672,11 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
                       <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 2 }}>
                         {res.reservation_time?.includes('T')
                           ? new Date(res.reservation_time).toLocaleString(locale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: timeFormat === '12h' })
-                          : res.reservation_time
-                            ? new Date(res.reservation_time + 'T00:00:00Z').toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
-                            : ''
+                          : res.reservation_time && isTimeOnly(res.reservation_time)
+                            ? res.reservation_time.slice(0, 5)
+                            : res.reservation_time
+                              ? new Date(res.reservation_time + 'T00:00:00Z').toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+                              : ''
                         }
                         {res.reservation_end_time?.includes('T') && ` – ${new Date(res.reservation_end_time).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: timeFormat === '12h' })}`}
                       </div>

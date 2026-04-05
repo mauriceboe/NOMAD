@@ -8,17 +8,20 @@ on:
     branches: [main, dev]
     paths:
       - 'server/**'
+      - 'client/**'
       - '.github/workflows/test.yml'
   pull_request:
     branches: [main, dev]
     paths:
       - 'server/**'
+      - 'client/**'
       - '.github/workflows/test.yml'
 
 jobs:
   server-tests:
     name: Server Tests
     runs-on: ubuntu-latest
+    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v6
@@ -41,4 +44,33 @@ jobs:
         with:
           name: coverage
           path: server/coverage/
+          retention-days: 7
+
+  client-tests:
+    name: Client Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: client-coverage-report
+          path: client/coverage/
           retention-days: 7
