@@ -126,12 +126,17 @@ function SelectionController({ places, selectedPlaceId, dayPlaces, paddingOpts }
   const map = useMap()
   const prev = useRef(null)
 
+  const isMapLive = () => {
+    const anyMap = map as any
+    return !!(anyMap?._container && anyMap?._mapPane)
+  }
+
   useEffect(() => {
     if (selectedPlaceId && selectedPlaceId !== prev.current) {
       // Pan to the selected place without changing zoom
       const selected = places.find(p => p.id === selectedPlaceId)
-      if (selected?.lat && selected?.lng) {
-        map.panTo([selected.lat, selected.lng], { animate: true })
+      if (selected?.lat && selected?.lng && isMapLive()) {
+        map.panTo([selected.lat, selected.lng], { animate: false })
       }
     }
     prev.current = selectedPlaceId
@@ -149,9 +154,14 @@ function MapController({ center, zoom }: MapControllerProps) {
   const map = useMap()
   const prevCenter = useRef(center)
 
+  const isMapLive = () => {
+    const anyMap = map as any
+    return !!(anyMap?._container && anyMap?._mapPane)
+  }
+
   useEffect(() => {
-    if (prevCenter.current[0] !== center[0] || prevCenter.current[1] !== center[1]) {
-      map.setView(center, zoom)
+    if ((prevCenter.current[0] !== center[0] || prevCenter.current[1] !== center[1]) && isMapLive()) {
+      map.setView(center, zoom, { animate: false })
       prevCenter.current = center
     }
   }, [center, zoom, map])
@@ -170,13 +180,19 @@ function BoundsController({ places, fitKey, paddingOpts }: BoundsControllerProps
   const map = useMap()
   const prevFitKey = useRef(-1)
 
+  const isMapLive = () => {
+    const anyMap = map as any
+    return !!(anyMap?._container && anyMap?._mapPane)
+  }
+
   useEffect(() => {
     if (fitKey === prevFitKey.current) return
     prevFitKey.current = fitKey
     if (places.length === 0) return
+    if (!isMapLive()) return
     try {
       const bounds = L.latLngBounds(places.map(p => [p.lat, p.lng]))
-      if (bounds.isValid()) map.fitBounds(bounds, { ...paddingOpts, maxZoom: 16, animate: true })
+      if (bounds.isValid()) map.fitBounds(bounds, { ...paddingOpts, maxZoom: 16, animate: false })
     } catch {}
   }, [fitKey, places, paddingOpts, map])
 
@@ -222,7 +238,11 @@ function MapSizeController({ deps }: { deps: Array<string | number | boolean | n
 
   useEffect(() => {
     const container = map.getContainer()
-    const invalidate = () => map.invalidateSize({ animate: false })
+    const invalidate = () => {
+      const anyMap = map as any
+      if (!anyMap?._container || !anyMap?._mapPane) return
+      map.invalidateSize({ animate: false })
+    }
 
     // Leaflet can mis-measure tiles when the planner layout changes after mount.
     // Invalidate across a few frames/ticks to catch fixed-layout and route-transition settling.
@@ -274,6 +294,91 @@ function MapSizeController({ deps }: { deps: Array<string | number | boolean | n
   }, deps) // eslint-disable-line react-hooks/exhaustive-deps
 
   return null
+}
+
+function MapDebugOverlay({
+  enabled,
+  tileUrl,
+}: {
+  enabled: boolean
+  tileUrl: string
+}) {
+  const map = useMap()
+  const [snapshot, setSnapshot] = useState({
+    mapWidth: 0,
+    mapHeight: 0,
+    parentWidth: 0,
+    parentHeight: 0,
+    zoom: 0,
+    center: '',
+    updatedAt: '',
+  })
+
+  useEffect(() => {
+    if (!enabled) return
+
+    const takeSnapshot = () => {
+      const container = map.getContainer()
+      const parent = container.parentElement
+      const center = map.getCenter()
+      setSnapshot({
+        mapWidth: Math.round(container.clientWidth),
+        mapHeight: Math.round(container.clientHeight),
+        parentWidth: parent ? Math.round(parent.clientWidth) : 0,
+        parentHeight: parent ? Math.round(parent.clientHeight) : 0,
+        zoom: map.getZoom(),
+        center: `${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`,
+        updatedAt: new Date().toLocaleTimeString(),
+      })
+    }
+
+    takeSnapshot()
+    map.on('moveend', takeSnapshot)
+    map.on('zoomend', takeSnapshot)
+    map.on('resize', takeSnapshot)
+    const interval = window.setInterval(takeSnapshot, 1000)
+
+    return () => {
+      map.off('moveend', takeSnapshot)
+      map.off('zoomend', takeSnapshot)
+      map.off('resize', takeSnapshot)
+      window.clearInterval(interval)
+    }
+  }, [enabled, map, tileUrl])
+
+  if (!enabled) return null
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 12,
+        left: 12,
+        zIndex: 1200,
+        background: 'rgba(15, 23, 42, 0.88)',
+        color: '#f8fafc',
+        borderRadius: 10,
+        padding: '8px 10px',
+        fontSize: 11,
+        lineHeight: 1.4,
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+        boxShadow: '0 8px 20px rgba(0,0,0,0.25)',
+        maxWidth: 340,
+        pointerEvents: 'none',
+        whiteSpace: 'pre-wrap',
+      }}
+    >
+      {[
+        'MAP DEBUG',
+        `tile: ${tileUrl}`,
+        `map: ${snapshot.mapWidth} x ${snapshot.mapHeight}`,
+        `parent: ${snapshot.parentWidth} x ${snapshot.parentHeight}`,
+        `zoom: ${snapshot.zoom}`,
+        `center: ${snapshot.center}`,
+        `updated: ${snapshot.updatedAt}`,
+      ].join('\n')}
+    </div>
+  )
 }
 
 // ── Route travel time label ──
@@ -459,7 +564,7 @@ export const MapView = memo(function MapView({
 
   // photoUrls: only base64 thumbs for smooth map zoom
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>(getAllThumbs)
-  const [mountNonce, setMountNonce] = useState(0)
+  const [showDebugOverlay, setShowDebugOverlay] = useState(false)
 
   // Fetch photos via shared service — subscribe to thumb (base64) availability
   const placeIds = useMemo(() => places.map(p => p.id).join(','), [places])
@@ -561,27 +666,25 @@ export const MapView = memo(function MapView({
   const resolvedTileUrl = resolveTileUrl(tileUrl)
 
   useEffect(() => {
-    // A short delayed remount makes the planner map behave more like a hard refresh:
-    // mount once after fixed layout, blurred sidebars, and route transitions have settled.
-    const timeout = window.setTimeout(() => {
-      setMountNonce((value) => value + 1)
-    }, 180)
-
-    return () => window.clearTimeout(timeout)
+    if (typeof window === 'undefined') return
+    setShowDebugOverlay(window.localStorage.getItem('mapDebug') === '1')
   }, [])
 
   return (
     <MapContainer
-      key={`${resolvedTileUrl}:${mountNonce}`}
+      key={resolvedTileUrl}
       id="trek-map"
       center={center}
       zoom={zoom}
       zoomControl={false}
+      zoomAnimation={false}
+      fadeAnimation={false}
+      markerZoomAnimation={false}
       className="w-full h-full"
       style={{ width: '100%', height: '100%', background: '#e5e7eb' }}
     >
       <TileLayer
-        key={`${resolvedTileUrl}:${mountNonce}`}
+        key={resolvedTileUrl}
         url={resolvedTileUrl}
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         maxZoom={19}
@@ -593,6 +696,7 @@ export const MapView = memo(function MapView({
 
       <MapController center={center} zoom={zoom} />
       <MapSizeController deps={[leftWidth, rightWidth, hasInspector, resolvedTileUrl, places.length, dayPlaces.length]} />
+      <MapDebugOverlay enabled={showDebugOverlay} tileUrl={resolvedTileUrl} />
       <BoundsController places={dayPlaces.length > 0 ? dayPlaces : places} fitKey={fitKey} paddingOpts={paddingOpts} />
       <SelectionController places={places} selectedPlaceId={selectedPlaceId} dayPlaces={dayPlaces} paddingOpts={paddingOpts} />
       <MapClickHandler onClick={onMapClick} />
