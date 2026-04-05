@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useTripStore } from '../../store/tripStore'
 import { useCanDo } from '../../store/permissionsStore'
+import { useAuthStore } from '../../store/authStore'
 import { useToast } from '../shared/Toast'
 import { useTranslation } from '../../i18n'
 import { packingApi, tripsApi, adminApi } from '../../api/client'
@@ -9,7 +10,7 @@ import {
   CheckSquare, Square, Trash2, Plus, ChevronDown, ChevronRight,
   X, Pencil, Check, MoreHorizontal, CheckCheck, RotateCcw, Luggage, UserPlus, Package, FolderPlus, Upload,
 } from 'lucide-react'
-import type { PackingItem } from '../../types'
+import type { PackingItem, PackingBag, PackingTemplateSummary } from '../../types'
 
 const VORSCHLAEGE = [
   { name: 'Passport', category: 'Documents' },
@@ -67,7 +68,6 @@ function katColor(kat, allCategories) {
   return KAT_COLORS[Math.abs(h) % KAT_COLORS.length]
 }
 
-interface PackingBag { id: number; trip_id: number; name: string; color: string; weight_limit_grams: number | null }
 
 // ── Artikel-Zeile ──────────────────────────────────────────────────────────
 interface ArtikelZeileProps {
@@ -93,7 +93,10 @@ function ArtikelZeile({ item, tripId, categories, onCategoryChange, bagTrackingE
   const toast = useToast()
   const { t } = useTranslation()
 
-  const handleToggle = () => togglePackingItem(tripId, item.id, !item.checked)
+  const handleToggle = () => {
+    if (!canEdit) return
+    togglePackingItem(tripId, item.id, !item.checked)
+  }
 
   const handleSaveName = async () => {
     if (!editName.trim()) { setEditing(false); setEditName(item.name); return }
@@ -126,7 +129,7 @@ function ArtikelZeile({ item, tripId, categories, onCategoryChange, bagTrackingE
       }}
     >
       <button onClick={handleToggle} style={{
-        flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex',
+        flexShrink: 0, background: 'none', border: 'none', cursor: canEdit ? 'pointer' : 'default', padding: 0, display: 'flex',
         color: item.checked ? '#10b981' : 'var(--text-faint)', transition: 'color 0.15s',
       }}>
         {item.checked ? <CheckSquare size={18} /> : <Square size={18} />}
@@ -599,7 +602,10 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
   const [filter, setFilter] = useState('alle') // 'alle' | 'offen' | 'erledigt'
   const [addingCategory, setAddingCategory] = useState(false)
   const [newCatName, setNewCatName] = useState('')
+  const [selectedUserId, setSelectedUserId] = useState<number | 'all'>('all')
+  const [initializedUserView, setInitializedUserView] = useState(false)
   const { addPackingItem, updatePackingItem, deletePackingItem } = useTripStore()
+  const currentUser = useAuthStore((s) => s.user)
   const can = useCanDo()
   const trip = useTripStore((s) => s.trip)
   const canEdit = can('packing_edit', trip)
@@ -622,6 +628,29 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
     }).catch(() => {})
   }, [tripId])
 
+  useEffect(() => {
+    if (!initializedUserView && currentUser?.id) {
+      setSelectedUserId(currentUser.id)
+      setInitializedUserView(true)
+    }
+  }, [currentUser?.id, initializedUserView])
+
+  const packingUsers = useMemo(() => {
+    const all = [...tripMembers]
+    if (currentUser && !all.some(member => member.id === currentUser.id)) {
+      all.unshift({ id: currentUser.id, username: currentUser.username, avatar: currentUser.avatar_url })
+    }
+    return all
+  }, [tripMembers, currentUser])
+
+  const isOwnView = !!currentUser && selectedUserId === currentUser.id
+  const viewCanEdit = canEdit && isOwnView
+
+  const visibleItems = useMemo(() => {
+    if (selectedUserId === 'all') return items
+    return items.filter(item => item.user_id === selectedUserId)
+  }, [items, selectedUserId])
+
   const handleSetAssignees = async (category: string, userIds: number[]) => {
     try {
       const data = await packingApi.setCategoryAssignees(tripId, category, userIds)
@@ -633,15 +662,15 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
 
   const allCategories = useMemo(() => {
     const seen: string[] = []
-    for (const item of items) {
+    for (const item of visibleItems) {
       const cat = item.category || t('packing.defaultCategory')
       if (!seen.includes(cat)) seen.push(cat)
     }
     return seen
-  }, [items, t])
+  }, [visibleItems, t])
 
   const gruppiert = useMemo(() => {
-    const filtered = items.filter(i => {
+    const filtered = visibleItems.filter(i => {
       if (filter === 'offen') return !i.checked
       if (filter === 'erledigt') return i.checked
       return true
@@ -653,10 +682,10 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
       groups[kat].push(item)
     }
     return groups
-  }, [items, filter, t])
+  }, [visibleItems, filter, t])
 
-  const abgehakt = items.filter(i => i.checked).length
-  const fortschritt = items.length > 0 ? Math.round((abgehakt / items.length) * 100) : 0
+  const abgehakt = visibleItems.filter(i => i.checked).length
+  const fortschritt = visibleItems.length > 0 ? Math.round((abgehakt / visibleItems.length) * 100) : 0
 
   const handleAddItemToCategory = async (category: string, name: string) => {
     try {
@@ -679,7 +708,7 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
   }
 
   const handleRenameCategory = async (oldName, newName) => {
-    const toUpdate = items.filter(i => (i.category || t('packing.defaultCategory')) === oldName)
+    const toUpdate = visibleItems.filter(i => (i.category || t('packing.defaultCategory')) === oldName)
     for (const item of toUpdate) {
       await updatePackingItem(tripId, item.id, { category: newName })
     }
@@ -693,7 +722,7 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
 
   const handleClearChecked = async () => {
     if (!confirm(t('packing.confirm.clearChecked', { count: abgehakt }))) return
-    for (const item of items.filter(i => i.checked)) {
+    for (const item of visibleItems.filter(i => i.checked)) {
       try { await deletePackingItem(tripId, item.id) } catch {}
     }
   }
@@ -712,12 +741,17 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
     }).catch(() => {})
   }, [tripId])
 
+  const visibleBags = useMemo(() => {
+    if (selectedUserId === 'all') return bags
+    return bags.filter(bag => bag.user_id === selectedUserId)
+  }, [bags, selectedUserId])
+
   const BAG_COLORS = ['#6366f1', '#ec4899', '#f97316', '#10b981', '#06b6d4', '#8b5cf6', '#ef4444', '#f59e0b']
 
   const handleCreateBag = async () => {
     if (!newBagName.trim()) return
     try {
-      const data = await packingApi.createBag(tripId, { name: newBagName.trim(), color: BAG_COLORS[bags.length % BAG_COLORS.length] })
+      const data = await packingApi.createBag(tripId, { name: newBagName.trim(), color: BAG_COLORS[visibleBags.length % BAG_COLORS.length] })
       setBags(prev => [...prev, data.bag])
       setNewBagName(''); setShowAddBag(false)
     } catch { toast.error(t('packing.toast.saveError')) }
@@ -725,7 +759,7 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
 
   const handleCreateBagByName = async (name: string): Promise<PackingBag | undefined> => {
     try {
-      const data = await packingApi.createBag(tripId, { name, color: BAG_COLORS[bags.length % BAG_COLORS.length] })
+      const data = await packingApi.createBag(tripId, { name, color: BAG_COLORS[visibleBags.length % BAG_COLORS.length] })
       setBags(prev => [...prev, data.bag])
       return data.bag
     } catch { toast.error(t('packing.toast.saveError')); return undefined }
@@ -739,7 +773,7 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
   }
 
   // Templates
-  const [availableTemplates, setAvailableTemplates] = useState<{ id: number; name: string; item_count: number }[]>([])
+  const [availableTemplates, setAvailableTemplates] = useState<PackingTemplateSummary[]>([])
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false)
   const [applyingTemplate, setApplyingTemplate] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
@@ -748,7 +782,7 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
   const templateDropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    adminApi.packingTemplates().then(d => setAvailableTemplates(d.templates || [])).catch(() => {})
+    packingApi.listTemplates(tripId).then(d => setAvailableTemplates(d.templates || [])).catch(() => {})
   }, [tripId])
 
   useEffect(() => {
@@ -772,6 +806,23 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
       toast.error(t('packing.templateError'))
     } finally {
       setApplyingTemplate(false)
+    }
+  }
+
+  const handleSaveTemplate = async () => {
+    const suggested = `${currentUser?.username || 'My'} Template`
+    const name = window.prompt('Template name', suggested)?.trim()
+    if (!name) return
+    try {
+      const result = await packingApi.saveTemplate(tripId, name)
+      setAvailableTemplates(prev => [{
+        ...result.template,
+        item_count: visibleItems.length,
+        created_by_name: currentUser?.username || result.template.created_by_name || null,
+      }, ...prev])
+      toast.success('Template saved')
+    } catch {
+      toast.error(t('packing.toast.saveError'))
     }
   }
 
@@ -824,11 +875,11 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
           <div>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>{t('packing.title')}</h2>
             <p style={{ margin: '2px 0 0', fontSize: 12.5, color: 'var(--text-faint)' }}>
-              {items.length === 0 ? t('packing.empty') : t('packing.progress', { packed: abgehakt, total: items.length, percent: fortschritt })}
+              {visibleItems.length === 0 ? t('packing.empty') : t('packing.progress', { packed: abgehakt, total: visibleItems.length, percent: fortschritt })}
             </p>
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
-            {canEdit && abgehakt > 0 && (
+            {viewCanEdit && abgehakt > 0 && (
               <button onClick={handleClearChecked} style={{
                 fontSize: 11.5, padding: '5px 10px', borderRadius: 99, border: '1px solid rgba(239,68,68,0.3)',
                 background: 'rgba(239,68,68,0.1)', color: '#ef4444', cursor: 'pointer', fontFamily: 'inherit',
@@ -837,7 +888,7 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
                 <span className="sm:hidden">{t('packing.clearCheckedShort', { count: abgehakt })}</span>
               </button>
             )}
-            {canEdit && (
+            {viewCanEdit && (
             <button onClick={() => setShowImportModal(true)} style={{
               display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 99,
               border: '1px solid var(--border-primary)', fontSize: 12, fontWeight: 500, cursor: 'pointer',
@@ -846,7 +897,16 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
               <Upload size={12} /> <span className="hidden sm:inline">{t('packing.import')}</span>
             </button>
             )}
-            {canEdit && availableTemplates.length > 0 && (
+            {viewCanEdit && visibleItems.length > 0 && (
+            <button onClick={handleSaveTemplate} style={{
+              display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 99,
+              border: '1px solid var(--border-primary)', fontSize: 12, fontWeight: 500, cursor: 'pointer',
+              fontFamily: 'inherit', background: 'var(--bg-card)', color: 'var(--text-muted)',
+            }}>
+              <Package size={12} /> <span className="hidden sm:inline">Save template</span><span className="sm:hidden">Save</span>
+            </button>
+            )}
+            {viewCanEdit && availableTemplates.length > 0 && (
               <div ref={templateDropdownRef} style={{ position: 'relative' }}>
                 <button onClick={() => setShowTemplateDropdown(v => !v)} disabled={applyingTemplate} style={{
                   display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 99,
@@ -900,7 +960,7 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
           </div>
         </div>
 
-          {items.length > 0 && (
+          {visibleItems.length > 0 && (
           <div style={{ marginBottom: 14 }}>
             <div style={{ height: 5, background: 'var(--bg-tertiary)', borderRadius: 99, overflow: 'hidden' }}>
               <div style={{
@@ -915,7 +975,31 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
           </div>
         )}
 
-        {canEdit && (addingCategory ? (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+          {currentUser && (
+            <>
+              <button onClick={() => setSelectedUserId(currentUser.id)} style={{
+                padding: '6px 12px', borderRadius: 99, border: '1px solid var(--border-primary)', cursor: 'pointer',
+                background: selectedUserId === currentUser.id ? 'var(--text-primary)' : 'transparent',
+                color: selectedUserId === currentUser.id ? 'var(--bg-primary)' : 'var(--text-secondary)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
+              }}>Mine</button>
+              <button onClick={() => setSelectedUserId('all')} style={{
+                padding: '6px 12px', borderRadius: 99, border: '1px solid var(--border-primary)', cursor: 'pointer',
+                background: selectedUserId === 'all' ? 'var(--text-primary)' : 'transparent',
+                color: selectedUserId === 'all' ? 'var(--bg-primary)' : 'var(--text-secondary)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
+              }}>All</button>
+            </>
+          )}
+          {packingUsers.filter(member => !currentUser || member.id !== currentUser.id).map(member => (
+            <button key={member.id} onClick={() => setSelectedUserId(member.id)} style={{
+              padding: '6px 12px', borderRadius: 99, border: '1px solid var(--border-primary)', cursor: 'pointer',
+              background: selectedUserId === member.id ? 'var(--text-primary)' : 'transparent',
+              color: selectedUserId === member.id ? 'var(--bg-primary)' : 'var(--text-secondary)', fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
+            }}>{member.username}</button>
+          ))}
+        </div>
+
+        {viewCanEdit && (addingCategory ? (
           <div style={{ display: 'flex', gap: 6 }}>
             <input
               autoFocus
@@ -944,7 +1028,7 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
       </div>
 
       {/* ── Filter-Tabs ── */}
-      {items.length > 0 && (
+      {visibleItems.length > 0 && (
         <div style={{ display: 'flex', gap: 4, padding: '10px 16px 0', flexShrink: 0 }}>
           {[['alle', t('packing.filterAll')], ['offen', t('packing.filterOpen')], ['erledigt', t('packing.filterDone')]].map(([id, label]) => (
             <button key={id} onClick={() => setFilter(id)} style={{
@@ -960,11 +1044,13 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
       {/* ── Liste + Bags Sidebar ── */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
       <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px 16px' }}>
-        {items.length === 0 ? (
+        {visibleItems.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
             <Luggage size={40} style={{ color: 'var(--text-faint)', display: 'block', margin: '0 auto 10px' }} />
             <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 4px' }}>{t('packing.emptyTitle')}</p>
-            <p style={{ fontSize: 13, color: 'var(--text-faint)', margin: 0 }}>{t('packing.emptyHint')}</p>
+            <p style={{ fontSize: 13, color: 'var(--text-faint)', margin: 0 }}>
+              {selectedUserId === 'all' ? t('packing.emptyHint') : 'This traveler has no packing items yet.'}
+            </p>
           </div>
         ) : Object.keys(gruppiert).length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-faint)' }}>
@@ -986,9 +1072,9 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
                 tripMembers={tripMembers}
                 onSetAssignees={handleSetAssignees}
                 bagTrackingEnabled={bagTrackingEnabled}
-                bags={bags}
+                bags={visibleBags}
                 onCreateBag={handleCreateBagByName}
-                canEdit={canEdit}
+                canEdit={viewCanEdit}
               />
             ))}
           </div>
@@ -996,16 +1082,16 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
       </div>
 
       {/* ── Bag Weight Sidebar ── */}
-      {bagTrackingEnabled && bags.length > 0 && (
+      {bagTrackingEnabled && visibleBags.length > 0 && (
         <div className="hidden xl:block" style={{ width: 260, borderLeft: '1px solid var(--border-secondary)', overflowY: 'auto', padding: 16, flexShrink: 0 }}>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-faint)', marginBottom: 12 }}>
             {t('packing.bags')}
           </div>
 
-          {bags.map(bag => {
-            const bagItems = items.filter(i => i.bag_id === bag.id)
+          {visibleBags.map(bag => {
+            const bagItems = visibleItems.filter(i => i.bag_id === bag.id)
             const totalWeight = bagItems.reduce((sum, i) => sum + (i.weight_grams || 0), 0)
-            const maxWeight = bag.weight_limit_grams || Math.max(...bags.map(b => items.filter(i => i.bag_id === b.id).reduce((s, i) => s + (i.weight_grams || 0), 0)), 1)
+            const maxWeight = bag.weight_limit_grams || Math.max(...visibleBags.map(b => visibleItems.filter(i => i.bag_id === b.id).reduce((s, i) => s + (i.weight_grams || 0), 0)), 1)
             const pct = Math.min(100, Math.round((totalWeight / maxWeight) * 100))
             return (
               <div key={bag.id} style={{ marginBottom: 14 }}>
@@ -1015,7 +1101,7 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
                   <span style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 500 }}>
                     {totalWeight >= 1000 ? `${(totalWeight / 1000).toFixed(1)} kg` : `${totalWeight} g`}
                   </span>
-                  {canEdit && (
+                  {viewCanEdit && (
                   <button onClick={() => handleDeleteBag(bag.id)}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--text-faint)', display: 'flex' }}>
                     <X size={11} />
@@ -1032,7 +1118,7 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
 
           {/* Unassigned */}
           {(() => {
-            const unassigned = items.filter(i => !i.bag_id)
+            const unassigned = visibleItems.filter(i => !i.bag_id)
             const unassignedWeight = unassigned.reduce((s, i) => s + (i.weight_grams || 0), 0)
             if (unassigned.length === 0) return null
             return (
@@ -1053,12 +1139,12 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
           <div style={{ borderTop: '1px solid var(--border-secondary)', paddingTop: 10, marginTop: 6 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>
               <span>{t('packing.totalWeight')}</span>
-              <span>{(() => { const w = items.reduce((s, i) => s + (i.weight_grams || 0), 0); return w >= 1000 ? `${(w / 1000).toFixed(1)} kg` : `${w} g` })()}</span>
+              <span>{(() => { const w = visibleItems.reduce((s, i) => s + (i.weight_grams || 0), 0); return w >= 1000 ? `${(w / 1000).toFixed(1)} kg` : `${w} g` })()}</span>
             </div>
           </div>
 
           {/* Add bag */}
-          {canEdit && (showAddBag ? (
+          {viewCanEdit && (showAddBag ? (
             <div style={{ display: 'flex', gap: 4, marginTop: 12 }}>
               <input autoFocus value={newBagName} onChange={e => setNewBagName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleCreateBag(); if (e.key === 'Escape') { setShowAddBag(false); setNewBagName('') } }}
@@ -1089,10 +1175,10 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
               <button onClick={() => setShowBagModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', display: 'flex' }}><X size={18} /></button>
             </div>
 
-            {bags.map(bag => {
-              const bagItems = items.filter(i => i.bag_id === bag.id)
+            {visibleBags.map(bag => {
+              const bagItems = visibleItems.filter(i => i.bag_id === bag.id)
               const totalWeight = bagItems.reduce((sum, i) => sum + (i.weight_grams || 0), 0)
-              const maxWeight = Math.max(...bags.map(b => items.filter(i => i.bag_id === b.id).reduce((s, i) => s + (i.weight_grams || 0), 0)), 1)
+              const maxWeight = Math.max(...visibleBags.map(b => visibleItems.filter(i => i.bag_id === b.id).reduce((s, i) => s + (i.weight_grams || 0), 0)), 1)
               const pct = Math.min(100, Math.round((totalWeight / maxWeight) * 100))
               return (
                 <div key={bag.id} style={{ marginBottom: 16 }}>
@@ -1102,7 +1188,7 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
                     <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>
                       {totalWeight >= 1000 ? `${(totalWeight / 1000).toFixed(1)} kg` : `${totalWeight} g`}
                     </span>
-                    {canEdit && (
+                    {viewCanEdit && (
                     <button onClick={() => handleDeleteBag(bag.id)}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--text-faint)', display: 'flex' }}>
                       <Trash2 size={13} />
@@ -1119,7 +1205,7 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
 
             {/* Unassigned */}
             {(() => {
-              const unassigned = items.filter(i => !i.bag_id)
+              const unassigned = visibleItems.filter(i => !i.bag_id)
               const unassignedWeight = unassigned.reduce((s, i) => s + (i.weight_grams || 0), 0)
               if (unassigned.length === 0) return null
               return (
@@ -1140,12 +1226,12 @@ export default function PackingListPanel({ tripId, items }: PackingListPanelProp
             <div style={{ borderTop: '1px solid var(--border-secondary)', paddingTop: 12, marginTop: 8 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
                 <span>{t('packing.totalWeight')}</span>
-                <span>{(() => { const w = items.reduce((s, i) => s + (i.weight_grams || 0), 0); return w >= 1000 ? `${(w / 1000).toFixed(1)} kg` : `${w} g` })()}</span>
+                <span>{(() => { const w = visibleItems.reduce((s, i) => s + (i.weight_grams || 0), 0); return w >= 1000 ? `${(w / 1000).toFixed(1)} kg` : `${w} g` })()}</span>
               </div>
             </div>
 
             {/* Add bag */}
-            {canEdit && (showAddBag ? (
+            {viewCanEdit && (showAddBag ? (
               <div style={{ display: 'flex', gap: 6, marginTop: 14 }}>
                 <input autoFocus value={newBagName} onChange={e => setNewBagName(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') handleCreateBag(); if (e.key === 'Escape') { setShowAddBag(false); setNewBagName('') } }}

@@ -225,24 +225,51 @@ function MapSizeController({ deps }: { deps: Array<string | number | boolean | n
     const invalidate = () => map.invalidateSize({ animate: false })
 
     // Leaflet can mis-measure tiles when the planner layout changes after mount.
-    // Invalidating twice catches both the immediate render and the next frame.
+    // Invalidate across a few frames/ticks to catch fixed-layout and route-transition settling.
     const raf1 = requestAnimationFrame(() => {
       invalidate()
-      requestAnimationFrame(invalidate)
+      requestAnimationFrame(() => {
+        invalidate()
+        requestAnimationFrame(invalidate)
+      })
     })
+    const timeout1 = window.setTimeout(invalidate, 120)
+    const timeout2 = window.setTimeout(invalidate, 350)
+    const timeout3 = window.setTimeout(invalidate, 800)
     const onWindowResize = () => invalidate()
+    const onPageShow = () => invalidate()
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') invalidate()
+    }
     window.addEventListener('resize', onWindowResize)
+    window.addEventListener('pageshow', onPageShow)
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
-    let observer: ResizeObserver | null = null
+    let observers: ResizeObserver[] = []
     if (typeof ResizeObserver !== 'undefined' && container) {
-      observer = new ResizeObserver(() => invalidate())
-      observer.observe(container)
+      const observed = new Set<Element>()
+      const observe = (element: Element | null) => {
+        if (!element || observed.has(element)) return
+        observed.add(element)
+        const observer = new ResizeObserver(() => invalidate())
+        observer.observe(element)
+        observers.push(observer)
+      }
+
+      observe(container)
+      observe(container.parentElement)
+      observe(container.parentElement?.parentElement)
     }
 
     return () => {
       cancelAnimationFrame(raf1)
+      window.clearTimeout(timeout1)
+      window.clearTimeout(timeout2)
+      window.clearTimeout(timeout3)
       window.removeEventListener('resize', onWindowResize)
-      observer?.disconnect()
+      window.removeEventListener('pageshow', onPageShow)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      observers.forEach(observer => observer.disconnect())
     }
   }, deps) // eslint-disable-line react-hooks/exhaustive-deps
 

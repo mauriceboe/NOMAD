@@ -84,10 +84,40 @@ export type DaySection = 'unscheduled' | 'morning' | 'afternoon' | 'night'
 export interface PackingItem {
   id: number
   trip_id: number
+  user_id: number
   name: string
   category: string | null
   checked: number
-  quantity: number
+  quantity?: number
+  weight_grams?: number | null
+  bag_id?: number | null
+  sort_order?: number
+  owner_name?: string | null
+  owner_avatar?: string | null
+  created_at?: string
+}
+
+export interface PackingBag {
+  id: number
+  trip_id: number
+  user_id: number
+  name: string
+  color: string
+  weight_limit_grams: number | null
+  sort_order?: number
+  owner_name?: string | null
+  owner_avatar?: string | null
+  created_at?: string
+}
+
+export interface PackingTemplateSummary {
+  id: number
+  name: string
+  created_by: number
+  created_by_name?: string | null
+  is_global: number
+  item_count: number
+  created_at?: string
 }
 
 export interface Tag {

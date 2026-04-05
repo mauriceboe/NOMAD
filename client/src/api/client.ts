@@ -131,6 +131,8 @@ export const packingApi = {
   getCategoryAssignees: (tripId: number | string) => apiClient.get(`/trips/${tripId}/packing/category-assignees`).then(r => r.data),
   setCategoryAssignees: (tripId: number | string, categoryName: string, userIds: number[]) => apiClient.put(`/trips/${tripId}/packing/category-assignees/${encodeURIComponent(categoryName)}`, { user_ids: userIds }).then(r => r.data),
   applyTemplate: (tripId: number | string, templateId: number) => apiClient.post(`/trips/${tripId}/packing/apply-template/${templateId}`).then(r => r.data),
+  saveTemplate: (tripId: number | string, name: string) => apiClient.post(`/trips/${tripId}/packing/templates`, { name }).then(r => r.data),
+  listTemplates: (tripId: number | string) => apiClient.get(`/trips/${tripId}/packing`).then(r => ({ templates: r.data.templates || [], current_user_id: r.data.current_user_id })),
   listBags: (tripId: number | string) => apiClient.get(`/trips/${tripId}/packing/bags`).then(r => r.data),
   createBag: (tripId: number | string, data: { name: string; color?: string }) => apiClient.post(`/trips/${tripId}/packing/bags`, data).then(r => r.data),
   updateBag: (tripId: number | string, bagId: number, data: Record<string, unknown>) => apiClient.put(`/trips/${tripId}/packing/bags/${bagId}`, data).then(r => r.data),

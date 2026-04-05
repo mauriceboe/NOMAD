@@ -108,9 +108,12 @@ export interface DayAssignment {
 export interface PackingItem {
   id: number;
   trip_id: number;
+  user_id: number;
   name: string;
   checked: number;
   category?: string | null;
+  weight_grams?: number | null;
+  bag_id?: number | null;
   sort_order: number;
   created_at?: string;
 }
