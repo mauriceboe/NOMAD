@@ -52,16 +52,21 @@ function countSessionsForUser(userId: number): number {
 
 const sessionSweepInterval = setInterval(() => {
   const cutoff = Date.now() - SESSION_TTL_MS;
+  let cleaned = 0;
   for (const [sid, session] of sessions) {
     if (session.lastActivity < cutoff) {
       try { session.server.close(); } catch { /* ignore */ }
       try { session.transport.close(); } catch { /* ignore */ }
       sessions.delete(sid);
+      cleaned++;
     }
   }
   const rateCutoff = Date.now() - RATE_LIMIT_WINDOW_MS;
   for (const [uid, entry] of rateLimitMap) {
     if (entry.windowStart < rateCutoff) rateLimitMap.delete(uid);
+  }
+  if (cleaned > 0 || sessions.size > 0) {
+    console.log(`[MCP] Session sweep: cleaned ${cleaned}, active ${sessions.size}`);
   }
 }, 10 * 60 * 1000); // sweep every 10 minutes
 
@@ -112,7 +117,14 @@ export async function mcpHandler(req: Request, res: Response): Promise<void> {
       return;
     }
     session.lastActivity = Date.now();
-    await session.transport.handleRequest(req, res, req.body);
+    try {
+      await session.transport.handleRequest(req, res, req.body);
+    } catch (err) {
+      console.error('[MCP] transport.handleRequest error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Internal MCP error', detail: String(err) });
+      }
+    }
     return;
   }
 
@@ -142,16 +154,25 @@ export async function mcpHandler(req: Request, res: Response): Promise<void> {
 
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
+    allowedOrigins: ['*'],
     onsessioninitialized: (sid) => {
       sessions.set(sid, { server, transport, userId: user.id, lastActivity: Date.now() });
+      console.log(`[MCP] Session ${sid} created for user ${user.id}. Active sessions: ${sessions.size}`);
     },
     onsessionclosed: (sid) => {
       sessions.delete(sid);
     },
   });
 
-  await server.connect(transport);
-  await transport.handleRequest(req, res, req.body);
+  try {
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  } catch (err) {
+    console.error('[MCP] transport.handleRequest error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal MCP error', detail: String(err) });
+    }
+  }
 }
 
 /** Terminate all active MCP sessions for a specific user (e.g. on token revocation). */
