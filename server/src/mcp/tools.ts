@@ -23,6 +23,11 @@ import {
   markCountryVisited, unmarkCountryVisited, createBucketItem, deleteBucketItem,
 } from '../services/atlasService';
 import { searchPlaces } from '../services/mapsService';
+import {
+  listItems as listTodoItems, createItem as createTodoItem,
+  updateItem as updateTodoItem, deleteItem as deleteTodoItem,
+  reorderItems as reorderTodoItems,
+} from '../services/todoService';
 
 const MAX_MCP_TRIP_DAYS = 90;
 
@@ -826,6 +831,124 @@ export function registerTools(server: McpServer, userId: number): void {
       if (!deleted) return { content: [{ type: 'text' as const, text: 'Note not found.' }], isError: true };
       broadcast(tripId, 'collab:note:deleted', { noteId });
       return ok({ success: true });
+    }
+  );
+
+  // --- TODO ITEMS ---
+
+  server.registerTool(
+    'create_todo_item',
+    {
+      description: 'Add a to-do item to a trip\'s checklist.',
+      inputSchema: {
+        tripId: z.number().int().positive(),
+        name: z.string().min(1).max(200),
+        category: z.string().max(100).optional().describe('Category (e.g. "Before Trip", "On Arrival")'),
+        due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('Due date (YYYY-MM-DD)'),
+        description: z.string().max(2000).optional().describe('Longer description or details'),
+        priority: z.number().int().min(0).max(3).optional().describe('Priority: 0 = none, 1 = low, 2 = medium, 3 = high'),
+      },
+    },
+    async ({ tripId, name, category, due_date, description, priority }) => {
+      if (isDemoUser(userId)) return demoDenied();
+      if (!canAccessTrip(tripId, userId)) return noAccess();
+      if (due_date) {
+        const d = new Date(due_date + 'T00:00:00Z');
+        if (isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== due_date)
+          return { content: [{ type: 'text' as const, text: 'due_date is not a valid calendar date.' }], isError: true };
+      }
+      const item = createTodoItem(tripId, { name, category, due_date, description, priority });
+      broadcast(tripId, 'todo:created', { item });
+      return ok({ item });
+    }
+  );
+
+  server.registerTool(
+    'update_todo_item',
+    {
+      description: 'Update an existing to-do item in a trip.',
+      inputSchema: {
+        tripId: z.number().int().positive(),
+        itemId: z.number().int().positive(),
+        name: z.string().min(1).max(200).optional(),
+        category: z.string().max(100).optional(),
+        due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional().describe('Due date (YYYY-MM-DD), or null to clear'),
+        description: z.string().max(2000).nullable().optional().describe('Description, or null to clear'),
+        priority: z.number().int().min(0).max(3).nullable().optional().describe('Priority: 0 = none, 1 = low, 2 = medium, 3 = high'),
+      },
+    },
+    async ({ tripId, itemId, name, category, due_date, description, priority }) => {
+      if (isDemoUser(userId)) return demoDenied();
+      if (!canAccessTrip(tripId, userId)) return noAccess();
+      if (due_date) {
+        const d = new Date(due_date + 'T00:00:00Z');
+        if (isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== due_date)
+          return { content: [{ type: 'text' as const, text: 'due_date is not a valid calendar date.' }], isError: true };
+      }
+      const bodyKeys = ['name', 'category', 'due_date', 'description', 'priority'].filter(
+        k => ({ name, category, due_date, description, priority })[k] !== undefined
+      );
+      const item = updateTodoItem(tripId, itemId, { name, category, due_date, description, priority }, bodyKeys);
+      if (!item) return { content: [{ type: 'text' as const, text: 'To-do item not found.' }], isError: true };
+      broadcast(tripId, 'todo:updated', { item });
+      return ok({ item });
+    }
+  );
+
+  server.registerTool(
+    'toggle_todo_item',
+    {
+      description: 'Check or uncheck a to-do item.',
+      inputSchema: {
+        tripId: z.number().int().positive(),
+        itemId: z.number().int().positive(),
+        checked: z.boolean(),
+      },
+    },
+    async ({ tripId, itemId, checked }) => {
+      if (isDemoUser(userId)) return demoDenied();
+      if (!canAccessTrip(tripId, userId)) return noAccess();
+      const item = updateTodoItem(tripId, itemId, { checked: checked ? 1 : 0 }, ['checked']);
+      if (!item) return { content: [{ type: 'text' as const, text: 'To-do item not found.' }], isError: true };
+      broadcast(tripId, 'todo:updated', { item });
+      return ok({ item });
+    }
+  );
+
+  server.registerTool(
+    'delete_todo_item',
+    {
+      description: 'Delete a to-do item from a trip.',
+      inputSchema: {
+        tripId: z.number().int().positive(),
+        itemId: z.number().int().positive(),
+      },
+    },
+    async ({ tripId, itemId }) => {
+      if (isDemoUser(userId)) return demoDenied();
+      if (!canAccessTrip(tripId, userId)) return noAccess();
+      const deleted = deleteTodoItem(tripId, itemId);
+      if (!deleted) return { content: [{ type: 'text' as const, text: 'To-do item not found.' }], isError: true };
+      broadcast(tripId, 'todo:deleted', { itemId });
+      return ok({ success: true });
+    }
+  );
+
+  server.registerTool(
+    'reorder_todo_items',
+    {
+      description: 'Reorder to-do items in a trip by providing item IDs in the desired order.',
+      inputSchema: {
+        tripId: z.number().int().positive(),
+        itemIds: z.array(z.number().int().positive()).min(1).max(500).describe('Item IDs in desired display order'),
+      },
+    },
+    async ({ tripId, itemIds }) => {
+      if (isDemoUser(userId)) return demoDenied();
+      if (!canAccessTrip(tripId, userId)) return noAccess();
+      reorderTodoItems(tripId, itemIds);
+      broadcast(tripId, 'todo:reordered', { itemIds });
+      return ok({ success: true, order: itemIds });
     }
   );
 

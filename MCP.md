@@ -93,6 +93,7 @@ making changes.
 | Accommodations    | `trek://trips/{tripId}/accommodations`     | Hotels/rentals with check-in/out details                  |
 | Members           | `trek://trips/{tripId}/members`            | Owner and collaborators                                   |
 | Collab Notes      | `trek://trips/{tripId}/collab-notes`       | Shared collaborative notes                                |
+| Todos             | `trek://trips/{tripId}/todos`              | To-do checklist items                                     |
 | Categories        | `trek://categories`                        | Available place categories (for use when creating places) |
 | Bucket List       | `trek://bucket-list`                       | Your personal travel bucket list                          |
 | Visited Countries | `trek://visited-countries`                 | Countries marked as visited in Atlas                      |
@@ -101,14 +102,14 @@ making changes.
 
 ## Tools (read-write)
 
-TREK exposes **34 tools** organized by feature area. Use `get_trip_summary` as a starting point — it returns everything
+TREK exposes **39 tools** organized by feature area. Use `get_trip_summary` as a starting point — it returns everything
 about a trip in a single call.
 
 ### Trip Summary
 
 | Tool               | Description                                                                                                                                                                                              |
 |--------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `get_trip_summary` | Full denormalized snapshot of a trip: metadata, members, days with assignments and notes, accommodations, budget totals, packing stats, reservations, and collab notes. Use this as your context loader. |
+| `get_trip_summary` | Full denormalized snapshot of a trip: metadata, members, days with assignments and notes, accommodations, budget totals, packing stats, todo stats, reservations, and collab notes. Use this as your context loader. |
 
 ### Trips
 
@@ -162,6 +163,16 @@ about a trip in a single call.
 | `update_packing_item` | Rename an item or change its category.                       |
 | `toggle_packing_item` | Check or uncheck a packing item.                             |
 | `delete_packing_item` | Remove a packing item.                                       |
+
+### Todos
+
+| Tool                 | Description                                                                           |
+|----------------------|---------------------------------------------------------------------------------------|
+| `create_todo_item`   | Add a to-do item with name, optional category, due date, description, and priority.   |
+| `update_todo_item`   | Update a to-do item's name, category, due date, description, or priority.             |
+| `toggle_todo_item`   | Check or uncheck a to-do item.                                                        |
+| `delete_todo_item`   | Remove a to-do item from a trip.                                                      |
+| `reorder_todo_items` | Reorder to-do items by providing item IDs in the desired order.                       |
 
 ### Day Notes
 

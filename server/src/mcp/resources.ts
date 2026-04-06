@@ -10,6 +10,7 @@ import { listNotes as listDayNotes } from '../services/dayNoteService';
 import { listNotes as listCollabNotes } from '../services/collabService';
 import { listCategories } from '../services/categoryService';
 import { listBucketList, listVisitedCountries } from '../services/atlasService';
+import { listItems as listTodoItems } from '../services/todoService';
 
 function parseId(value: string | string[]): number | null {
   const n = Number(Array.isArray(value) ? value[0] : value);
@@ -179,6 +180,19 @@ export function registerResources(server: McpServer, userId: number): void {
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
       const notes = listCollabNotes(id);
       return jsonContent(uri.href, notes);
+    }
+  );
+
+  // Todo items for a trip
+  server.registerResource(
+    'trip-todos',
+    new ResourceTemplate('trek://trips/{tripId}/todos', { list: undefined }),
+    { description: 'To-do checklist items for a trip' },
+    async (uri, { tripId }) => {
+      const id = parseId(tripId);
+      if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
+      const items = listTodoItems(id);
+      return jsonContent(uri.href, items);
     }
   );
 

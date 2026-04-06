@@ -7,6 +7,7 @@ import { listBudgetItems } from './budgetService';
 import { listItems as listPackingItems } from './packingService';
 import { listReservations } from './reservationService';
 import { listNotes as listCollabNotes } from './collabService';
+import { listItems as listTodoItems } from './todoService';
 
 export const MS_PER_DAY = 86400000;
 export const MAX_TRIP_DAYS = 365;
@@ -462,6 +463,12 @@ export function getTripSummary(tripId: number) {
   const reservations = listReservations(tripId);
   const collab_notes = listCollabNotes(tripId);
 
+  const todoItems = listTodoItems(tripId);
+  const todos = {
+    total: todoItems.length,
+    checked: (todoItems as { checked: number }[]).filter(i => i.checked).length,
+  };
+
   return {
     trip,
     members: { owner, collaborators: members },
@@ -471,6 +478,7 @@ export function getTripSummary(tripId: number) {
     packing,
     reservations,
     collab_notes,
+    todos,
   };
 }
 
