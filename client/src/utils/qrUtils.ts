@@ -130,5 +130,14 @@ export function decodePackingList(dataString: string): { category: string, items
     throw new Error('No items found in QR code')
   }
 
+  // To prevent accidental imports of non-list QR codes, 
+  // ensure we have either a header or at least one multi-column row
+  const hasMultipleColumns = items.some(i => i.name && i.category !== 'Imported')
+  const hadHeader = trimmed.toLowerCase().includes('category') && trimmed.toLowerCase().includes('item')
+  
+  if (items.length === 1 && !hasMultipleColumns && !hadHeader) {
+    throw new Error('Invalid QR code format')
+  }
+
   return { category: detectedCategory, items }
 }

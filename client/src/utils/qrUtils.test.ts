@@ -85,6 +85,6 @@ Clothing,Socks`
 
   it('should throw error for invalid format', () => {
     expect(() => decodePackingList('Just one line')).toThrow('Invalid QR code format')
-    expect(() => decodePackingList('   \n   ')).toThrow('Invalid QR code format')
+    expect(() => decodePackingList('   \n   ')).toThrow('No items found in QR code')
   })
 })

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import { Html5Qrcode } from 'html5-qrcode'
-import { X, QrCode, Image as ImageIcon } from 'lucide-react'
+import { X, QrCode, Image as ImageIcon, Loader2 } from 'lucide-react'
 import { useTranslation } from '../../i18n'
 
 interface QRScannerModalProps {
@@ -16,6 +16,7 @@ export function QRScannerModal({ title, onScan, onClose }: QRScannerModalProps) 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
+  const [isProcessingFile, setIsProcessingFile] = useState(false)
 
   // Force stop video tracks within this specific modal instance
   const killLocalVideoTracks = () => {
@@ -99,27 +100,85 @@ export function QRScannerModal({ title, onScan, onClose }: QRScannerModalProps) 
     }
   }, [])
 
+  /**
+   * Resizes an image file if it's too large, to improve QR detection reliability.
+   */
+  const preprocessImage = (file: File): Promise<File | Blob> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX_WIDTH = 1500
+        const MAX_HEIGHT = 1500
+        let width = img.width
+        let height = img.height
+
+        if (width <= MAX_WIDTH && height <= MAX_HEIGHT) {
+          resolve(file)
+          return
+        }
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width
+            width = MAX_WIDTH
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height
+            height = MAX_HEIGHT
+          }
+        }
+
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          resolve(file)
+          return
+        }
+        ctx.drawImage(img, 0, 0, width, height)
+        canvas.toBlob((blob) => {
+          resolve(blob || file)
+        }, file.type)
+      }
+      img.onerror = () => resolve(file)
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !scannerRef.current) return
 
     setError(null)
+    setIsProcessingFile(true)
+    const s = scannerRef.current
+    
     try {
-      const s = scannerRef.current
       // If camera is active, stop it before scanning file
       if (s.isScanning) {
         await s.stop()
         killLocalVideoTracks()
       }
       
-      const decodedText = await s.scanFile(file, true)
+      // Preprocess image (resize if too large)
+      const processedFile = await preprocessImage(file)
+      
+      // Attempt to scan the file
+      console.log("Scanning file:", file.name, "Processed size:", processedFile.size)
+      const decodedText = await s.scanFile(processedFile as File, false)
+      console.log("File scan success")
+      
       onScan(decodedText)
     } catch (err) {
-      console.error("Failed to scan file", err)
-      setError("No QR code found in this image.")
+      console.error("Failed to scan file:", err)
+      setError(t('packing.qrNoCodeFound', 'No QR code found in this image. Please ensure the QR code is clear, well-lit, and not blurry.'))
+    } finally {
+      setIsProcessingFile(false)
+      // Clear input so same file can be selected again
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
-    // Clear input
-    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   return ReactDOM.createPortal(
@@ -159,9 +218,13 @@ export function QRScannerModal({ title, onScan, onClose }: QRScannerModalProps) 
         }}>
           {/* IMPORTANT: ID matches the one in new Html5Qrcode() */}
           <div id="qr-reader-instance" style={{ width: '100%', height: '100%' }}></div>
-          {!isInitialized && !error && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', opacity: 0.5 }}>
-              <div className="animate-pulse">Starting camera...</div>
+          
+          {(isProcessingFile || (!isInitialized && !error)) && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', background: 'rgba(0,0,0,0.6)', gap: 12 }}>
+              <Loader2 className="animate-spin" size={32} />
+              <div style={{ fontSize: 14, fontWeight: 500 }}>
+                {isProcessingFile ? t('packing.processingImage', 'Analyzing image...') : t('packing.startingCamera', 'Starting camera...')}
+              </div>
             </div>
           )}
         </div>
@@ -190,18 +253,20 @@ export function QRScannerModal({ title, onScan, onClose }: QRScannerModalProps) 
               onChange={handleFileUpload}
             />
             <button 
+              disabled={isProcessingFile}
               onClick={() => fileInputRef.current?.click()}
               style={{
                 flex: 1,
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '12px 16px', borderRadius: 12, border: '1px solid var(--border-primary)',
                 background: 'var(--bg-secondary)', color: 'var(--text-primary)',
-                cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
+                cursor: isProcessingFile ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
                 justifyContent: 'center', transition: 'all 0.2s',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                opacity: isProcessingFile ? 0.6 : 1
               }}
             >
-              <ImageIcon size={18} />
+              {isProcessingFile ? <Loader2 className="animate-spin" size={18} /> : <ImageIcon size={18} />}
               {t('packing.uploadImage')}
             </button>
           </div>
