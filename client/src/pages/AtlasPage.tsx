@@ -44,6 +44,13 @@ interface CountryDetail {
   manually_marked?: boolean
 }
 
+interface AtlasVisitedCity {
+  name: string
+  placeCount: number
+  lat: number | null
+  lng: number | null
+}
+
 function MobileStats({ data, stats, countries, resolveName, t, dark }: { data: AtlasData | null; stats: AtlasStats; countries: AtlasCountry[]; resolveName: (code: string) => string; t: TranslationFn; dark: boolean }): React.ReactElement {
   const tp = dark ? '#f1f5f9' : '#0f172a'
   const tf = dark ? '#475569' : '#94a3b8'
@@ -160,6 +167,8 @@ export default function AtlasPage(): React.ReactElement {
   const [showRegions, setShowRegions] = useState(false)
   const [regionGeoLoaded, setRegionGeoLoaded] = useState(0)
   const regionTooltipRef = useRef<HTMLDivElement>(null)
+  const [visitedCities, setVisitedCities] = useState<Record<string, AtlasVisitedCity[]>>({})
+  const cityLayerRef = useRef<L.LayerGroup | null>(null)
   const loadCountryDetailRef = useRef<(code: string) => void>(() => {})
   const handleMarkCountryRef = useRef<(code: string, name: string) => void>(() => {})
   const setConfirmActionRef = useRef<typeof setConfirmAction>(() => {})
@@ -237,6 +246,13 @@ export default function AtlasPage(): React.ReactElement {
       .catch(() => {})
   }, [])
 
+  // Load visited cities (derived from places/trips) — once on mount
+  useEffect(() => {
+    apiClient.get(`/addons/atlas/cities?_t=${Date.now()}`)
+      .then(r => setVisitedCities(r.data?.cities || {}))
+      .catch(() => {})
+  }, [])
+
   // Load admin-1 GeoJSON for countries visible in the current viewport
   const loadRegionsForViewportRef = useRef<() => void>(() => {})
   const loadRegionsForViewport = (): void => {
@@ -308,13 +324,14 @@ export default function AtlasPage(): React.ReactElement {
       crossOrigin: true,
     }).addTo(map)
 
-    // Custom pane for region layer — above overlay (z-index 400)
+    // Custom panes so regions and city markers have a stable visual stacking order.
     map.createPane('regionPane')
     map.getPane('regionPane')!.style.zIndex = '401'
+    map.createPane('cityPane')
+    map.getPane('cityPane')!.style.zIndex = '402'
 
     mapInstance.current = map
 
-    // Zoom-based region switching
     map.on('zoomend', () => {
       const z = map.getZoom()
       const shouldShow = z >= 5
@@ -325,17 +342,21 @@ export default function AtlasPage(): React.ReactElement {
         overlayPane.style.pointerEvents = shouldShow ? 'none' : 'auto'
       }
       if (shouldShow) {
-        // Re-add region layer if it was removed while zoomed out
         if (regionLayerRef.current && !map.hasLayer(regionLayerRef.current)) {
           regionLayerRef.current.addTo(map)
         }
+        if (cityLayerRef.current && !map.hasLayer(cityLayerRef.current)) {
+          cityLayerRef.current.addTo(map)
+        }
         loadRegionsForViewportRef.current()
       } else {
-        // Physically remove region layer so its SVG paths can't intercept events
         if (regionTooltipRef.current) regionTooltipRef.current.style.display = 'none'
         if (regionLayerRef.current && map.hasLayer(regionLayerRef.current)) {
           regionLayerRef.current.resetStyle()
           regionLayerRef.current.removeFrom(map)
+        }
+        if (cityLayerRef.current && map.hasLayer(cityLayerRef.current)) {
+          cityLayerRef.current.removeFrom(map)
         }
       }
     })
@@ -459,7 +480,6 @@ export default function AtlasPage(): React.ReactElement {
   useEffect(() => {
     if (!mapInstance.current) return
 
-    // Remove existing region layer
     if (regionLayerRef.current) {
       mapInstance.current.removeLayer(regionLayerRef.current)
       regionLayerRef.current = null
@@ -467,7 +487,6 @@ export default function AtlasPage(): React.ReactElement {
 
     if (Object.keys(regionGeoCache.current).length === 0) return
 
-    // Build set of visited region codes first
     const visitedRegionCodes = new Set<string>()
     const visitedRegionNames = new Set<string>()
     const regionPlaceCounts: Record<string, number> = {}
@@ -480,7 +499,6 @@ export default function AtlasPage(): React.ReactElement {
       }
     }
 
-    // Match feature by ISO code OR region name (native or English)
     const isVisitedFeature = (f: any) => {
       if (visitedRegionCodes.has(f.properties?.iso_3166_2)) return true
       const name = (f.properties?.name || '').toLowerCase()
@@ -490,7 +508,6 @@ export default function AtlasPage(): React.ReactElement {
       return false
     }
 
-    // Include ALL region features — visited ones get colored fill, unvisited get outline only
     const allFeatures: any[] = []
     for (const geo of Object.values(regionGeoCache.current)) {
       for (const f of geo.features) {
@@ -499,17 +516,14 @@ export default function AtlasPage(): React.ReactElement {
     }
     if (allFeatures.length === 0) return
 
-    // Use same colors as country layer
     const VISITED_COLORS = ['#6366f1','#ec4899','#14b8a6','#f97316','#8b5cf6','#ef4444','#3b82f6','#22c55e','#06b6d4','#f43f5e','#a855f7','#10b981','#0ea5e9','#e11d48','#0d9488','#7c3aed','#2563eb','#dc2626','#059669','#d946ef']
     const countryA3Set = data ? data.countries.map(c => A2_TO_A3[c.code]).filter(Boolean) : []
     const countryColorMap: Record<string, string> = {}
     countryA3Set.forEach((a3, i) => { countryColorMap[a3] = VISITED_COLORS[i % VISITED_COLORS.length] })
-    // Map country A2 code to country color
     const a2ColorMap: Record<string, string> = {}
     if (data) data.countries.forEach(c => { if (A2_TO_A3[c.code] && countryColorMap[A2_TO_A3[c.code]]) a2ColorMap[c.code] = countryColorMap[A2_TO_A3[c.code]] })
 
     const mergedGeo = { type: 'FeatureCollection', features: allFeatures }
-
     const svgRenderer = L.svg({ pane: 'regionPane' })
 
     regionLayerRef.current = L.geoJSON(mergedGeo as any, {
@@ -544,24 +558,12 @@ export default function AtlasPage(): React.ReactElement {
           if (visited) {
             const regionEntry = visitedRegions[countryA2]?.find(r => r.code === regionCode || r.name.toLowerCase() === regionNameEn.toLowerCase())
             if (regionEntry?.manuallyMarked) {
-              setConfirmActionRef.current({
-                type: 'unmark-region',
-                code: countryA2,
-                name: regionName,
-                regionCode,
-                countryName,
-              })
+              setConfirmActionRef.current({ type: 'unmark-region', code: countryA2, name: regionName, regionCode, countryName })
             } else {
               loadCountryDetailRef.current(countryA2)
             }
           } else {
-            setConfirmActionRef.current({
-              type: 'choose-region',
-              code: countryA2,       // country A2 code — used for flag display
-              name: regionName,      // region name — shown as heading
-              regionCode,
-              countryName,
-            })
+            setConfirmActionRef.current({ type: 'choose-region', code: countryA2, name: regionName, regionCode, countryName })
           }
         })
         layer.on('mouseover', (e: any) => {
@@ -590,11 +592,71 @@ export default function AtlasPage(): React.ReactElement {
         })
       },
     })
-    // Only add to map if currently in region mode — otherwise hold it ready for when user zooms in
+
     if (mapInstance.current.getZoom() >= 6) {
       regionLayerRef.current.addTo(mapInstance.current)
     }
-  }, [regionGeoLoaded, visitedRegions, dark, t])
+  }, [regionGeoLoaded, visitedRegions, dark, t, data])
+
+  // Render visited city markers (zoom >= 5)
+  useEffect(() => {
+    if (loading) return
+    if (!mapInstance.current) return
+
+    if (cityLayerRef.current) {
+      mapInstance.current.removeLayer(cityLayerRef.current)
+      cityLayerRef.current = null
+    }
+
+    const markers: L.Layer[] = []
+    const zoom = mapInstance.current.getZoom()
+    const baseRadius = zoom >= 7 ? 5 : 4
+    const maxRadius = zoom >= 7 ? 11 : 9
+    const hoverBoost = zoom >= 7 ? 2 : 1.5
+    for (const [countryCode, cities] of Object.entries(visitedCities)) {
+      for (const city of cities) {
+        if (city.lat == null || city.lng == null) continue
+        const markerRadius = Math.max(baseRadius, Math.min(maxRadius, baseRadius + city.placeCount * 0.9))
+        const marker = L.circleMarker([city.lat, city.lng], {
+          pane: 'cityPane',
+          radius: markerRadius,
+          color: dark ? '#f8fafc' : '#ffffff',
+          weight: 2,
+          fillColor: dark ? '#a78bfa' : '#4338ca',
+          fillOpacity: dark ? 0.95 : 0.9,
+        })
+        marker.bindTooltip(
+          `<div style="font-weight:600;margin-bottom:3px">${city.name}</div><div style="opacity:0.5;font-size:10px">${resolveName(countryCode)}</div><div style="margin-top:5px;font-size:11px"><b>${city.placeCount}</b> ${city.placeCount === 1 ? 'place' : 'places'}</div>`,
+          { className: 'atlas-tooltip', direction: 'top', offset: [0, -10], opacity: 1 }
+        )
+        marker.on('click', () => loadCountryDetailRef.current(countryCode))
+        marker.on('mouseover', (e: any) => {
+          e.target.setStyle({
+            radius: Math.min(maxRadius + 2, markerRadius + hoverBoost),
+            weight: 2.5,
+            fillOpacity: 1,
+            color: dark ? '#ffffff' : '#eef2ff',
+            fillColor: dark ? '#c4b5fd' : '#312e81',
+          })
+        })
+        marker.on('mouseout', (e: any) => {
+          e.target.setStyle({
+            radius: markerRadius,
+            weight: 2,
+            fillOpacity: dark ? 0.95 : 0.9,
+            color: dark ? '#f8fafc' : '#ffffff',
+            fillColor: dark ? '#a78bfa' : '#4338ca',
+          })
+        })
+        markers.push(marker)
+      }
+    }
+
+    cityLayerRef.current = L.layerGroup(markers)
+    if (mapInstance.current.getZoom() >= 5) {
+      cityLayerRef.current.addTo(mapInstance.current)
+    }
+  }, [visitedCities, dark, resolveName, loading])
 
   const handleMarkCountry = (code: string, name: string): void => {
     setConfirmAction({ type: 'choose', code, name })
@@ -771,6 +833,7 @@ export default function AtlasPage(): React.ReactElement {
           border: `1px solid ${dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
           fontSize: 12, minWidth: 120,
         }} />
+
         <div
           className="absolute z-20 flex justify-center"
           style={{ top: 14, left: 0, right: 0, pointerEvents: 'none' }}
@@ -944,7 +1007,7 @@ export default function AtlasPage(): React.ReactElement {
           }} />
           <SidebarContent
             data={data} stats={stats} countries={countries} selectedCountry={selectedCountry}
-            countryDetail={countryDetail} resolveName={resolveName}
+            countryDetail={countryDetail} visitedCities={visitedCities} resolveName={resolveName}
             onCountryClick={loadCountryDetail} onTripClick={(id) => navigate(`/trips/${id}`)} onUnmarkCountry={handleUnmarkCountry}
             bucketList={bucketList} bucketTab={bucketTab} setBucketTab={setBucketTab}
             showBucketAdd={showBucketAdd} setShowBucketAdd={setShowBucketAdd}
@@ -1089,7 +1152,6 @@ export default function AtlasPage(): React.ReactElement {
                         if (remaining.length === 0) delete next[countryCode]
                         return next
                       })
-                      // If no manually-marked regions remain, also remove country if it has no trips/places
                       setData(prev => {
                         if (!prev) return prev
                         const c = prev.countries.find(c => c.code === countryCode)
@@ -1190,6 +1252,7 @@ interface SidebarContentProps {
   countries: AtlasCountry[]
   selectedCountry: string | null
   countryDetail: CountryDetail | null
+  visitedCities: Record<string, AtlasVisitedCity[]>
   resolveName: (code: string) => string
   onCountryClick: (code: string) => void
   onTripClick: (id: number) => void
@@ -1218,7 +1281,7 @@ interface SidebarContentProps {
   dark: boolean
 }
 
-function SidebarContent({ data, stats, countries, selectedCountry, countryDetail, resolveName, onTripClick, onUnmarkCountry, bucketList, bucketTab, setBucketTab, showBucketAdd, setShowBucketAdd, bucketForm, setBucketForm, onAddBucket, onDeleteBucket, onSearchBucket, onSelectBucketPoi, bucketSearchResults, setBucketSearchResults, bucketPoiMonth, setBucketPoiMonth, bucketPoiYear, setBucketPoiYear, bucketSearching, bucketSearch, setBucketSearch, t, dark }: SidebarContentProps): React.ReactElement {
+function SidebarContent({ data, stats, countries, selectedCountry, countryDetail, visitedCities, resolveName, onTripClick, onUnmarkCountry, bucketList, bucketTab, setBucketTab, showBucketAdd, setShowBucketAdd, bucketForm, setBucketForm, onAddBucket, onDeleteBucket, onSearchBucket, onSelectBucketPoi, bucketSearchResults, setBucketSearchResults, bucketPoiMonth, setBucketPoiMonth, bucketPoiYear, setBucketPoiYear, bucketSearching, bucketSearch, setBucketSearch, t, dark }: SidebarContentProps): React.ReactElement {
   const { language } = useTranslation()
   const bg = (o) => dark ? `rgba(255,255,255,${o})` : `rgba(0,0,0,${o})`
   const tp = dark ? '#f1f5f9' : '#0f172a'
@@ -1266,6 +1329,7 @@ function SidebarContent({ data, stats, countries, selectedCountry, countryDetail
 
   const thisYear = new Date().getFullYear()
   const divider = `2px solid ${bg(0.08)}`
+  const countryCities = selectedCountry ? (visitedCities[selectedCountry] || []) : []
 
   // Bucket list content
   const bucketContent = (
@@ -1458,7 +1522,7 @@ function SidebarContent({ data, stats, countries, selectedCountry, countryDetail
             <span className="text-3xl">{countryCodeToFlag(selectedCountry)}</span>
             <div>
               <p className="text-sm font-bold" style={{ color: tp }}>{resolveName(selectedCountry)}</p>
-              <p className="text-[10px] mb-1" style={{ color: tf }}>{countryDetail.places.length} {t('atlas.places')} · {countryDetail.trips.length} Trips</p>
+              <p className="text-[10px] mb-1" style={{ color: tf }}>{countryDetail.places.length} {t('atlas.places')} · {countryCities.length} {t('atlas.cities')} · {countryDetail.trips.length} Trips</p>
               <div className="flex flex-wrap gap-1">
                 {countryDetail.trips.slice(0, 3).map(trip => (
                   <button key={trip.id} onClick={() => onTripClick(trip.id)}
@@ -1477,6 +1541,19 @@ function SidebarContent({ data, stats, countries, selectedCountry, countryDetail
                   </button>
                 )}
               </div>
+              {countryCities.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {countryCities.slice(0, 6).map(city => (
+                    <span
+                      key={city.name}
+                      className="px-2 py-0.5 rounded text-[10px] font-semibold"
+                      style={{ background: bg(0.08), color: tp }}
+                    >
+                      {city.name} · {city.placeCount}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </>
