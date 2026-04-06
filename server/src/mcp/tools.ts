@@ -218,16 +218,23 @@ export function registerTools(server: McpServer, userId: number): void {
         lat: z.number().optional(),
         lng: z.number().optional(),
         address: z.string().max(500).optional(),
+        category_id: z.number().int().positive().optional().describe('Category ID — use list_categories'),
+        price: z.number().optional(),
+        currency: z.string().length(3).optional(),
+        place_time: z.string().max(50).optional().describe('Scheduled time (e.g. "09:00")'),
+        end_time: z.string().max(50).optional().describe('End time (e.g. "11:00")'),
+        duration_minutes: z.number().int().positive().optional(),
         notes: z.string().max(2000).optional(),
         website: z.string().max(500).optional(),
         phone: z.string().max(50).optional(),
+        transport_mode: z.enum(['walking', 'driving', 'cycling', 'transit', 'flight']).optional(),
       },
       annotations: TOOL_ANNOTATIONS_WRITE,
     },
-    async ({ tripId, placeId, name, description, lat, lng, address, notes, website, phone }) => {
+    async ({ tripId, placeId, name, description, lat, lng, address, category_id, price, currency, place_time, end_time, duration_minutes, notes, website, phone, transport_mode }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const place = updatePlace(String(tripId), String(placeId), { name, description, lat, lng, address, notes, website, phone });
+      const place = updatePlace(String(tripId), String(placeId), { name, description, lat, lng, address, category_id, price, currency, place_time, end_time, duration_minutes, notes, website, phone, transport_mode });
       if (!place) return { content: [{ type: 'text' as const, text: 'Place not found.' }], isError: true };
       safeBroadcast(tripId, 'place:updated', { place });
       return ok({ place });
@@ -861,13 +868,14 @@ export function registerTools(server: McpServer, userId: number): void {
         content: z.string().max(10000).optional(),
         category: z.string().max(100).optional().describe('Note category (e.g. "Ideas", "To-do", "General")'),
         color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().describe('Hex color for the note card'),
+        pinned: z.boolean().optional().default(false).describe('Pin the note to the top'),
       },
       annotations: TOOL_ANNOTATIONS_NON_IDEMPOTENT,
     },
-    async ({ tripId, title, content, category, color }) => {
+    async ({ tripId, title, content, category, color, pinned }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const note = createCollabNote(tripId, userId, { title, content, category, color });
+      const note = createCollabNote(tripId, userId, { title, content, category, color, pinned });
       safeBroadcast(tripId, 'collab:note:created', { note });
       return ok({ note });
     }
