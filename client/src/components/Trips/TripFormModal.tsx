@@ -199,13 +199,6 @@ export default function TripFormModal({ isOpen, onClose, onSave, trip, onCoverUp
     if (field === 'start_date' && value) {
       if (!prev.end_date || prev.end_date < value) {
         next.end_date = value
-      } else if (prev.start_date) {
-        const oldStart = new Date(prev.start_date + 'T00:00:00Z')
-        const oldEnd = new Date(prev.end_date + 'T00:00:00Z')
-        const duration = Math.round((oldEnd - oldStart) / 86400000)
-        const newEnd = new Date(value + 'T00:00:00Z')
-        newEnd.setDate(newEnd.getDate() + duration)
-        next.end_date = newEnd.toISOString().split('T')[0]
       }
     }
     return next
