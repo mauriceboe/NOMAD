@@ -8,11 +8,12 @@ interface DragDataPayload {
 }
 declare global { interface Window { __dragData: DragDataPayload | null } }
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import ReactDOM from 'react-dom'
 import { ChevronDown, ChevronRight, ChevronUp, Navigation, RotateCcw, ExternalLink, Clock, Pencil, GripVertical, Ticket, Plus, FileText, Check, Trash2, Info, MapPin, Star, Heart, Camera, Lightbulb, Flag, Bookmark, Train, Bus, Plane, Car, Ship, Coffee, ShoppingBag, AlertTriangle, FileDown, Lock, Hotel, Utensils, Users } from 'lucide-react'
 
 const RES_ICONS = { flight: Plane, hotel: Hotel, restaurant: Utensils, train: Train, car: Car, cruise: Ship, event: Ticket, tour: Users, other: FileText }
+import { reservationsApi } from '../../api/client'
 import { downloadTripPDF } from '../PDF/TripPDF'
 import { calculateRoute, generateGoogleMapsUrl, optimizeRoute } from '../Map/RouteCalculator'
 import PlaceAvatar from '../shared/PlaceAvatar'
@@ -118,9 +119,12 @@ export default function DayPlanSidebar({
   const [dropTargetKey, setDropTargetKey] = useState(null)
   const [dragOverDayId, setDragOverDayId] = useState(null)
   const [hoveredId, setHoveredId] = useState(null)
+  const [transportDetail, setTransportDetail] = useState<any>(null)
+  const [transportPosVersion, setTransportPosVersion] = useState(0)
   const inputRef = useRef(null)
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const dragDataRef = useRef(null) // Speichert Drag-Daten als Backup (dataTransfer geht bei Re-Render verloren)
+  const initedTransportIds = useRef(new Set<number>())
 
   const currency = trip?.currency || 'EUR'
 
@@ -205,13 +209,148 @@ export default function DayPlanSidebar({
   const getDayAssignments = (dayId) =>
     (assignments[String(dayId)] || []).slice().sort((a, b) => a.order_index - b.order_index)
 
+  // --- Transport timeline helpers ---
+  const getEndDate = (r: Reservation) => {
+    const endStr = r.reservation_end_time || ''
+    return endStr.includes('T') ? endStr.split('T')[0] : null
+  }
+
+  const getSpanPhase = (r: Reservation, dayDate: string): 'single' | 'start' | 'middle' | 'end' => {
+    if (!r.reservation_time) return 'single'
+    const startDate = r.reservation_time.split('T')[0]
+    const endDate = getEndDate(r) || startDate
+    if (startDate === endDate) return 'single'
+    if (dayDate === startDate) return 'start'
+    if (dayDate === endDate) return 'end'
+    return 'middle'
+  }
+
+  const getDisplayTimeForDay = (r: Reservation, dayDate: string): string | null => {
+    const phase = getSpanPhase(r, dayDate)
+    if (phase === 'end') return r.reservation_end_time || null
+    if (phase === 'middle') return null
+    return r.reservation_time || null
+  }
+
+  const getSpanLabel = (r: Reservation, phase: string): string | null => {
+    if (phase === 'single') return null
+    if (r.type === 'flight') return phase === 'start' ? t('reservations.span.departure') : phase === 'end' ? t('reservations.span.arrival') : t('reservations.span.inTransit')
+    if (r.type === 'car') return phase === 'start' ? t('reservations.span.pickup') : phase === 'end' ? t('reservations.span.return') : t('reservations.span.active')
+    return phase === 'start' ? t('reservations.span.start') : phase === 'end' ? t('reservations.span.end') : t('reservations.span.ongoing')
+  }
+
+  const getTransportForDay = (dayId: number | string) => {
+    const day = days.find(d => d.id === dayId)
+    if (!day?.date) return []
+    return reservations.filter(r => {
+      if (!r.reservation_time || r.type === 'hotel') return false
+      const startDate = r.reservation_time.split('T')[0]
+      const endDate = getEndDate(r)
+      if (endDate && endDate !== startDate) {
+        return day.date >= startDate && day.date <= endDate
+      }
+      return startDate === day.date
+    })
+  }
+
+  const parseTimeToMinutes = (time?: string | null): number | null => {
+    if (!time) return null
+    if (time.includes('T')) {
+      const [h, m] = time.split('T')[1].split(':').map(Number)
+      return h * 60 + m
+    }
+    const parts = time.split(':').map(Number)
+    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) return parts[0] * 60 + parts[1]
+    return null
+  }
+
+  const computeTransportPosition = (r: any, da: any[]) => {
+    const minutes = parseTimeToMinutes(r.reservation_time) ?? 0
+    let afterIdx = -1
+    for (const a of da) {
+      const pm = parseTimeToMinutes(a.place?.place_time)
+      if (pm !== null && pm <= minutes) afterIdx = a.order_index
+    }
+    return afterIdx >= 0 ? afterIdx + 0.5 : da.length + 0.5
+  }
+
+  const initTransportPositions = (dayId: number | string) => {
+    const da = getDayAssignments(dayId)
+    const transport = getTransportForDay(dayId)
+    const needsInit = transport.filter(r => r.day_plan_position == null && !initedTransportIds.current.has(r.id))
+    if (needsInit.length === 0) return
+
+    const sorted = [...needsInit].sort((a, b) =>
+      (parseTimeToMinutes(a.reservation_time) ?? 0) - (parseTimeToMinutes(b.reservation_time) ?? 0)
+    )
+    const positions = sorted.map((r, idx) => ({
+      id: r.id,
+      day_plan_position: computeTransportPosition(r, da) + idx * 0.01,
+    }))
+    for (const p of positions) {
+      initedTransportIds.current.add(p.id)
+      const res = reservations.find(x => x.id === p.id)
+      if (res) (res as any).day_plan_position = p.day_plan_position
+    }
+    reservationsApi.updatePositions(tripId, positions).catch(() => {})
+  }
+
   const getMergedItems = (dayId: number | string) => {
     const da = getDayAssignments(dayId)
     const dn = (dayNotes[String(dayId)] || []).slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-    return [
+    const transport = getTransportForDay(dayId)
+    const dayDate = days.find(d => d.id === dayId)?.date || ''
+
+    if (transport.some(r => r.day_plan_position == null)) {
+      initTransportPositions(dayId)
+    }
+
+    const baseItems: { type: 'assignment' | 'note' | 'transport'; sortKey: number; data: any }[] = [
       ...da.map(a => ({ type: 'assignment' as const, sortKey: a.order_index, data: a as any })),
       ...dn.map(n => ({ type: 'note' as const, sortKey: n.sort_order ?? 0, data: n as any })),
     ].sort((a, b) => a.sortKey - b.sortKey)
+
+    const timedTransports = transport.map(r => ({
+      type: 'transport' as const,
+      data: r as any,
+      minutes: parseTimeToMinutes(getDisplayTimeForDay(r, dayDate)) ?? 0,
+    })).sort((a, b) => a.minutes - b.minutes)
+
+    if (timedTransports.length === 0) return baseItems
+    if (baseItems.length === 0) {
+      return timedTransports.map((item, i) => ({ type: item.type as 'transport', sortKey: i, data: item.data }))
+    }
+
+    const result: { type: 'assignment' | 'note' | 'transport'; sortKey: number; data: any }[] = [...baseItems]
+    for (let ti = 0; ti < timedTransports.length; ti++) {
+      const timed = timedTransports[ti]
+      const minutes = timed.minutes
+
+      if (timed.data.day_plan_position != null) {
+        result.push({ type: timed.type, sortKey: timed.data.day_plan_position, data: timed.data })
+        continue
+      }
+
+      let insertAfterKey = -Infinity
+      for (const item of result) {
+        if (item.type === 'assignment') {
+          const pm = parseTimeToMinutes(item.data?.place?.place_time)
+          if (pm !== null && pm <= minutes) insertAfterKey = item.sortKey
+        } else if (item.type === 'transport') {
+          const tm = parseTimeToMinutes(item.data?.reservation_time)
+          if (tm !== null && tm <= minutes) insertAfterKey = item.sortKey
+        }
+      }
+
+      const lastKey = result.length > 0 ? Math.max(...result.map(i => i.sortKey)) : 0
+      const sortKey = insertAfterKey === -Infinity
+        ? lastKey + 0.5 + ti * 0.01
+        : insertAfterKey + 0.01 + ti * 0.001
+
+      result.push({ type: timed.type, sortKey, data: timed.data })
+    }
+
+    return result.sort((a, b) => a.sortKey - b.sortKey)
   }
 
   const openAddNote = (dayId, e) => {
@@ -247,17 +386,17 @@ export default function DayPlanSidebar({
     // Orte: neuer order_index über onReorder
     const assignmentIds = newOrder.filter(i => i.type === 'assignment').map(i => i.data.id as number)
 
-    // Notizen: sort_order muss ZWISCHEN den umgebenden order_indices der Orte liegen, niemals gleich sein.
-    // Formel: Notiz zwischen placesBefore-1 und placesBefore ergibt (placesBefore - 1) + rank/(count+1)
-    // z.B. einzelne Notiz nach 2 Orten → (2-1) + 0.5 = 1.5  (zwischen order_index 1 und 2)
-    const groups: Record<number, any[]> = {}
+    // Notizen + Transports: sort_order/position between surrounding places
+    const noteGroups: Record<number, any[]> = {}
+    const transportUpdates: { id: number; day_plan_position: number }[] = []
     let pc = 0
-    newOrder.forEach(item => {
+    newOrder.forEach((item, pos) => {
       if (item.type === 'assignment') { pc++ }
-      else { if (!groups[pc]) groups[pc] = []; groups[pc].push(item.data.id) }
+      else if (item.type === 'note') { if (!noteGroups[pc]) noteGroups[pc] = []; noteGroups[pc].push(item.data.id) }
+      else if (item.type === 'transport') { transportUpdates.push({ id: item.data.id, day_plan_position: (pc - 1) + (pos + 1) * 0.01 }) }
     })
     const noteChanges: { id: any; sort_order: number }[] = []
-    Object.entries(groups).forEach(([pb, ids]) => {
+    Object.entries(noteGroups).forEach(([pb, ids]) => {
       (ids as any[]).forEach((id, i) => {
         noteChanges.push({ id, sort_order: (Number(pb) - 1) + (i + 1) / (ids.length + 1) })
       })
@@ -267,6 +406,14 @@ export default function DayPlanSidebar({
       if (assignmentIds.length) await onReorder(dayId, assignmentIds)
       for (const n of noteChanges) {
         await tripStore.updateDayNote(tripId, dayId, n.id, { sort_order: n.sort_order })
+      }
+      if (transportUpdates.length) {
+        await reservationsApi.updatePositions(tripId, transportUpdates)
+        for (const u of transportUpdates) {
+          const r = reservations.find(x => x.id === u.id)
+          if (r) (r as any).day_plan_position = u.day_plan_position
+        }
+        setTransportPosVersion(v => v + 1)
       }
     } catch (err: unknown) { toast.error(err instanceof Error ? err.message : 'Unknown error') }
     setDraggingId(null)
@@ -640,7 +787,7 @@ export default function DayPlanSidebar({
                     </div>
                   ) : (
                     merged.map((item, idx) => {
-                      const itemKey = item.type === 'assignment' ? `place-${item.data.id}` : `note-${item.data.id}`
+                      const itemKey = item.type === 'transport' ? `transport-${item.data.id}-${day.id}` : (item.type === 'assignment' ? `place-${item.data.id}` : `note-${item.data.id}`)
                       const showDropLine = (!!draggingId || !!dropTargetKey) && dropTargetKey === itemKey
 
                       if (item.type === 'assignment') {
@@ -846,6 +993,112 @@ export default function DayPlanSidebar({
                               <button onClick={moveDown} disabled={placeIdx === placeItems.length - 1} style={{ background: 'none', border: 'none', padding: '1px 2px', cursor: placeIdx === placeItems.length - 1 ? 'default' : 'pointer', color: placeIdx === placeItems.length - 1 ? 'var(--border-primary)' : 'var(--text-faint)', display: 'flex', lineHeight: 1 }}>
                                 <ChevronDown size={12} strokeWidth={2} />
                               </button>
+                            </div>
+                          </div>
+                          </React.Fragment>
+                        )
+                      }
+
+                      // Transport booking card
+                      if (item.type === 'transport') {
+                        const res = item.data as Reservation
+                        const spanPhase = getSpanPhase(res, day.date as string)
+
+                        // Car "active" (middle) days skip timeline
+                        if (res.type === 'car' && spanPhase === 'middle') return null
+
+                        const TransportIcon = RES_ICONS[res.type as keyof typeof RES_ICONS] || Ticket
+                        const color = '#3b82f6'
+                        const meta = typeof res.metadata === 'string' ? JSON.parse(res.metadata || '{}') : (res.metadata || {})
+                        const isTransportHovered = hoveredId === `transport-${res.id}`
+
+                        let subtitle = ''
+                        if (res.type === 'flight') {
+                          const parts = [meta.airline, meta.flight_number].filter(Boolean)
+                          if (meta.departure_airport || meta.arrival_airport)
+                            parts.push([meta.departure_airport, meta.arrival_airport].filter(Boolean).join(' → '))
+                          subtitle = parts.join(' · ')
+                        } else if (res.type === 'train') {
+                          subtitle = [meta.train_number, meta.platform ? `Pl. ${meta.platform}` : '', meta.seat ? `Seat ${meta.seat}` : ''].filter(Boolean).join(' · ')
+                        }
+
+                        const spanLabel = getSpanLabel(res, spanPhase)
+                        const displayTime = getDisplayTimeForDay(res, day.date as string)
+
+                        return (
+                          <React.Fragment key={`transport-${res.id}-${day.id}`}>
+                          {showDropLine && <div style={{ height: 2, background: 'var(--text-primary)', borderRadius: 1, margin: '2px 8px' }} />}
+                          <div
+                            onClick={() => setTransportDetail(res)}
+                            onDragOver={e => {
+                              e.preventDefault(); e.stopPropagation()
+                              if (dropTargetKey !== `transport-${res.id}-${day.id}`) setDropTargetKey(`transport-${res.id}-${day.id}`)
+                            }}
+                            onDrop={e => {
+                              e.preventDefault(); e.stopPropagation()
+                              const { placeId, assignmentId: fromAssignmentId, noteId, fromDayId } = getDragData(e)
+                              if (placeId) {
+                                onAssignToDay?.(parseInt(placeId), day.id as number)
+                              } else if (fromAssignmentId && fromDayId !== day.id) {
+                                tripStore.moveAssignment(tripId, Number(fromAssignmentId), fromDayId, day.id).catch((err: unknown) => toast.error(err instanceof Error ? err.message : 'Unknown error'))
+                              } else if (fromAssignmentId) {
+                                handleMergedDrop(day.id, 'assignment', Number(fromAssignmentId), 'transport', res.id)
+                              } else if (noteId && fromDayId !== day.id) {
+                                tripStore.moveDayNote(tripId, fromDayId, day.id, Number(noteId)).catch((err: unknown) => toast.error(err instanceof Error ? err.message : 'Unknown error'))
+                              } else if (noteId) {
+                                handleMergedDrop(day.id, 'note', Number(noteId), 'transport', res.id)
+                              }
+                              setDraggingId(null); setDropTargetKey(null); dragDataRef.current = null; window.__dragData = null
+                            }}
+                            onMouseEnter={() => setHoveredId(`transport-${res.id}`)}
+                            onMouseLeave={() => setHoveredId(null)}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 8,
+                              padding: '7px 8px 7px 10px',
+                              margin: '1px 8px',
+                              borderRadius: 6,
+                              border: `1px solid ${color}33`,
+                              background: isTransportHovered ? `${color}12` : `${color}08`,
+                              cursor: 'pointer', userSelect: 'none',
+                              transition: 'background 0.1s',
+                              opacity: spanPhase === 'middle' ? 0.65 : 1,
+                            }}
+                          >
+                            <div style={{
+                              width: 28, height: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              borderRadius: '50%', background: `${color}18`,
+                            }}>
+                              <TransportIcon size={14} strokeWidth={1.8} color={color} />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                {spanLabel && (
+                                  <span style={{
+                                    fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, flexShrink: 0,
+                                    background: `${color}20`, color: color, textTransform: 'uppercase', letterSpacing: '0.03em',
+                                  }}>
+                                    {spanLabel}
+                                  </span>
+                                )}
+                                <span style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {res.title}
+                                </span>
+                                {displayTime?.includes('T') && (
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0, fontSize: 10, color: 'var(--text-faint)', fontWeight: 400, marginLeft: 6 }}>
+                                    <Clock size={9} strokeWidth={2} />
+                                    {new Date(displayTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: timeFormat === '12h' })}
+                                    {spanPhase === 'single' && res.reservation_end_time && (() => {
+                                      const endStr = res.reservation_end_time!.includes('T') ? res.reservation_end_time! : (displayTime.split('T')[0] + 'T' + res.reservation_end_time!)
+                                      return ` – ${new Date(endStr).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: timeFormat === '12h' })}`
+                                    })()}
+                                  </span>
+                                )}
+                              </div>
+                              {subtitle && (
+                                <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {subtitle}
+                                </div>
+                              )}
                             </div>
                           </div>
                           </React.Fragment>

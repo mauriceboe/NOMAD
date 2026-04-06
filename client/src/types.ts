@@ -26,6 +26,7 @@ export interface Trip {
   owner_id: number
   user_id?: number
   reminder_days?: number
+  day_count?: number
   destination_name: string | null
   destination_address: string | null
   destination_lat: number | null
@@ -213,6 +214,7 @@ export interface Reservation {
   assignment_id?: number | string | null
   accommodation_id?: number | null
   accommodation_name?: string | null
+  day_plan_position?: number | null
   metadata?: Record<string, string> | null
   created_at: string
 }
@@ -462,7 +464,7 @@ export function getApiErrorMessage(err: unknown, fallback: string): string {
 
 // MergedItem used in day notes hook
 export interface MergedItem {
-  type: 'assignment' | 'note'
+  type: 'assignment' | 'note' | 'transport'
   sortKey: number
-  data: Assignment | DayNote
+  data: Assignment | DayNote | Reservation
 }
