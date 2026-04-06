@@ -10,6 +10,7 @@ import { useToast } from '../shared/Toast'
 import { useTranslation } from '../../i18n'
 import { CustomDatePicker } from '../shared/CustomDateTimePicker'
 import CustomTimePicker from '../shared/CustomTimePicker'
+import { getAuthUrl } from '../../api/authUrl'
 import type { Day, Place, Reservation, TripFile, AssignmentsMap, Accommodation } from '../../types'
 
 const TYPE_OPTIONS = [
@@ -113,6 +114,9 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
       if (rawEnd.includes('T')) {
         endDate = rawEnd.split('T')[0]
         endTime = rawEnd.split('T')[1]?.slice(0, 5) || ''
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(rawEnd)) {
+        endDate = rawEnd
+        endTime = ''
       }
       setForm({
         title: reservation.title || '',
@@ -166,6 +170,22 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
     const startDate = form.reservation_time.split('T')[0]
     const startTime = form.reservation_time.split('T')[1] || '00:00'
     const endTime = form.reservation_end_time || '00:00'
+    // For flights, compare in UTC using timezone offsets
+    if (form.type === 'flight') {
+      const parseOffset = (tz: string): number | null => {
+        if (!tz) return null
+        const m = tz.trim().match(/^(?:UTC|GMT)?\s*([+-])(\d{1,2})(?::(\d{2}))?$/i)
+        if (!m) return null
+        const sign = m[1] === '+' ? 1 : -1
+        return sign * (parseInt(m[2]) * 60 + parseInt(m[3] || '0'))
+      }
+      const depOffset = parseOffset(form.meta_departure_timezone)
+      const arrOffset = parseOffset(form.meta_arrival_timezone)
+      if (depOffset === null || arrOffset === null) return false
+      const depMinutes = new Date(`${startDate}T${startTime}`).getTime() - depOffset * 60000
+      const arrMinutes = new Date(`${form.end_date}T${endTime}`).getTime() - arrOffset * 60000
+      return arrMinutes <= depMinutes
+    }
     const startFull = `${startDate}T${startTime}`
     const endFull = `${form.end_date}T${endTime}`
     return endFull <= startFull
@@ -204,7 +224,8 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
       }
       const saveData: Record<string, any> = {
         title: form.title, type: form.type, status: form.status,
-        reservation_time: form.reservation_time, reservation_end_time: combinedEndTime,
+        reservation_time: form.type === 'hotel' ? null : form.reservation_time,
+        reservation_end_time: form.type === 'hotel' ? null : combinedEndTime,
         location: form.location, confirmation_number: form.confirmation_number,
         notes: form.notes,
         assignment_id: form.assignment_id || null,
@@ -565,7 +586,7 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
               <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', background: 'var(--bg-secondary)', borderRadius: 8 }}>
                 <FileText size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                 <span style={{ flex: 1, fontSize: 12, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.original_name}</span>
-                <a href={f.url} target="_blank" rel="noreferrer" style={{ color: 'var(--text-faint)', display: 'flex', flexShrink: 0 }}><ExternalLink size={11} /></a>
+                <a href="#" onClick={async (e) => { e.preventDefault(); const u = await getAuthUrl(f.url, 'download'); window.open(u, '_blank', 'noreferrer') }} style={{ color: 'var(--text-faint)', display: 'flex', flexShrink: 0, cursor: 'pointer' }}><ExternalLink size={11} /></a>
                 <button type="button" onClick={async () => {
                   // Always unlink, never delete the file
                   // Clear primary reservation_id if it points to this reservation

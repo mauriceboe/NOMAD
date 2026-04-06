@@ -10,6 +10,7 @@ import {
   Calendar, Hash, CheckCircle2, Circle, Pencil, Trash2, Plus, ChevronDown, ChevronRight, Users,
   ExternalLink, BookMarked, Lightbulb, Link2, Clock,
 } from 'lucide-react'
+import { getAuthUrl } from '../../api/authUrl'
 import type { Reservation, Day, TripFile, AssignmentsMap } from '../../types'
 
 interface AssignmentLookupEntry {
@@ -138,7 +139,7 @@ function ReservationCard({ r, tripId, onEdit, onDelete, files = [], onNavigateTo
                   <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{t('reservations.date')}</div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)', marginTop: 1 }}>
                     {fmtDate(r.reservation_time)}
-                    {r.reservation_end_time?.includes('T') && r.reservation_end_time.split('T')[0] !== r.reservation_time.split('T')[0] && (
+                    {r.reservation_end_time && (r.reservation_end_time.includes('T') ? r.reservation_end_time.split('T')[0] : r.reservation_end_time) !== r.reservation_time.split('T')[0] && (
                       <> – {fmtDate(r.reservation_end_time)}</>
                     )}
                   </div>
@@ -252,7 +253,7 @@ function ReservationCard({ r, tripId, onEdit, onDelete, files = [], onNavigateTo
           <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 3 }}>{t('files.title')}</div>
           <div style={{ padding: '4px 8px', borderRadius: 7, background: 'var(--bg-secondary)', display: 'flex', flexDirection: 'column', gap: 3 }}>
             {attachedFiles.map(f => (
-              <a key={f.id} href={f.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', cursor: 'pointer' }}>
+              <a key={f.id} href="#" onClick={async (e) => { e.preventDefault(); const u = await getAuthUrl(f.url, 'download'); window.open(u, '_blank', 'noreferrer') }} style={{ display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', cursor: 'pointer' }}>
                 <FileText size={9} style={{ color: 'var(--text-faint)', flexShrink: 0 }} />
                 <span style={{ fontSize: 10, color: 'var(--text-muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.original_name}</span>
               </a>

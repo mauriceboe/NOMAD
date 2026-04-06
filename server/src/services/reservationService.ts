@@ -234,8 +234,8 @@ export function updateReservation(id: string | number, tripId: string | number, 
     WHERE id = ?
   `).run(
     title || null,
-    reservation_time !== undefined ? (reservation_time || null) : current.reservation_time,
-    reservation_end_time !== undefined ? (reservation_end_time || null) : current.reservation_end_time,
+    (type ?? current.type) === 'hotel' ? null : (reservation_time !== undefined ? (reservation_time || null) : current.reservation_time),
+    (type ?? current.type) === 'hotel' ? null : (reservation_end_time !== undefined ? (reservation_end_time || null) : current.reservation_end_time),
     location !== undefined ? (location || null) : current.location,
     confirmation_number !== undefined ? (confirmation_number || null) : current.confirmation_number,
     notes !== undefined ? (notes || null) : current.notes,
