@@ -967,6 +967,14 @@ const zhTw: Record<string, string> = {
   'budget.settlement': '結算',
   'budget.settlementInfo': '點選預算專案上的成員頭像將其標記為綠色——表示該成員已付款。結算會顯示誰欠誰多少。',
   'budget.netBalances': '淨餘額',
+  'budget.refreshRates': '重新整理匯率',
+  'budget.noRate': '無可用匯率',
+  'budget.itemCurrency': '項目貨幣',
+  'budget.baseCurrency': '基礎貨幣',
+  'budget.convertedAmount': '換算金額',
+  'budget.approximateConversion': '≈ 從 {currency} 換算',
+  'budget.ratesUpdated': '匯率已更新',
+  'budget.ratesFailed': '無法取得匯率',
 
   // Files
   'files.title': '檔案',

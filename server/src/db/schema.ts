@@ -210,11 +210,24 @@ function createTables(db: Database.Database): void {
       category TEXT NOT NULL DEFAULT 'Other',
       name TEXT NOT NULL,
       total_price REAL NOT NULL DEFAULT 0,
+      item_currency TEXT DEFAULT NULL,
+      converted_price REAL DEFAULT NULL,
       persons INTEGER DEFAULT NULL,
       days INTEGER DEFAULT NULL,
       note TEXT,
       sort_order INTEGER DEFAULT 0,
+      expense_date TEXT DEFAULT NULL,
+      reservation_id INTEGER REFERENCES reservations(id) ON DELETE SET NULL DEFAULT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS exchange_rates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      base_currency TEXT NOT NULL,
+      target_currency TEXT NOT NULL,
+      rate REAL NOT NULL,
+      fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(base_currency, target_currency)
     );
 
     -- Addon system
@@ -400,6 +413,7 @@ function createTables(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_trip_members_user_id ON trip_members(user_id);
     CREATE INDEX IF NOT EXISTS idx_packing_items_trip_id ON packing_items(trip_id);
     CREATE INDEX IF NOT EXISTS idx_budget_items_trip_id ON budget_items(trip_id);
+    CREATE INDEX IF NOT EXISTS idx_exchange_rates_base ON exchange_rates(base_currency);
     CREATE INDEX IF NOT EXISTS idx_reservations_trip_id ON reservations(trip_id);
     CREATE INDEX IF NOT EXISTS idx_trip_files_trip_id ON trip_files(trip_id);
     CREATE INDEX IF NOT EXISTS idx_day_notes_day_id ON day_notes(day_id);

@@ -1015,6 +1015,14 @@ const cs: Record<string, string | { name: string; category: string }[]> = {
   'budget.settlement': 'Vyúčtování',
   'budget.settlementInfo': 'Klikněte na avatar člena u rozpočtové položky pro zelené označení – to znamená, že zaplatil. Vyúčtování pak ukazuje, kdo komu a kolik dluží.',
   'budget.netBalances': 'Čisté zůstatky',
+  'budget.refreshRates': 'Obnovit směnné kurzy',
+  'budget.noRate': 'Kurz není k dispozici',
+  'budget.itemCurrency': 'Měna položky',
+  'budget.baseCurrency': 'Základní měna',
+  'budget.convertedAmount': 'Převedená částka',
+  'budget.approximateConversion': '≈ převedeno z {currency}',
+  'budget.ratesUpdated': 'Kurzy aktualizovány',
+  'budget.ratesFailed': 'Nepodařilo se načíst směnné kurzy',
 
   // Soubory (Files)
   'files.title': 'Soubory',

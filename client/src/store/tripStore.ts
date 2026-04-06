@@ -78,7 +78,7 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
 
   setSelectedDay: (dayId: number | null) => set({ selectedDayId: dayId }),
 
-  handleRemoteEvent: (event: WebSocketEvent) => handleRemoteEvent(set, event),
+  handleRemoteEvent: (event: WebSocketEvent) => handleRemoteEvent(set, get, event),
 
   loadTrip: async (tripId: number | string) => {
     set({ isLoading: true, error: null })

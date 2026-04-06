@@ -1013,6 +1013,14 @@ const zh: Record<string, string> = {
   'budget.settlement': '结算',
   'budget.settlementInfo': '点击预算项目上的成员头像将其标记为绿色——表示该成员已付款。结算会显示谁欠谁多少。',
   'budget.netBalances': '净余额',
+  'budget.refreshRates': '刷新汇率',
+  'budget.noRate': '无可用汇率',
+  'budget.itemCurrency': '项目货币',
+  'budget.baseCurrency': '基础货币',
+  'budget.convertedAmount': '换算金额',
+  'budget.approximateConversion': '≈ 从 {currency} 换算',
+  'budget.ratesUpdated': '汇率已更新',
+  'budget.ratesFailed': '无法获取汇率',
 
   // Files
   'files.title': '文件',

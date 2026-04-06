@@ -3,12 +3,13 @@ import type { TripStoreState } from '../tripStore'
 import type { Assignment, Place, Day, DayNote, PackingItem, TodoItem, BudgetItem, BudgetMember, Reservation, Trip, TripFile, WebSocketEvent } from '../../types'
 
 type SetState = StoreApi<TripStoreState>['setState']
+type GetState = StoreApi<TripStoreState>['getState']
 
 /**
  * Applies a remote WebSocket event to the local Zustand store, keeping state in sync across collaborators.
  * Each event type maps to an immutable state update (create/update/delete) for the relevant entity.
  */
-export function handleRemoteEvent(set: SetState, event: WebSocketEvent): void {
+export function handleRemoteEvent(set: SetState, get: GetState, event: WebSocketEvent): void {
   const { type, ...payload } = event
 
   set(state => {
@@ -214,6 +215,11 @@ export function handleRemoteEvent(set: SetState, event: WebSocketEvent): void {
               : i
           ),
         }
+      case 'budget:rates-updated': {
+        const tripId = get().trip?.id
+        if (tripId) get().loadBudgetItems(tripId)
+        return {}
+      }
 
       // Reservations
       case 'reservation:created':

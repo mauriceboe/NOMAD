@@ -1013,6 +1013,14 @@ const nl: Record<string, string> = {
   'budget.settlement': 'Afrekening',
   'budget.settlementInfo': 'Klik op de avatar van een lid bij een budgetpost om deze groen te markeren — dit betekent dat diegene heeft betaald. De afrekening toont vervolgens wie wie hoeveel verschuldigd is.',
   'budget.netBalances': 'Nettosaldi',
+  'budget.refreshRates': 'Wisselkoersen vernieuwen',
+  'budget.noRate': 'Geen wisselkoers beschikbaar',
+  'budget.itemCurrency': 'Artikelvaluta',
+  'budget.baseCurrency': 'Basisvaluta',
+  'budget.convertedAmount': 'Omgerekend bedrag',
+  'budget.approximateConversion': '≈ omgerekend van {currency}',
+  'budget.ratesUpdated': 'Koersen bijgewerkt',
+  'budget.ratesFailed': 'Kon wisselkoersen niet ophalen',
 
   // Files
   'files.title': 'Bestanden',

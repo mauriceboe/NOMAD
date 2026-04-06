@@ -1034,6 +1034,14 @@ const en: Record<string, string | { name: string; category: string }[]> = {
   'budget.settlement': 'Settlement',
   'budget.settlementInfo': 'Click a member avatar on a budget item to mark them green — this means they paid. The settlement then shows who owes whom and how much.',
   'budget.netBalances': 'Net Balances',
+  'budget.itemCurrency': 'Item Currency',
+  'budget.convertedAmount': 'Converted Amount',
+  'budget.baseCurrency': 'Base Currency',
+  'budget.refreshRates': 'Refresh Exchange Rates',
+  'budget.noRate': 'No rate available',
+  'budget.ratesUpdated': 'Rates updated',
+  'budget.ratesFailed': 'Could not fetch exchange rates',
+  'budget.approximateConversion': '≈ converted from {currency}',
 
   // Files
   'files.title': 'Files',

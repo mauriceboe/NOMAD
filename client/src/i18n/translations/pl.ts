@@ -969,6 +969,14 @@ const pl: Record<string, string | { name: string; category: string }[]> = {
   'budget.settlement': 'Rozliczenie',
   'budget.settlementInfo': 'Kliknij avatar członka przy pozycji w budżecie, aby oznaczyć go na zielono — oznacza to, że zapłacił. Rozliczenie pokaże, kto komu i ile jest winien.',
   'budget.netBalances': 'Bilans',
+  'budget.refreshRates': 'Odśwież kursy walut',
+  'budget.noRate': 'Brak dostępnego kursu',
+  'budget.itemCurrency': 'Waluta pozycji',
+  'budget.baseCurrency': 'Waluta bazowa',
+  'budget.convertedAmount': 'Kwota przeliczona',
+  'budget.approximateConversion': '≈ przeliczone z {currency}',
+  'budget.ratesUpdated': 'Kursy zaktualizowane',
+  'budget.ratesFailed': 'Nie udało się pobrać kursów walut',
 
   // Files
   'files.title': 'Pliki',

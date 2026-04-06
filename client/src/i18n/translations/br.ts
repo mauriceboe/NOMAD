@@ -998,6 +998,14 @@ const br: Record<string, string | { name: string; category: string }[]> = {
   'budget.settlement': 'Acerto',
   'budget.settlementInfo': 'Clique no avatar de um membro em um item do orçamento para marcá-lo em verde — significa que ele pagou. O acerto mostra quem deve quanto a quem.',
   'budget.netBalances': 'Saldos líquidos',
+  'budget.refreshRates': 'Atualizar taxas de câmbio',
+  'budget.noRate': 'Taxa não disponível',
+  'budget.itemCurrency': 'Moeda do item',
+  'budget.baseCurrency': 'Moeda base',
+  'budget.convertedAmount': 'Valor convertido',
+  'budget.approximateConversion': '≈ convertido de {currency}',
+  'budget.ratesUpdated': 'Taxas atualizadas',
+  'budget.ratesFailed': 'Não foi possível obter taxas de câmbio',
 
   // Files
   'files.title': 'Arquivos',

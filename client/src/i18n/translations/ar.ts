@@ -1017,6 +1017,14 @@ const ar: Record<string, string | { name: string; category: string }[]> = {
   'budget.settlement': 'التسوية',
   'budget.settlementInfo': 'انقر على صورة العضو في بند الميزانية لتحديده باللون الأخضر — وهذا يعني أنه دفع. ثم تُظهر التسوية من يدين لمن وبكم.',
   'budget.netBalances': 'الأرصدة الصافية',
+  'budget.refreshRates': 'تحديث أسعار الصرف',
+  'budget.noRate': 'لا يوجد سعر صرف',
+  'budget.itemCurrency': 'عملة العنصر',
+  'budget.baseCurrency': 'العملة الأساسية',
+  'budget.convertedAmount': 'المبلغ المحول',
+  'budget.approximateConversion': '≈ محول من {currency}',
+  'budget.ratesUpdated': 'تم تحديث الأسعار',
+  'budget.ratesFailed': 'تعذر جلب أسعار الصرف',
 
   // Files
   'files.title': 'الملفات',

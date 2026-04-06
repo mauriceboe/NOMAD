@@ -706,7 +706,6 @@ function runMigrations(db: Database.Database): void {
       try { db.exec("ALTER TABLE trip_photos ADD COLUMN album_link_id INTEGER REFERENCES trip_album_links(id) ON DELETE SET NULL DEFAULT NULL"); } catch (err: any) { if (!err.message?.includes('duplicate column name')) throw err; }
       db.exec('CREATE INDEX IF NOT EXISTS idx_trip_photos_album_link ON trip_photos(album_link_id)');
     },
-    // Migration 68: Todo items
     () => {
       db.exec(`
         CREATE TABLE IF NOT EXISTS todo_items (
@@ -843,7 +842,6 @@ function runMigrations(db: Database.Database): void {
       const ins = db.prepare('INSERT OR IGNORE INTO packing_bag_members (bag_id, user_id) VALUES (?, ?)');
       for (const b of bagsWithUser) ins.run(b.id, b.user_id);
     },
-    // Migration: Per-day positions for multi-day reservations
     () => {
       db.exec(`
         CREATE TABLE IF NOT EXISTS reservation_day_positions (
@@ -853,7 +851,6 @@ function runMigrations(db: Database.Database): void {
           PRIMARY KEY (reservation_id, day_id)
         );
       `);
-      // Migrate existing global positions to per-day entries
       const reservations = db.prepare('SELECT id, trip_id, reservation_time, reservation_end_time, day_plan_position FROM reservations WHERE day_plan_position IS NOT NULL').all() as any[];
       const ins = db.prepare('INSERT OR IGNORE INTO reservation_day_positions (reservation_id, day_id, position) VALUES (?, ?, ?)');
       for (const r of reservations) {
@@ -862,6 +859,33 @@ function runMigrations(db: Database.Database): void {
         if (!startDate) continue;
         const matchingDays = db.prepare('SELECT id FROM days WHERE trip_id = ? AND date >= ? AND date <= ?').all(r.trip_id, startDate, endDate) as { id: number }[];
         for (const d of matchingDays) ins.run(r.id, d.id, r.day_plan_position);
+      }
+    },
+    () => {
+      try { db.exec('ALTER TABLE budget_items ADD COLUMN item_currency TEXT DEFAULT NULL'); } catch {}
+      try { db.exec('ALTER TABLE budget_items ADD COLUMN converted_price REAL DEFAULT NULL'); } catch {}
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS exchange_rates (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          base_currency TEXT NOT NULL,
+          target_currency TEXT NOT NULL,
+          rate REAL NOT NULL,
+          fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(base_currency, target_currency)
+        );
+        CREATE INDEX IF NOT EXISTS idx_exchange_rates_base ON exchange_rates(base_currency);
+      `);
+
+      try {
+        db.exec(`
+          UPDATE budget_items
+          SET item_currency = (SELECT currency FROM trips WHERE trips.id = budget_items.trip_id),
+              converted_price = total_price
+          WHERE item_currency IS NULL
+        `);
+      } catch (e: unknown) {
+        console.error('[DB] Migration backfill error:', e instanceof Error ? e.message : e);
       }
     },
   ];

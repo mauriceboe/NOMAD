@@ -28,6 +28,7 @@ import {
   ValidationError,
   TRIP_SELECT,
 } from '../services/tripService';
+import { recalculateTrip } from '../services/exchangeRates';
 
 const router = express.Router();
 
@@ -116,7 +117,7 @@ router.get('/:id', authenticate, (req: Request, res: Response) => {
 
 // ── Update trip ───────────────────────────────────────────────────────────
 
-router.put('/:id', authenticate, (req: Request, res: Response) => {
+router.put('/:id', authenticate, async (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
   const access = canAccessTrip(req.params.id, authReq.user.id);
   if (!access) return res.status(404).json({ error: 'Trip not found' });
@@ -156,6 +157,15 @@ router.put('/:id', authenticate, (req: Request, res: Response) => {
         logInfo(`${authReq.user.email} set ${result.newReminder}-day reminder for trip "${result.newTitle}"`);
       } else {
         logInfo(`${authReq.user.email} removed reminder for trip "${result.newTitle}"`);
+      }
+    }
+
+    if (result.currencyChanged) {
+      try {
+        await recalculateTrip(req.params.id);
+        broadcast(Number(req.params.id), 'budget:rates-updated', { tripId: Number(req.params.id) }, req.headers['x-socket-id'] as string);
+      } catch (err) {
+        console.error('[Trips] Failed to recalculate budget after currency change:', err);
       }
     }
 
@@ -306,11 +316,11 @@ router.post('/:id/copy', authenticate, (req: Request, res: Response) => {
     // 8. Copy budget_items (paid_by_user_id reset to null)
     const oldBudget = db.prepare('SELECT * FROM budget_items WHERE trip_id = ?').all(req.params.id) as any[];
     const insertBudget = db.prepare(`
-      INSERT INTO budget_items (trip_id, category, name, total_price, persons, days, note, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO budget_items (trip_id, category, name, total_price, item_currency, converted_price, persons, days, note, sort_order, expense_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     for (const b of oldBudget) {
-      insertBudget.run(newTripId, b.category, b.name, b.total_price, b.persons, b.days, b.note, b.sort_order);
+      insertBudget.run(newTripId, b.category, b.name, b.total_price, b.item_currency, b.converted_price, b.persons, b.days, b.note, b.sort_order, b.expense_date);
     }
 
     // 9. Copy packing_bags → build ID map
