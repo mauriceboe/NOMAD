@@ -3,6 +3,14 @@ import { z } from 'zod';
 import { canAccessTrip } from '../db/database';
 import { broadcast } from '../websocket';
 import { isDemoUser } from '../services/authService';
+
+function safeBroadcast(tripId: number, event: string, payload: Record<string, unknown>): void {
+  try {
+    safeBroadcast(tripId, event, payload);
+  } catch (err) {
+    console.error(`[MCP] broadcast failed for ${event}:`, err);
+  }
+}
 import {
   listTrips, createTrip, updateTrip, deleteTrip, getTripSummary,
   isOwner, verifyTripAccess,
@@ -130,7 +138,7 @@ export function registerTools(server: McpServer, userId: number): void {
           return { content: [{ type: 'text' as const, text: 'end_date is not a valid calendar date.' }], isError: true };
       }
       const { updatedTrip } = updateTrip(tripId, userId, { title, description, start_date, end_date, currency }, 'user');
-      broadcast(tripId, 'trip:updated', { trip: updatedTrip });
+      safeBroadcast(tripId, 'trip:updated', { trip: updatedTrip });
       return ok({ trip: updatedTrip });
     }
   );
@@ -193,7 +201,7 @@ export function registerTools(server: McpServer, userId: number): void {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
       const place = createPlace(String(tripId), { name, description, lat, lng, address, category_id, google_place_id, osm_id, notes, website, phone });
-      broadcast(tripId, 'place:created', { place });
+      safeBroadcast(tripId, 'place:created', { place });
       return ok({ place });
     }
   );
@@ -221,7 +229,7 @@ export function registerTools(server: McpServer, userId: number): void {
       if (!canAccessTrip(tripId, userId)) return noAccess();
       const place = updatePlace(String(tripId), String(placeId), { name, description, lat, lng, address, notes, website, phone });
       if (!place) return { content: [{ type: 'text' as const, text: 'Place not found.' }], isError: true };
-      broadcast(tripId, 'place:updated', { place });
+      safeBroadcast(tripId, 'place:updated', { place });
       return ok({ place });
     }
   );
@@ -241,7 +249,7 @@ export function registerTools(server: McpServer, userId: number): void {
       if (!canAccessTrip(tripId, userId)) return noAccess();
       const deleted = deletePlace(String(tripId), String(placeId));
       if (!deleted) return { content: [{ type: 'text' as const, text: 'Place not found.' }], isError: true };
-      broadcast(tripId, 'place:deleted', { placeId });
+      safeBroadcast(tripId, 'place:deleted', { placeId });
       return ok({ success: true });
     }
   );
@@ -322,7 +330,7 @@ export function registerTools(server: McpServer, userId: number): void {
       if (!dayExists(dayId, tripId)) return { content: [{ type: 'text' as const, text: 'Day not found.' }], isError: true };
       if (!placeExists(placeId, tripId)) return { content: [{ type: 'text' as const, text: 'Place not found.' }], isError: true };
       const assignment = createAssignment(dayId, placeId, notes || null);
-      broadcast(tripId, 'assignment:created', { assignment });
+      safeBroadcast(tripId, 'assignment:created', { assignment });
       return ok({ assignment });
     }
   );
@@ -344,7 +352,7 @@ export function registerTools(server: McpServer, userId: number): void {
       if (!assignmentExistsInDay(assignmentId, dayId, tripId))
         return { content: [{ type: 'text' as const, text: 'Assignment not found.' }], isError: true };
       deleteAssignment(assignmentId);
-      broadcast(tripId, 'assignment:deleted', { assignmentId, dayId });
+      safeBroadcast(tripId, 'assignment:deleted', { assignmentId, dayId });
       return ok({ success: true });
     }
   );
@@ -368,7 +376,7 @@ export function registerTools(server: McpServer, userId: number): void {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
       const item = createBudgetItem(tripId, { category, name, total_price, note });
-      broadcast(tripId, 'budget:created', { item });
+      safeBroadcast(tripId, 'budget:created', { item });
       return ok({ item });
     }
   );
@@ -388,7 +396,7 @@ export function registerTools(server: McpServer, userId: number): void {
       if (!canAccessTrip(tripId, userId)) return noAccess();
       const deleted = deleteBudgetItem(itemId, tripId);
       if (!deleted) return { content: [{ type: 'text' as const, text: 'Budget item not found.' }], isError: true };
-      broadcast(tripId, 'budget:deleted', { itemId });
+      safeBroadcast(tripId, 'budget:deleted', { itemId });
       return ok({ success: true });
     }
   );
@@ -410,7 +418,7 @@ export function registerTools(server: McpServer, userId: number): void {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
       const item = createPackingItem(tripId, { name, category: category || 'General' });
-      broadcast(tripId, 'packing:created', { item });
+      safeBroadcast(tripId, 'packing:created', { item });
       return ok({ item });
     }
   );
@@ -431,7 +439,7 @@ export function registerTools(server: McpServer, userId: number): void {
       if (!canAccessTrip(tripId, userId)) return noAccess();
       const item = updatePackingItem(tripId, itemId, { checked: checked ? 1 : 0 }, ['checked']);
       if (!item) return { content: [{ type: 'text' as const, text: 'Packing item not found.' }], isError: true };
-      broadcast(tripId, 'packing:updated', { item });
+      safeBroadcast(tripId, 'packing:updated', { item });
       return ok({ item });
     }
   );
@@ -451,7 +459,7 @@ export function registerTools(server: McpServer, userId: number): void {
       if (!canAccessTrip(tripId, userId)) return noAccess();
       const deleted = deletePackingItem(tripId, itemId);
       if (!deleted) return { content: [{ type: 'text' as const, text: 'Packing item not found.' }], isError: true };
-      broadcast(tripId, 'packing:deleted', { itemId });
+      safeBroadcast(tripId, 'packing:deleted', { itemId });
       return ok({ success: true });
     }
   );
@@ -507,9 +515,9 @@ export function registerTools(server: McpServer, userId: number): void {
       });
 
       if (accommodationCreated) {
-        broadcast(tripId, 'accommodation:created', {});
+        safeBroadcast(tripId, 'accommodation:created', {});
       }
-      broadcast(tripId, 'reservation:created', { reservation });
+      safeBroadcast(tripId, 'reservation:created', { reservation });
       return ok({ reservation });
     }
   );
@@ -530,9 +538,9 @@ export function registerTools(server: McpServer, userId: number): void {
       const { deleted, accommodationDeleted } = deleteReservation(reservationId, tripId);
       if (!deleted) return { content: [{ type: 'text' as const, text: 'Reservation not found.' }], isError: true };
       if (accommodationDeleted) {
-        broadcast(tripId, 'accommodation:deleted', { accommodationId: deleted.accommodation_id });
+        safeBroadcast(tripId, 'accommodation:deleted', { accommodationId: deleted.accommodation_id });
       }
-      broadcast(tripId, 'reservation:deleted', { reservationId });
+      safeBroadcast(tripId, 'reservation:deleted', { reservationId });
       return ok({ success: true });
     }
   );
@@ -574,8 +582,8 @@ export function registerTools(server: McpServer, userId: number): void {
         create_accommodation: { place_id, start_day_id, end_day_id, check_in: check_in || undefined, check_out: check_out || undefined },
       }, current);
 
-      broadcast(tripId, isNewAccommodation ? 'accommodation:created' : 'accommodation:updated', {});
-      broadcast(tripId, 'reservation:updated', { reservation });
+      safeBroadcast(tripId, isNewAccommodation ? 'accommodation:created' : 'accommodation:updated', {});
+      safeBroadcast(tripId, 'reservation:updated', { reservation });
       return ok({ reservation, accommodation_id: (reservation as any).accommodation_id });
     }
   );
@@ -604,7 +612,7 @@ export function registerTools(server: McpServer, userId: number): void {
         place_time !== undefined ? place_time : (existing as any).assignment_time,
         end_time !== undefined ? end_time : (existing as any).assignment_end_time
       );
-      broadcast(tripId, 'assignment:updated', { assignment });
+      safeBroadcast(tripId, 'assignment:updated', { assignment });
       return ok({ assignment });
     }
   );
@@ -626,7 +634,7 @@ export function registerTools(server: McpServer, userId: number): void {
       const current = getDay(dayId, tripId);
       if (!current) return { content: [{ type: 'text' as const, text: 'Day not found.' }], isError: true };
       const updated = updateDay(dayId, current, title !== undefined ? { title } : {});
-      broadcast(tripId, 'day:updated', { day: updated });
+      safeBroadcast(tripId, 'day:updated', { day: updated });
       return ok({ day: updated });
     }
   );
@@ -668,7 +676,7 @@ export function registerTools(server: McpServer, userId: number): void {
         place_id: place_id !== undefined ? place_id ?? undefined : undefined,
         assignment_id: assignment_id !== undefined ? assignment_id ?? undefined : undefined,
       }, existing);
-      broadcast(tripId, 'reservation:updated', { reservation });
+      safeBroadcast(tripId, 'reservation:updated', { reservation });
       return ok({ reservation });
     }
   );
@@ -696,7 +704,7 @@ export function registerTools(server: McpServer, userId: number): void {
       if (!canAccessTrip(tripId, userId)) return noAccess();
       const item = updateBudgetItem(itemId, tripId, { name, category, total_price, persons, days, note });
       if (!item) return { content: [{ type: 'text' as const, text: 'Budget item not found.' }], isError: true };
-      broadcast(tripId, 'budget:updated', { item });
+      safeBroadcast(tripId, 'budget:updated', { item });
       return ok({ item });
     }
   );
@@ -721,7 +729,7 @@ export function registerTools(server: McpServer, userId: number): void {
       const bodyKeys = ['name', 'category'].filter(k => k === 'name' ? name !== undefined : category !== undefined);
       const item = updatePackingItem(tripId, itemId, { name, category }, bodyKeys);
       if (!item) return { content: [{ type: 'text' as const, text: 'Packing item not found.' }], isError: true };
-      broadcast(tripId, 'packing:updated', { item });
+      safeBroadcast(tripId, 'packing:updated', { item });
       return ok({ item });
     }
   );
@@ -744,7 +752,7 @@ export function registerTools(server: McpServer, userId: number): void {
       if (!canAccessTrip(tripId, userId)) return noAccess();
       if (!getDay(dayId, tripId)) return { content: [{ type: 'text' as const, text: 'Day not found.' }], isError: true };
       reorderAssignments(dayId, assignmentIds);
-      broadcast(tripId, 'assignment:reordered', { dayId, assignmentIds });
+      safeBroadcast(tripId, 'assignment:reordered', { dayId, assignmentIds });
       return ok({ success: true, dayId, order: assignmentIds });
     }
   );
@@ -860,7 +868,7 @@ export function registerTools(server: McpServer, userId: number): void {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
       const note = createCollabNote(tripId, userId, { title, content, category, color });
-      broadcast(tripId, 'collab:note:created', { note });
+      safeBroadcast(tripId, 'collab:note:created', { note });
       return ok({ note });
     }
   );
@@ -885,7 +893,7 @@ export function registerTools(server: McpServer, userId: number): void {
       if (!canAccessTrip(tripId, userId)) return noAccess();
       const note = updateCollabNote(tripId, noteId, { title, content, category, color, pinned });
       if (!note) return { content: [{ type: 'text' as const, text: 'Note not found.' }], isError: true };
-      broadcast(tripId, 'collab:note:updated', { note });
+      safeBroadcast(tripId, 'collab:note:updated', { note });
       return ok({ note });
     }
   );
@@ -905,7 +913,7 @@ export function registerTools(server: McpServer, userId: number): void {
       if (!canAccessTrip(tripId, userId)) return noAccess();
       const deleted = deleteCollabNote(tripId, noteId);
       if (!deleted) return { content: [{ type: 'text' as const, text: 'Note not found.' }], isError: true };
-      broadcast(tripId, 'collab:note:deleted', { noteId });
+      safeBroadcast(tripId, 'collab:note:deleted', { noteId });
       return ok({ success: true });
     }
   );
@@ -930,7 +938,7 @@ export function registerTools(server: McpServer, userId: number): void {
       if (!canAccessTrip(tripId, userId)) return noAccess();
       if (!dayNoteExists(dayId, tripId)) return { content: [{ type: 'text' as const, text: 'Day not found.' }], isError: true };
       const note = createDayNote(dayId, tripId, text, time, icon);
-      broadcast(tripId, 'dayNote:created', { dayId, note });
+      safeBroadcast(tripId, 'dayNote:created', { dayId, note });
       return ok({ note });
     }
   );
@@ -955,7 +963,7 @@ export function registerTools(server: McpServer, userId: number): void {
       const existing = getDayNote(noteId, dayId, tripId);
       if (!existing) return { content: [{ type: 'text' as const, text: 'Note not found.' }], isError: true };
       const note = updateDayNote(noteId, existing, { text, time: time !== undefined ? time : undefined, icon });
-      broadcast(tripId, 'dayNote:updated', { dayId, note });
+      safeBroadcast(tripId, 'dayNote:updated', { dayId, note });
       return ok({ note });
     }
   );
@@ -977,7 +985,7 @@ export function registerTools(server: McpServer, userId: number): void {
       const note = getDayNote(noteId, dayId, tripId);
       if (!note) return { content: [{ type: 'text' as const, text: 'Note not found.' }], isError: true };
       deleteDayNote(noteId);
-      broadcast(tripId, 'dayNote:deleted', { noteId, dayId });
+      safeBroadcast(tripId, 'dayNote:deleted', { noteId, dayId });
       return ok({ success: true });
     }
   );
