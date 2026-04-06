@@ -21,7 +21,7 @@ import {
 } from './helpersService';
 
 const SYNOLOGY_PROVIDER = 'synologyphotos';
-const SYNOLOGY_ENDPOINT_PATH = '/photo/webapi/entry.cgi';
+const SYNOLOGY_ENDPOINT_PATH = '/webapi/entry.cgi';
 
 interface SynologyUserRecord {
     synology_url?: string | null;
