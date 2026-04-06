@@ -128,7 +128,15 @@ export async function mcpHandler(req: Request, res: Response): Promise<void> {
   }
 
   // Create a new per-user MCP server and session
-  const server = new McpServer({ name: 'trek', version: '1.0.0' });
+  const server = new McpServer({
+    name: 'TREK MCP',
+    version: '1.0.0',
+    capabilities: {
+      resources: { listChanged: true },
+      tools: { listChanged: true },
+      prompts: { listChanged: true },
+    },
+  });
   registerResources(server, user.id);
   registerTools(server, user.id);
 

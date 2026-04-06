@@ -26,6 +26,34 @@ import { searchPlaces } from '../services/mapsService';
 
 const MAX_MCP_TRIP_DAYS = 90;
 
+const TOOL_ANNOTATIONS_READONLY = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+} as const;
+
+const TOOL_ANNOTATIONS_WRITE = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+} as const;
+
+const TOOL_ANNOTATIONS_DELETE = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  idempotentHint: true,
+  openWorldHint: false,
+} as const;
+
+const TOOL_ANNOTATIONS_NON_IDEMPOTENT = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: false,
+  openWorldHint: false,
+} as const;
+
 function demoDenied() {
   return { content: [{ type: 'text' as const, text: 'Write operations are disabled in demo mode.' }], isError: true };
 }
@@ -52,6 +80,7 @@ export function registerTools(server: McpServer, userId: number): void {
         end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('End date (YYYY-MM-DD)'),
         currency: z.string().length(3).optional().describe('Currency code (e.g. EUR, USD)'),
       },
+      annotations: TOOL_ANNOTATIONS_NON_IDEMPOTENT,
     },
     async ({ title, description, start_date, end_date, currency }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -85,6 +114,7 @@ export function registerTools(server: McpServer, userId: number): void {
         end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         currency: z.string().length(3).optional(),
       },
+      annotations: TOOL_ANNOTATIONS_WRITE,
     },
     async ({ tripId, title, description, start_date, end_date, currency }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -112,6 +142,7 @@ export function registerTools(server: McpServer, userId: number): void {
       inputSchema: {
         tripId: z.number().int().positive(),
       },
+      annotations: TOOL_ANNOTATIONS_DELETE,
     },
     async ({ tripId }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -128,6 +159,7 @@ export function registerTools(server: McpServer, userId: number): void {
       inputSchema: {
         include_archived: z.boolean().optional().describe('Include archived trips (default false)'),
       },
+      annotations: TOOL_ANNOTATIONS_READONLY,
     },
     async ({ include_archived }) => {
       const trips = listTrips(userId, include_archived ? null : 0);
@@ -155,6 +187,7 @@ export function registerTools(server: McpServer, userId: number): void {
         website: z.string().max(500).optional(),
         phone: z.string().max(50).optional(),
       },
+      annotations: TOOL_ANNOTATIONS_NON_IDEMPOTENT,
     },
     async ({ tripId, name, description, lat, lng, address, category_id, google_place_id, osm_id, notes, website, phone }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -181,6 +214,7 @@ export function registerTools(server: McpServer, userId: number): void {
         website: z.string().max(500).optional(),
         phone: z.string().max(50).optional(),
       },
+      annotations: TOOL_ANNOTATIONS_WRITE,
     },
     async ({ tripId, placeId, name, description, lat, lng, address, notes, website, phone }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -200,6 +234,7 @@ export function registerTools(server: McpServer, userId: number): void {
         tripId: z.number().int().positive(),
         placeId: z.number().int().positive(),
       },
+      annotations: TOOL_ANNOTATIONS_DELETE,
     },
     async ({ tripId, placeId }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -218,6 +253,7 @@ export function registerTools(server: McpServer, userId: number): void {
     {
       description: 'List all available place categories with their id, name, icon and color. Use category_id when creating or updating places.',
       inputSchema: {},
+      annotations: TOOL_ANNOTATIONS_READONLY,
     },
     async () => {
       const categories = listCategories();
@@ -234,6 +270,7 @@ export function registerTools(server: McpServer, userId: number): void {
       inputSchema: {
         query: z.string().min(1).max(500).describe('Place name or address to search for'),
       },
+      annotations: TOOL_ANNOTATIONS_READONLY,
     },
     async ({ query }) => {
       try {
@@ -257,6 +294,7 @@ export function registerTools(server: McpServer, userId: number): void {
         placeId: z.number().int().positive(),
         notes: z.string().max(500).optional(),
       },
+      annotations: TOOL_ANNOTATIONS_NON_IDEMPOTENT,
     },
     async ({ tripId, dayId, placeId, notes }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -278,6 +316,7 @@ export function registerTools(server: McpServer, userId: number): void {
         dayId: z.number().int().positive(),
         assignmentId: z.number().int().positive(),
       },
+      annotations: TOOL_ANNOTATIONS_DELETE,
     },
     async ({ tripId, dayId, assignmentId }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -303,6 +342,7 @@ export function registerTools(server: McpServer, userId: number): void {
         total_price: z.number().nonnegative(),
         note: z.string().max(500).optional(),
       },
+      annotations: TOOL_ANNOTATIONS_NON_IDEMPOTENT,
     },
     async ({ tripId, name, category, total_price, note }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -321,6 +361,7 @@ export function registerTools(server: McpServer, userId: number): void {
         tripId: z.number().int().positive(),
         itemId: z.number().int().positive(),
       },
+      annotations: TOOL_ANNOTATIONS_DELETE,
     },
     async ({ tripId, itemId }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -343,6 +384,7 @@ export function registerTools(server: McpServer, userId: number): void {
         name: z.string().min(1).max(200),
         category: z.string().max(100).optional().describe('Packing category (e.g. Clothes, Electronics)'),
       },
+      annotations: TOOL_ANNOTATIONS_NON_IDEMPOTENT,
     },
     async ({ tripId, name, category }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -362,6 +404,7 @@ export function registerTools(server: McpServer, userId: number): void {
         itemId: z.number().int().positive(),
         checked: z.boolean(),
       },
+      annotations: TOOL_ANNOTATIONS_WRITE,
     },
     async ({ tripId, itemId, checked }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -381,6 +424,7 @@ export function registerTools(server: McpServer, userId: number): void {
         tripId: z.number().int().positive(),
         itemId: z.number().int().positive(),
       },
+      annotations: TOOL_ANNOTATIONS_DELETE,
     },
     async ({ tripId, itemId }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -414,6 +458,7 @@ export function registerTools(server: McpServer, userId: number): void {
         check_out: z.string().max(10).optional().describe('Check-out time (e.g. "11:00", hotel type only)'),
         assignment_id: z.number().int().positive().optional().describe('Link to a day assignment (restaurant, train, car, cruise, event, tour, activity, other)'),
       },
+      annotations: TOOL_ANNOTATIONS_NON_IDEMPOTENT,
     },
     async ({ tripId, title, type, reservation_time, location, confirmation_number, notes, day_id, place_id, start_day_id, end_day_id, check_in, check_out, assignment_id }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -457,6 +502,7 @@ export function registerTools(server: McpServer, userId: number): void {
         tripId: z.number().int().positive(),
         reservationId: z.number().int().positive(),
       },
+      annotations: TOOL_ANNOTATIONS_DELETE,
     },
     async ({ tripId, reservationId }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -484,6 +530,7 @@ export function registerTools(server: McpServer, userId: number): void {
         check_in: z.string().max(10).optional().describe('Check-in time (e.g. "15:00")'),
         check_out: z.string().max(10).optional().describe('Check-out time (e.g. "11:00")'),
       },
+      annotations: TOOL_ANNOTATIONS_WRITE,
     },
     async ({ tripId, reservationId, place_id, start_day_id, end_day_id, check_in, check_out }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -525,6 +572,7 @@ export function registerTools(server: McpServer, userId: number): void {
         place_time: z.string().max(50).nullable().optional().describe('Start time (e.g. "09:00"), or null to clear'),
         end_time: z.string().max(50).nullable().optional().describe('End time (e.g. "11:00"), or null to clear'),
       },
+      annotations: TOOL_ANNOTATIONS_WRITE,
     },
     async ({ tripId, assignmentId, place_time, end_time }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -550,6 +598,7 @@ export function registerTools(server: McpServer, userId: number): void {
         dayId: z.number().int().positive(),
         title: z.string().max(200).nullable().describe('Day title, or null to clear it'),
       },
+      annotations: TOOL_ANNOTATIONS_WRITE,
     },
     async ({ tripId, dayId, title }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -581,6 +630,7 @@ export function registerTools(server: McpServer, userId: number): void {
         place_id: z.number().int().positive().nullable().optional().describe('Link to a place (use for hotel type), or null to unlink'),
         assignment_id: z.number().int().positive().nullable().optional().describe('Link to a day assignment (use for restaurant, train, car, cruise, event, tour, activity, other), or null to unlink'),
       },
+      annotations: TOOL_ANNOTATIONS_WRITE,
     },
     async ({ tripId, reservationId, title, type, reservation_time, location, confirmation_number, notes, status, place_id, assignment_id }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -619,6 +669,7 @@ export function registerTools(server: McpServer, userId: number): void {
         days: z.number().int().positive().nullable().optional(),
         note: z.string().max(500).nullable().optional(),
       },
+      annotations: TOOL_ANNOTATIONS_WRITE,
     },
     async ({ tripId, itemId, name, category, total_price, persons, days, note }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -642,6 +693,7 @@ export function registerTools(server: McpServer, userId: number): void {
         name: z.string().min(1).max(200).optional(),
         category: z.string().max(100).optional(),
       },
+      annotations: TOOL_ANNOTATIONS_WRITE,
     },
     async ({ tripId, itemId, name, category }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -665,6 +717,7 @@ export function registerTools(server: McpServer, userId: number): void {
         dayId: z.number().int().positive(),
         assignmentIds: z.array(z.number().int().positive()).min(1).max(200).describe('Assignment IDs in desired display order'),
       },
+      annotations: TOOL_ANNOTATIONS_NON_IDEMPOTENT,
     },
     async ({ tripId, dayId, assignmentIds }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -685,6 +738,7 @@ export function registerTools(server: McpServer, userId: number): void {
       inputSchema: {
         tripId: z.number().int().positive(),
       },
+      annotations: TOOL_ANNOTATIONS_READONLY,
     },
     async ({ tripId }) => {
       if (!canAccessTrip(tripId, userId)) return noAccess();
@@ -707,6 +761,7 @@ export function registerTools(server: McpServer, userId: number): void {
         country_code: z.string().length(2).toUpperCase().optional().describe('ISO 3166-1 alpha-2 country code'),
         notes: z.string().max(1000).optional(),
       },
+      annotations: TOOL_ANNOTATIONS_NON_IDEMPOTENT,
     },
     async ({ name, lat, lng, country_code, notes }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -722,6 +777,7 @@ export function registerTools(server: McpServer, userId: number): void {
       inputSchema: {
         itemId: z.number().int().positive(),
       },
+      annotations: TOOL_ANNOTATIONS_DELETE,
     },
     async ({ itemId }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -740,6 +796,7 @@ export function registerTools(server: McpServer, userId: number): void {
       inputSchema: {
         country_code: z.string().length(2).toUpperCase().describe('ISO 3166-1 alpha-2 country code (e.g. "FR", "JP")'),
       },
+      annotations: TOOL_ANNOTATIONS_NON_IDEMPOTENT,
     },
     async ({ country_code }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -755,6 +812,7 @@ export function registerTools(server: McpServer, userId: number): void {
       inputSchema: {
         country_code: z.string().length(2).toUpperCase().describe('ISO 3166-1 alpha-2 country code'),
       },
+      annotations: TOOL_ANNOTATIONS_DELETE,
     },
     async ({ country_code }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -776,6 +834,7 @@ export function registerTools(server: McpServer, userId: number): void {
         category: z.string().max(100).optional().describe('Note category (e.g. "Ideas", "To-do", "General")'),
         color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().describe('Hex color for the note card'),
       },
+      annotations: TOOL_ANNOTATIONS_NON_IDEMPOTENT,
     },
     async ({ tripId, title, content, category, color }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -799,6 +858,7 @@ export function registerTools(server: McpServer, userId: number): void {
         color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().describe('Hex color for the note card'),
         pinned: z.boolean().optional().describe('Pin the note to the top'),
       },
+      annotations: TOOL_ANNOTATIONS_WRITE,
     },
     async ({ tripId, noteId, title, content, category, color, pinned }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -818,6 +878,7 @@ export function registerTools(server: McpServer, userId: number): void {
         tripId: z.number().int().positive(),
         noteId: z.number().int().positive(),
       },
+      annotations: TOOL_ANNOTATIONS_DELETE,
     },
     async ({ tripId, noteId }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -842,6 +903,7 @@ export function registerTools(server: McpServer, userId: number): void {
         time: z.string().max(150).optional().describe('Time label (e.g. "09:00" or "Morning")'),
         icon: z.string().optional().describe('Emoji icon for the note'),
       },
+      annotations: TOOL_ANNOTATIONS_NON_IDEMPOTENT,
     },
     async ({ tripId, dayId, text, time, icon }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -865,6 +927,7 @@ export function registerTools(server: McpServer, userId: number): void {
         time: z.string().max(150).nullable().optional().describe('Time label (e.g. "09:00" or "Morning"), or null to clear'),
         icon: z.string().optional().describe('Emoji icon for the note'),
       },
+      annotations: TOOL_ANNOTATIONS_WRITE,
     },
     async ({ tripId, dayId, noteId, text, time, icon }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -886,6 +949,7 @@ export function registerTools(server: McpServer, userId: number): void {
         dayId: z.number().int().positive(),
         noteId: z.number().int().positive(),
       },
+      annotations: TOOL_ANNOTATIONS_DELETE,
     },
     async ({ tripId, dayId, noteId }) => {
       if (isDemoUser(userId)) return demoDenied();
@@ -895,6 +959,116 @@ export function registerTools(server: McpServer, userId: number): void {
       deleteDayNote(noteId);
       broadcast(tripId, 'dayNote:deleted', { noteId, dayId });
       return ok({ success: true });
+    }
+  );
+
+  // --- PROMPTS ---
+
+  server.registerPrompt(
+    'trip-summary',
+    {
+      title: 'Trip Summary',
+      description: 'Load a full summary of a trip for context before planning or modifications',
+      argsSchema: {
+        tripId: z.number().int().positive().describe('Trip ID to summarize'),
+      },
+    },
+    async ({ tripId }) => {
+      if (!canAccessTrip(tripId, userId)) {
+        return { messages: [{ role: 'user', content: { type: 'text', text: 'Trip not found or access denied.' } }] };
+      }
+      const summary = getTripSummary(tripId);
+      if (!summary) {
+        return { messages: [{ role: 'user', content: { type: 'text', text: 'Trip not found.' } }] };
+      }
+      const { trip, days, members, budget, packing, reservations, collabNotes } = summary;
+      const packingStats = packing ? { total: packing.length, packed: packing.filter((p: any) => p.checked).length } : { total: 0, packed: 0 };
+      const budgetTotal = budget?.reduce((sum: number, b: any) => sum + (b.total_price || 0), 0) || 0;
+      const text = `Trip: ${trip?.title || 'Untitled'}${trip?.description ? `\n${trip.description}` : ''}
+Dates: ${trip?.start_date || '?'} to ${trip?.end_date || '?'}
+Members: ${members?.length || 0} (${members?.map((m: any) => m.name || m.email).join(', ') || 'none'})
+Days: ${days?.length || 0}
+Packing: ${packingStats.packed}/${packingStats.total} items packed
+Budget: ${budgetTotal} ${trip?.currency || 'EUR'} total
+Reservations: ${reservations?.length || 0}
+Collab Notes: ${collabNotes?.length || 0}
+${days?.map((d: any, i: number) => `Day ${i + 1} (${d.date}): ${d.assignments?.length || 0} places${d.title ? ` - ${d.title}` : ''}`).join('\n') || 'No days yet'}`;
+      return {
+        description: `Summary of trip "${trip?.title || tripId}"`,
+        messages: [{ role: 'user', content: { type: 'text', text } }],
+      };
+    }
+  );
+
+  server.registerPrompt(
+    'packing-list',
+    {
+      title: 'Packing List',
+      description: 'Get a formatted packing checklist for a trip',
+      argsSchema: {
+        tripId: z.number().int().positive().describe('Trip ID'),
+      },
+    },
+    async ({ tripId }) => {
+      if (!canAccessTrip(tripId, userId)) {
+        return { messages: [{ role: 'user', content: { type: 'text', text: 'Trip not found or access denied.' } }] };
+      }
+      const { listPackingItems } = await import('../services/packingService');
+      const items = listPackingItems(tripId);
+      if (!items.length) {
+        return { messages: [{ role: 'user', content: { type: 'text', text: 'No packing items found for this trip.' } }] };
+      }
+      const grouped = items.reduce((acc: Record<string, any[]>, item: any) => {
+        const cat = item.category || 'General';
+        if (!acc[cat]) acc[cat] = [];
+        acc[cat].push(item);
+        return acc;
+      }, {});
+      const lines = Object.entries(grouped).map(([cat, items]) =>
+        `## ${cat}\n${(items as any[]).map((i: any) => `- [${i.checked ? 'x' : ' '}] ${i.name}`).join('\n')}`
+      ).join('\n\n');
+      const { trip } = getTripSummary(tripId) || {};
+      return {
+        description: `Packing list for "${trip?.title || tripId}"`,
+        messages: [{ role: 'user', content: { type: 'text', text: `# Packing List: ${trip?.title || 'Trip'}\n\n${lines}\n\n_${items.length} items across ${Object.keys(grouped).length} categories_` } }],
+      };
+    }
+  );
+
+  server.registerPrompt(
+    'budget-overview',
+    {
+      title: 'Budget Overview',
+      description: 'Get a formatted budget summary for a trip',
+      argsSchema: {
+        tripId: z.number().int().positive().describe('Trip ID'),
+      },
+    },
+    async ({ tripId }) => {
+      if (!canAccessTrip(tripId, userId)) {
+        return { messages: [{ role: 'user', content: { type: 'text', text: 'Trip not found or access denied.' } }] };
+      }
+      const summary = getTripSummary(tripId);
+      if (!summary) {
+        return { messages: [{ role: 'user', content: { type: 'text', text: 'Trip not found.' } }] };
+      }
+      const { trip, budget } = summary;
+      const currency = trip?.currency || 'EUR';
+      const byCategory = (budget || []).reduce((acc: Record<string, number>, item: any) => {
+        const cat = item.category || 'Uncategorized';
+        acc[cat] = (acc[cat] || 0) + (item.total_price || 0);
+        return acc;
+      }, {} as Record<string, number>);
+      const total = Object.values(byCategory).reduce((s, v) => s + v, 0);
+      const lines = Object.entries(byCategory)
+        .sort(([, a], [, b]) => b - a)
+        .map(([cat, amount]) => `- ${cat}: ${amount} ${currency}`)
+        .join('\n');
+      const perPerson = (summary.members?.length || 1) > 0 ? (total / (summary.members?.length || 1)).toFixed(2) : total.toFixed(2);
+      return {
+        description: `Budget overview for "${trip?.title || tripId}"`,
+        messages: [{ role: 'user', content: { type: 'text', text: `# Budget: ${trip?.title || 'Trip'}\n\n**Total: ${total} ${currency}** (${perPerson} ${currency} per person)\n\n${lines || 'No expenses recorded.'}` } }],
+      };
     }
   );
 }

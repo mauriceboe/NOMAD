@@ -41,7 +41,7 @@ export function registerResources(server: McpServer, userId: number): void {
   server.registerResource(
     'trips',
     'trek://trips',
-    { description: 'All trips the user owns or is a member of' },
+    { description: 'All trips the user owns or is a member of', mimeType: 'application/json' },
     async (uri) => {
       const trips = listTrips(userId, 0);
       return jsonContent(uri.href, trips);
@@ -52,7 +52,7 @@ export function registerResources(server: McpServer, userId: number): void {
   server.registerResource(
     'trip',
     new ResourceTemplate('trek://trips/{tripId}', { list: undefined }),
-    { description: 'A single trip with metadata and member count' },
+    { description: 'A single trip with metadata and member count', mimeType: 'application/json' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
@@ -65,7 +65,7 @@ export function registerResources(server: McpServer, userId: number): void {
   server.registerResource(
     'trip-days',
     new ResourceTemplate('trek://trips/{tripId}/days', { list: undefined }),
-    { description: 'Days of a trip with their assigned places' },
+    { description: 'Days of a trip with their assigned places', mimeType: 'application/json' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
@@ -79,7 +79,7 @@ export function registerResources(server: McpServer, userId: number): void {
   server.registerResource(
     'trip-places',
     new ResourceTemplate('trek://trips/{tripId}/places', { list: undefined }),
-    { description: 'All places/POIs saved in a trip' },
+    { description: 'All places/POIs saved in a trip', mimeType: 'application/json' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
@@ -92,7 +92,7 @@ export function registerResources(server: McpServer, userId: number): void {
   server.registerResource(
     'trip-budget',
     new ResourceTemplate('trek://trips/{tripId}/budget', { list: undefined }),
-    { description: 'Budget and expense items for a trip' },
+    { description: 'Budget and expense items for a trip', mimeType: 'application/json' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
@@ -105,7 +105,7 @@ export function registerResources(server: McpServer, userId: number): void {
   server.registerResource(
     'trip-packing',
     new ResourceTemplate('trek://trips/{tripId}/packing', { list: undefined }),
-    { description: 'Packing checklist for a trip' },
+    { description: 'Packing checklist for a trip', mimeType: 'application/json' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
@@ -118,7 +118,7 @@ export function registerResources(server: McpServer, userId: number): void {
   server.registerResource(
     'trip-reservations',
     new ResourceTemplate('trek://trips/{tripId}/reservations', { list: undefined }),
-    { description: 'Reservations (flights, hotels, restaurants) for a trip' },
+    { description: 'Reservations (flights, hotels, restaurants) for a trip', mimeType: 'application/json' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
@@ -131,7 +131,7 @@ export function registerResources(server: McpServer, userId: number): void {
   server.registerResource(
     'day-notes',
     new ResourceTemplate('trek://trips/{tripId}/days/{dayId}/notes', { list: undefined }),
-    { description: 'Notes for a specific day in a trip' },
+    { description: 'Notes for a specific day in a trip', mimeType: 'application/json' },
     async (uri, { tripId, dayId }) => {
       const tId = parseId(tripId);
       const dId = parseId(dayId);
@@ -145,7 +145,7 @@ export function registerResources(server: McpServer, userId: number): void {
   server.registerResource(
     'trip-accommodations',
     new ResourceTemplate('trek://trips/{tripId}/accommodations', { list: undefined }),
-    { description: 'Accommodations (hotels, rentals) for a trip with check-in/out details' },
+    { description: 'Accommodations (hotels, rentals) for a trip with check-in/out details', mimeType: 'application/json' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
@@ -158,7 +158,7 @@ export function registerResources(server: McpServer, userId: number): void {
   server.registerResource(
     'trip-members',
     new ResourceTemplate('trek://trips/{tripId}/members', { list: undefined }),
-    { description: 'Owner and collaborators of a trip' },
+    { description: 'Owner and collaborators of a trip', mimeType: 'application/json' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
@@ -173,7 +173,7 @@ export function registerResources(server: McpServer, userId: number): void {
   server.registerResource(
     'trip-collab-notes',
     new ResourceTemplate('trek://trips/{tripId}/collab-notes', { list: undefined }),
-    { description: 'Shared collaborative notes for a trip' },
+    { description: 'Shared collaborative notes for a trip', mimeType: 'application/json' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
@@ -186,7 +186,7 @@ export function registerResources(server: McpServer, userId: number): void {
   server.registerResource(
     'categories',
     'trek://categories',
-    { description: 'All available place categories (id, name, color, icon) for use when creating places' },
+    { description: 'All available place categories (id, name, color, icon) for use when creating places', mimeType: 'application/json' },
     async (uri) => {
       const categories = listCategories();
       return jsonContent(uri.href, categories);
@@ -197,7 +197,7 @@ export function registerResources(server: McpServer, userId: number): void {
   server.registerResource(
     'bucket-list',
     'trek://bucket-list',
-    { description: 'Your personal travel bucket list' },
+    { description: 'Your personal travel bucket list', mimeType: 'application/json' },
     async (uri) => {
       const items = listBucketList(userId);
       return jsonContent(uri.href, items);
@@ -208,7 +208,7 @@ export function registerResources(server: McpServer, userId: number): void {
   server.registerResource(
     'visited-countries',
     'trek://visited-countries',
-    { description: 'Countries you have marked as visited in Atlas' },
+    { description: 'Countries you have marked as visited in Atlas', mimeType: 'application/json' },
     async (uri) => {
       const countries = listVisitedCountries(userId);
       return jsonContent(uri.href, countries);
