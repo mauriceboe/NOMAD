@@ -36,6 +36,7 @@ export default function TripFormModal({ isOpen, onClose, onSave, trip, onCoverUp
     start_date: '',
     end_date: '',
     reminder_days: 0 as number,
+    day_count: 7,
   })
   const [customReminder, setCustomReminder] = useState(false)
   const [error, setError] = useState('')
@@ -56,11 +57,12 @@ export default function TripFormModal({ isOpen, onClose, onSave, trip, onCoverUp
         start_date: trip.start_date || '',
         end_date: trip.end_date || '',
         reminder_days: rd,
+        day_count: trip.day_count || 7,
       })
       setCustomReminder(![0, 1, 3, 9].includes(rd))
       setCoverPreview(trip.cover_image || null)
     } else {
-      setFormData({ title: '', description: '', start_date: '', end_date: '', reminder_days: tripRemindersEnabled ? 3 : 0 })
+      setFormData({ title: '', description: '', start_date: '', end_date: '', reminder_days: tripRemindersEnabled ? 3 : 0, day_count: 7 })
       setCustomReminder(false)
       setCoverPreview(null)
     }
@@ -98,6 +100,7 @@ export default function TripFormModal({ isOpen, onClose, onSave, trip, onCoverUp
         start_date: formData.start_date || null,
         end_date: formData.end_date || null,
         reminder_days: formData.reminder_days,
+        ...(!formData.start_date && !formData.end_date ? { day_count: formData.day_count } : {}),
       })
       const newTripId = result && typeof result === 'object' && 'trip' in result ? Number(result.trip?.id) : null
       // Add selected members for newly created trips
@@ -297,6 +300,18 @@ export default function TripFormModal({ isOpen, onClose, onSave, trip, onCoverUp
             <CustomDatePicker value={formData.end_date} onChange={v => update('end_date', v)} placeholder={t('dashboard.endDate')} />
           </div>
         </div>
+
+        {!formData.start_date && !formData.end_date && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              {t('dashboard.dayCount')}
+            </label>
+            <input type="number" min={1} max={365} value={formData.day_count}
+              onChange={e => update('day_count', Math.max(1, Math.min(365, Number(e.target.value) || 1)))}
+              className={inputCls} />
+            <p className="text-xs text-slate-400 mt-1.5">{t('dashboard.dayCountHint')}</p>
+          </div>
+        )}
 
         {/* Reminder — only visible to owner (or when creating) */}
         {(!isEditing || trip?.user_id === currentUser?.id || currentUser?.role === 'admin') && (
