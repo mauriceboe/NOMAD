@@ -21,7 +21,36 @@ import {
 } from './helpersService';
 
 const SYNOLOGY_PROVIDER = 'synologyphotos';
-const SYNOLOGY_ENDPOINT_PATH = '/photo/webapi/entry.cgi';
+const SYNOLOGY_ENDPOINT_PATH = '/webapi/entry.cgi';
+
+const ERROR_MESSAGES: Record<number, string> = {
+  101: 'Missing API, method, or version parameter.',
+  102: 'Requested API does not exist.',
+  103: 'Requested method does not exist.',
+  104: 'Requested API version is not supported.',
+  105: 'Insufficient privilege.',
+  106: 'Connection timeout.',
+  107: 'Multiple logins blocked from this IP.',
+  117: 'Manager privilege required.',
+  119: 'Session is invalid or expired.',
+  400: 'Authentication failed.',
+  401: 'Session expired or account disabled.',
+  402: 'No permission to use this account.',
+  403: 'Two-factor authentication is required.',
+  404: 'Two-factor authentication failed.',
+  406: 'Two-factor authentication is enforced for this account.',
+  407: 'Maximum attempts reached.',
+  408: 'Password expired.',
+  409: 'Remote password expired.',
+  410: 'Password must be changed before login.',
+  412: 'Guest account cannot log in.',
+  413: 'OTP system files are corrupted.',
+  414: 'Unable to log in.',
+  416: 'Unable to log in.',
+  417: 'OTP system is full.',
+  498: 'System is upgrading.',
+  499: 'System is not ready.',
+};
 
 interface SynologyUserRecord {
     synology_url?: string | null;
@@ -144,7 +173,7 @@ async function _fetchSynologyJson<T>(url: string, body: URLSearchParams): Promis
             return fail('Synology API request failed with status ' + resp.status, resp.status);
         }
         const response = await resp.json() as SynologyApiResponse<T>;
-        return response.success ? success(response.data) : fail('Synology failed with code ' + response.error.code, response.error.code);
+        return response.success ? success(response.data) : fail(ERROR_MESSAGES[response.error.code] || 'Synology API request failed', response.error.code);
     } catch (error) {
         if (error instanceof SsrfBlockedError) {
             return fail(error.message, 400);
@@ -153,14 +182,19 @@ async function _fetchSynologyJson<T>(url: string, body: URLSearchParams): Promis
     }
 }
 
-async function _loginToSynology(url: string, username: string, password: string): Promise<ServiceResult<string>> {
+async function _loginToSynology(url: string, username: string, password: string, otp?: string): Promise<ServiceResult<string>> {
     const body = new URLSearchParams({
         api: 'SYNO.API.Auth',
         method: 'login',
-        version: '3',
+        version: '6',
         account: username,
         passwd: password,
+        format: 'sid',
+        client: 'browser'
     });
+    if (otp) {
+        body.append('otp_code', otp);
+    }
 
     const result = await _fetchSynologyJson<{ sid?: string }>(url, body);
     if (!result.success) {
@@ -276,7 +310,7 @@ export async function getSynologySettings(userId: number): Promise<ServiceResult
     });
 }
 
-export async function updateSynologySettings(userId: number, synologyUrl: string, synologyUsername: string, synologyPassword?: string): Promise<ServiceResult<string>> {
+export async function updateSynologySettings(userId: number, synologyUrl: string, synologyUsername: string, synologyPassword?: string, synologyOtp?: string): Promise<ServiceResult<string>> {
 
     const ssrf = await checkSsrf(synologyUrl);
     if (!ssrf.allowed) {
@@ -303,6 +337,17 @@ export async function updateSynologySettings(userId: number, synologyUrl: string
     }
 
     _clearSynologySID(userId);
+    console.log(synologyOtp, synologyOtp?.trim(), synologyOtp && synologyOtp.trim()); //debug log to verify OTP presence
+    if (synologyOtp && synologyOtp.trim()) {
+        const resp = await _loginToSynology(synologyUrl, synologyUsername, synologyPassword || decrypt_api_key(existingEncryptedPassword || '') || '', synologyOtp);
+        console.log('Login response after settings update:', resp); //debug log to verify login response
+        if ('error' in resp) {
+            return fail("Failed to connect to Synology with provided OTP: " + resp.error.message, resp.error.status);
+        }
+        const encrypted = encrypt_api_key(resp.data);
+        db.prepare('UPDATE users SET synology_sid = ? WHERE id = ?').run(encrypted, userId);
+        return success(resp.data);
+    }
     return success("settings updated");
 }
 
@@ -318,16 +363,16 @@ export async function getSynologyStatus(userId: number): Promise<ServiceResult<S
     }
 }
 
-export async function testSynologyConnection(synologyUrl: string, synologyUsername: string, synologyPassword: string): Promise<ServiceResult<StatusResult>> {
+export async function testSynologyConnection(synologyUrl: string, synologyUsername: string, synologyPassword: string, synologyOtp?: string): Promise<ServiceResult<StatusResult>> {
 
     const ssrf = await checkSsrf(synologyUrl);
     if (!ssrf.allowed) {
         return fail(ssrf.error, 400);
     }
 
-    const resp = await _loginToSynology(synologyUrl, synologyUsername, synologyPassword);
+    const resp = await _loginToSynology(synologyUrl, synologyUsername, synologyPassword, synologyOtp);
     if ('error' in resp) {
-        return success({ connected: false, error: resp.error.status === 400 ? 'Invalid credentials' : resp.error.message });
+        return success({ connected: false, error: `${resp.error.status}: ${resp.error.message}` },);
     }
     return success({ connected: true, user: { name: synologyUsername } });
 }

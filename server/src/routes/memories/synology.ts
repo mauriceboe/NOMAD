@@ -36,12 +36,13 @@ router.put('/settings', authenticate, async (req: Request, res: Response) => {
     const synology_url = _parseStringBodyField(body.synology_url);
     const synology_username = _parseStringBodyField(body.synology_username);
     const synology_password = _parseStringBodyField(body.synology_password);
+    const synology_otp = _parseStringBodyField(body.synology_otp);
 
     if (!synology_url || !synology_username) {
         handleServiceResult(res, fail('URL and username are required', 400));
     }
     else {
-        handleServiceResult(res, await updateSynologySettings(authReq.user.id, synology_url, synology_username, synology_password));
+        handleServiceResult(res, await updateSynologySettings(authReq.user.id, synology_url, synology_username, synology_password, synology_otp));
     }
 });
 
@@ -55,6 +56,7 @@ router.post('/test', authenticate, async (req: Request, res: Response) => {
     const synology_url = _parseStringBodyField(body.synology_url);
     const synology_username = _parseStringBodyField(body.synology_username);
     const synology_password = _parseStringBodyField(body.synology_password);
+    const synology_otp = _parseStringBodyField(body.synology_otp);
 
     if (!synology_url || !synology_username || !synology_password) {
         const missingFields: string[] = [];
@@ -64,7 +66,7 @@ router.post('/test', authenticate, async (req: Request, res: Response) => {
         handleServiceResult(res, success({ connected: false, error: `${missingFields.join(', ')} ${missingFields.length > 1 ? 'are' : 'is'} required` }));
     }
     else{
-        handleServiceResult(res, await testSynologyConnection(synology_url, synology_username, synology_password));
+        handleServiceResult(res, await testSynologyConnection(synology_url, synology_username, synology_password, synology_otp));
     }
 });
 
