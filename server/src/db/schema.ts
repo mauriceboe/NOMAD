@@ -234,6 +234,7 @@ function createTables(db: Database.Database): void {
       name TEXT NOT NULL,
       description TEXT,
       icon TEXT DEFAULT 'Image',
+      tooltip TEXT DEFAULT '',
       enabled INTEGER DEFAULT 0,
       sort_order INTEGER DEFAULT 0
     );

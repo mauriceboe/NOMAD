@@ -23,6 +23,7 @@ interface PhotoProviderAddon {
   name: string
   type: string
   enabled: boolean
+  tooltip?: string
   config?: Record<string, unknown>
   fields?: ProviderField[]
 }
@@ -194,7 +195,7 @@ export default function PhotoProvidersSection(): React.ReactElement {
     const canTest = !!(cfg.test_post || cfg.test_get || cfg.status_get)
 
     return (
-      <Section key={provider.id} title={provider.name || provider.id} icon={Camera}>
+      <Section key={provider.id} title={provider.name || provider.id} icon={Camera} tooltip={provider.tooltip}>
         <div className="space-y-3">
           {fields.map(field => (
             <div key={`${provider.id}-${field.key}`}>

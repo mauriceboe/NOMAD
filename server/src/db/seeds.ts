@@ -99,6 +99,7 @@ function seedAddons(db: Database.Database): void {
         name: 'Immich',
         description: 'Immich photo provider',
         icon: 'Image',
+        tooltip: '',
         enabled: 0,
         sort_order: 0,
       },
@@ -107,12 +108,13 @@ function seedAddons(db: Database.Database): void {
         name: 'Synology Photos',
         description: 'Synology Photos integration with separate account settings',
         icon: 'Image',
+        tooltip: 'Supports only DSM version 6.2+',
         enabled: 0,
         sort_order: 1,
       },
     ];
-    const insertProvider = db.prepare('INSERT OR IGNORE INTO photo_providers (id, name, description, icon, enabled, sort_order) VALUES (?, ?, ?, ?, ?, ?)');
-    for (const p of providerRows) insertProvider.run(p.id, p.name, p.description, p.icon, p.enabled, p.sort_order);
+    const insertProvider = db.prepare('INSERT OR IGNORE INTO photo_providers (id, name, description, icon, tooltip, enabled, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    for (const p of providerRows) insertProvider.run(p.id, p.name, p.description, p.icon, p.tooltip, p.enabled, p.sort_order);
 
     const providerFields = [
       { provider_id: 'immich', field_key: 'immich_url', label: 'providerUrl', input_type: 'url', placeholder: 'https://immich.example.com', required: 1, secret: 0, settings_key: 'immich_url', payload_key: 'immich_url', sort_order: 0 },

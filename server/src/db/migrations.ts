@@ -885,7 +885,12 @@ function runMigrations(db: Database.Database): void {
           updateSynologyUrl.run(normalizedUrl, user.id);
         }
       }
+    },
+    () => {
+      try {db.exec("alter table photo_providers add column tooltip TEXT default ''");} catch (err) {}
+      try {db.exec("UPDATE photo_providers SET tooltip = 'Supports only DSM version 6.2+' WHERE id = 'synologyphotos'");} catch (err) {}
     }
+
   ];
 
   if (currentVersion < migrations.length) {
