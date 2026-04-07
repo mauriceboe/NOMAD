@@ -120,6 +120,7 @@ function seedAddons(db: Database.Database): void {
       { provider_id: 'synologyphotos', field_key: 'synology_url', label: 'providerUrl', input_type: 'url', placeholder: 'https://synology.example.com', required: 1, secret: 0, settings_key: 'synology_url', payload_key: 'synology_url', sort_order: 0 },
       { provider_id: 'synologyphotos', field_key: 'synology_username', label: 'providerUsername', input_type: 'text', placeholder: 'Username', required: 1, secret: 0, settings_key: 'synology_username', payload_key: 'synology_username', sort_order: 1 },
       { provider_id: 'synologyphotos', field_key: 'synology_password', label: 'providerPassword', input_type: 'password', placeholder: 'Password', required: 1, secret: 1, settings_key: null, payload_key: 'synology_password', sort_order: 2 },
+      { provider_id: 'synologyphotos', field_key: 'synology_otp', label: 'providerOTP', input_type: 'number', placeholder: 'OTP', required: 0, secret: 0, settings_key: null, payload_key: 'synology_otp', sort_order: 3 },
     ];
     const insertProviderField = db.prepare('INSERT OR IGNORE INTO photo_provider_fields (provider_id, field_key, label, input_type, placeholder, required, secret, settings_key, payload_key, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     for (const f of providerFields) {
