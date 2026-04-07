@@ -1420,6 +1420,7 @@ const en: Record<string, string | { name: string; category: string }[]> = {
   'memories.providerApiKey': 'API Key',
   'memories.providerUsername': 'Username',
   'memories.providerPassword': 'Password',
+  'memories.providerOTP': 'Your MFA code',
   'memories.testConnection': 'Test connection',
   'memories.testFirst': 'Test connection first',
   'memories.connected': 'Connected',
