@@ -71,7 +71,8 @@ sessionSweepInterval.unref();
 function verifyToken(req: Request): User | null {
   // Accept token from Authorization header or ?token= query parameter
   const authHeader = req.headers['authorization'];
-  const rawToken = (authHeader && authHeader.split(' ')[1]) || (req.query.token as string | undefined);
+  const queryToken = Array.isArray(req.query.token) ? req.query.token[0] : (req.query.token as string | undefined);
+  const rawToken = (authHeader && authHeader.split(' ')[1]) || queryToken;
   if (!rawToken) return null;
 
   // Long-lived MCP API token (trek_...)

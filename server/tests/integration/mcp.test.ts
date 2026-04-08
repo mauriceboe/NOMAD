@@ -202,21 +202,20 @@ describe('MCP API token auth', () => {
     const token = generateToken(user.id);
     testDb.prepare("UPDATE addons SET enabled = 1 WHERE id = 'mcp'").run();
 
-    // First create a session via POST
-    const initRes = await request(app)
-      .post(`/mcp?token=${token}`)
-      .set('Accept', 'application/json, text/event-stream')
-      .send({ jsonrpc: '2.0', method: 'initialize', id: 1, params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'test', version: '1' } } });
-    expect(initRes.status).toBe(200);
-    const sessionId = initRes.headers['mcp-session-id'];
-
-    // Then use session via GET with token in query param
+    // Auth passes: valid token in query param → 404 (unknown session), not 401
     const res = await request(app)
       .get(`/mcp?token=${token}`)
-      .set('Mcp-Session-Id', sessionId);
-    // Auth passes (may return 200 or other status depending on SSE, but not 401/403)
-    expect(res.status).not.toBe(401);
-    expect(res.status).not.toBe(403);
+      .set('Mcp-Session-Id', 'nonexistent-session-id');
+    expect(res.status).toBe(404);
+  });
+
+  it('MCP — POST /mcp with invalid token as ?token= query param returns 401', async () => {
+    testDb.prepare("UPDATE addons SET enabled = 1 WHERE id = 'mcp'").run();
+
+    const res = await request(app)
+      .post('/mcp?token=trek_totally_fake_token_not_in_db')
+      .send({ jsonrpc: '2.0', method: 'initialize', id: 1 });
+    expect(res.status).toBe(401);
   });
 });
 
