@@ -68,17 +68,19 @@ const sessionSweepInterval = setInterval(() => {
 // Prevent the interval from keeping the process alive if nothing else is running
 sessionSweepInterval.unref();
 
-function verifyToken(authHeader: string | undefined): User | null {
-  const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return null;
+function verifyToken(req: Request): User | null {
+  // Accept token from Authorization header or ?token= query parameter
+  const authHeader = req.headers['authorization'];
+  const rawToken = (authHeader && authHeader.split(' ')[1]) || (req.query.token as string | undefined);
+  if (!rawToken) return null;
 
   // Long-lived MCP API token (trek_...)
-  if (token.startsWith('trek_')) {
-    return verifyMcpToken(token);
+  if (rawToken.startsWith('trek_')) {
+    return verifyMcpToken(rawToken);
   }
 
   // Short-lived JWT
-  return verifyJwtToken(token);
+  return verifyJwtToken(rawToken);
 }
 
 export async function mcpHandler(req: Request, res: Response): Promise<void> {
@@ -87,7 +89,7 @@ export async function mcpHandler(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const user = verifyToken(req.headers['authorization']);
+  const user = verifyToken(req);
   if (!user) {
     res.status(401).json({ error: 'Access token required' });
     return;
