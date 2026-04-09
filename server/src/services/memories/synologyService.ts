@@ -381,7 +381,7 @@ export async function listSynologyAlbums(userId: number): Promise<ServiceResult<
         method: 'list',
         version: 4,
         offset: 0,
-        limit: 100,
+        limit: 1000,
     });
     if (!result.success) return result as ServiceResult<AlbumsList>;
 
@@ -436,7 +436,7 @@ export async function syncSynologyAlbumLink(userId: number, tripId: string, link
     return success({ added: result.data.added, total: allItems.length });
 }
 
-export async function searchSynologyPhotos(userId: number, from?: string, to?: string, offset = 0, limit = 300): Promise<ServiceResult<AssetsList>> {
+export async function searchSynologyPhotos(userId: number, from?: string, to?: string, offset = 0, limit = 1000): Promise<ServiceResult<AssetsList>> {
     const params: ApiCallParams = {
         api: 'SYNO.Foto.Search.Search',
         method: 'list_item',
