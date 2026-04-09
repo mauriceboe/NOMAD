@@ -36,6 +36,7 @@ import vacayRoutes from './routes/vacay';
 import atlasRoutes from './routes/atlas';
 import memoriesRoutes from './routes/memories/unified';
 import notificationRoutes from './routes/notifications';
+import noticesRoutes from './routes/notices';
 import shareRoutes from './routes/share';
 import { mcpHandler } from './mcp';
 import { Addon } from './types';
@@ -262,6 +263,7 @@ export function createApp(): express.Application {
   app.use('/api/settings', settingsRoutes);
   app.use('/api/backup', backupRoutes);
   app.use('/api/notifications', notificationRoutes);
+  app.use('/api/notices', noticesRoutes);
   app.use('/api', shareRoutes);
 
   // MCP endpoint

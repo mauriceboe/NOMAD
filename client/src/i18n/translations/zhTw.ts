@@ -1541,6 +1541,12 @@ const zhTw: Record<string, string> = {
   'notifications.test.adminText': '{actor} 向所有管理員傳送了測試通知。',
   'notifications.test.tripTitle': '{actor} 在您的行程中發帖',
   'notifications.test.tripText': '行程"{trip}"的測試通知。',
+  // System notices
+  'notices.gotIt': 'Got it',
+  'notices.prev': 'Previous',
+  'notices.next': 'Next',
+  'notices.progress': '{current} of {total}',
+
 }
 
 export default zhTw

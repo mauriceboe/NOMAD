@@ -1686,6 +1686,12 @@ const ru: Record<string, string> = {
   'notif.generic.text': 'У вас новое уведомление',
   'notif.dev.unknown_event.title': '[DEV] Неизвестное событие',
   'notif.dev.unknown_event.text': 'Тип события "{event}" не зарегистрирован в EVENT_NOTIFICATION_CONFIG',
+  // System notices
+  'notices.gotIt': 'Got it',
+  'notices.prev': 'Previous',
+  'notices.next': 'Next',
+  'notices.progress': '{current} of {total}',
+
 }
 
 export default ru

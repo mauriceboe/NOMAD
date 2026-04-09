@@ -1690,6 +1690,12 @@ const cs: Record<string, string | { name: string; category: string }[]> = {
   'notif.generic.text': 'Máte nové oznámení',
   'notif.dev.unknown_event.title': '[DEV] Neznámá událost',
   'notif.dev.unknown_event.text': 'Typ události "{event}" není registrován v EVENT_NOTIFICATION_CONFIG',
+  // System notices
+  'notices.gotIt': 'Got it',
+  'notices.prev': 'Previous',
+  'notices.next': 'Next',
+  'notices.progress': '{current} of {total}',
+
 }
 
 export default cs

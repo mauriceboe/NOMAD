@@ -17,6 +17,8 @@ import { TranslationProvider, useTranslation } from './i18n'
 import { authApi } from './api/client'
 import { usePermissionsStore, PermissionLevel } from './store/permissionsStore'
 import { useInAppNotificationListener } from './hooks/useInAppNotificationListener.ts'
+import { useNoticesStore } from './store/noticesStore'
+import NoticesModal from './components/Notices/NoticesModal'
 
 interface ProtectedRouteProps {
   children: ReactNode
@@ -123,6 +125,7 @@ export default function App() {
   useEffect(() => {
     if (isAuthenticated) {
       loadSettings()
+      useNoticesStore.getState().fetch()
     }
   }, [isAuthenticated])
 
@@ -158,6 +161,7 @@ export default function App() {
   return (
     <TranslationProvider>
       <ToastContainer />
+      <NoticesModal />
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<LoginPage />} />

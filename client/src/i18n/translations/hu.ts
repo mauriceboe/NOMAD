@@ -1687,6 +1687,12 @@ const hu: Record<string, string | { name: string; category: string }[]> = {
   'notif.generic.text': 'Új értesítésed érkezett',
   'notif.dev.unknown_event.title': '[DEV] Ismeretlen esemény',
   'notif.dev.unknown_event.text': 'A(z) "{event}" eseménytípus nincs regisztrálva az EVENT_NOTIFICATION_CONFIG-ban',
+  // System notices
+  'notices.gotIt': 'Got it',
+  'notices.prev': 'Previous',
+  'notices.next': 'Next',
+  'notices.progress': '{current} of {total}',
+
 }
 
 export default hu

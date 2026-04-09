@@ -1686,6 +1686,12 @@ const nl: Record<string, string> = {
   'notif.generic.text': 'Je hebt een nieuwe melding',
   'notif.dev.unknown_event.title': '[DEV] Onbekende gebeurtenis',
   'notif.dev.unknown_event.text': 'Gebeurtenistype "{event}" is niet geregistreerd in EVENT_NOTIFICATION_CONFIG',
+  // System notices
+  'notices.gotIt': 'Got it',
+  'notices.prev': 'Previous',
+  'notices.next': 'Next',
+  'notices.progress': '{current} of {total}',
+
 }
 
 export default nl

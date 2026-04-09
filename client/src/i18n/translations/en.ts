@@ -1698,6 +1698,26 @@ const en: Record<string, string | { name: string; category: string }[]> = {
   'notif.generic.text': 'You have a new notification',
   'notif.dev.unknown_event.title': '[DEV] Unknown Event',
   'notif.dev.unknown_event.text': 'Event type "{event}" is not registered in EVENT_NOTIFICATION_CONFIG',
+
+  // System notices UI chrome
+  'notices.gotIt': 'Got it',
+  'notices.prev': 'Previous',
+  'notices.next': 'Next',
+  'notices.progress': '{current} of {total}',
+
+  // Test / seed notices
+  'notices.onboarding.title': 'Ready to plan your first trip?',
+  'notices.onboarding.body': 'TREK is all set up and ready to go. Create your first trip to get started — add destinations, build your day-by-day itinerary, and invite travel companions.\n\nIt only takes a few seconds to get going.',
+  'notices.onboarding.cta': 'Create your first trip',
+  'notices.welcome.title': 'Welcome to TREK',
+  'notices.welcome.body': 'TREK is your **self-hosted travel planner**. Here\'s what you can do:\n\n- **Plan trips** — build day-by-day itineraries with places, times, and notes\n- **Track your budget** — log expenses per person and settle up\n- **Collaborate in real time** — invite friends and sync changes instantly',
+  'notices.collab.title': 'Real-time collaboration is here',
+  'notices.collab.body': 'Invite friends and family to any trip. Once they join:\n\n- Everyone can **add and edit places**, leave notes, and reorder days\n- **Polls** let the group vote on options\n- A built-in **chat** keeps the conversation in one place\n\nAll changes sync instantly across every device.',
+  'notices.pwa.title': 'Install TREK on your device',
+  'notices.pwa.body': 'TREK works as a **Progressive Web App** — no app store needed.\n\n- **Chrome / Edge**: click the install icon in the address bar\n- **Safari on iOS**: tap Share → *Add to Home Screen*\n\nYou\'ll get a native-like experience with offline support.',
+  'notices.atlas.title': 'Discover the Atlas',
+  'notices.atlas.body': 'The **Atlas** visualizes every country and region you\'ve visited across all your trips — automatically built from the places you\'ve added.\n\nSee your travel history on an **interactive world map** and track how much of the world you\'ve explored.',
+  'notices.atlas.cta': 'Open Atlas',
 }
 
 export default en

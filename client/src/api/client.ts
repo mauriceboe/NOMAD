@@ -336,6 +336,21 @@ export const notificationsApi = {
   testWebhook: (url?: string) => apiClient.post('/notifications/test-webhook', { url }).then(r => r.data),
 }
 
+export interface Notice {
+  id: string;
+  title_key: string;
+  body_key: string;
+  cta_label_key?: string | null;
+  cta_url?: string | null;
+  cta_action?: string | null;
+  priority: number;
+}
+
+export const noticesApi = {
+  getPending: () => apiClient.get<Notice[]>('/notices').then(r => r.data),
+  dismiss: (id: string) => apiClient.post(`/notices/${id}/dismiss`, {}).then(r => r.data),
+}
+
 export const inAppNotificationsApi = {
   list: (params?: { limit?: number; offset?: number; unread_only?: boolean }) =>
     apiClient.get('/notifications/in-app', { params }).then(r => r.data),

@@ -1686,6 +1686,12 @@ const fr: Record<string, string> = {
   'notif.generic.text': 'Vous avez une nouvelle notification',
   'notif.dev.unknown_event.title': '[DEV] Événement inconnu',
   'notif.dev.unknown_event.text': 'Le type d\'événement "{event}" n\'est pas enregistré dans EVENT_NOTIFICATION_CONFIG',
+  // System notices
+  'notices.gotIt': 'Got it',
+  'notices.prev': 'Previous',
+  'notices.next': 'Next',
+  'notices.progress': '{current} of {total}',
+
 }
 
 export default fr

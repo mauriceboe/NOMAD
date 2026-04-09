@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { tripsApi } from '../api/client'
+import { registerNoticeAction, unregisterNoticeAction } from '../lib/noticeActions'
 import { useAuthStore } from '../store/authStore'
 import { useSettingsStore } from '../store/settingsStore'
 import { useTranslation } from '../i18n'
@@ -587,6 +588,11 @@ export default function DashboardPage(): React.ReactElement {
   }, [showWidgetSettings])
 
   useEffect(() => { loadTrips() }, [])
+
+  useEffect(() => {
+    registerNoticeAction('create-trip', () => setShowForm(true))
+    return () => unregisterNoticeAction('create-trip')
+  }, [])
 
   const loadTrips = async () => {
     setIsLoading(true)

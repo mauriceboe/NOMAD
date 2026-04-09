@@ -864,6 +864,47 @@ function runMigrations(db: Database.Database): void {
         for (const d of matchingDays) ins.run(r.id, d.id, r.day_plan_position);
       }
     },
+    // Migration 76: Create notices and user_notices tables
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS notices (
+          id TEXT PRIMARY KEY,
+          title_key TEXT NOT NULL,
+          body_key TEXT NOT NULL,
+          condition TEXT,
+          cta_label_key TEXT,
+          cta_url TEXT,
+          cta_action TEXT,
+          priority INTEGER NOT NULL DEFAULT 0,
+          active INTEGER NOT NULL DEFAULT 1,
+          created_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+        CREATE TABLE IF NOT EXISTS user_notices (
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          notice_id TEXT NOT NULL REFERENCES notices(id) ON DELETE CASCADE,
+          dismissed_at INTEGER NOT NULL,
+          PRIMARY KEY (user_id, notice_id)
+        );
+      `);
+    },
+    // Migration 77: Add cta_action column to notices
+    () => {
+      try { db.exec('ALTER TABLE notices ADD COLUMN cta_action TEXT'); } catch (err: any) { if (!err.message?.includes('duplicate column name')) throw err; }
+    },
+    // Migration 78: Seed canonical notices (INSERT OR REPLACE keeps existing dismissals intact)
+    () => {
+      const upsert = db.prepare(`
+        INSERT OR REPLACE INTO notices (id, title_key, body_key, condition, cta_label_key, cta_url, cta_action, priority, active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      const seed = db.transaction(() => {
+        upsert.run('welcome-to-trek',       'notices.welcome.title',     'notices.welcome.body',     null, null,                    null,         null,          0, 1);
+        upsert.run('new-collab-feature',    'notices.collab.title',      'notices.collab.body',      null, null,                    null,         null,          1, 1);
+        upsert.run('pwa-install-tip',       'notices.pwa.title',         'notices.pwa.body',         null, null,                    null,         null,          2, 1);
+        upsert.run('onboarding-first-trip', 'notices.onboarding.title',  'notices.onboarding.body',  null, 'notices.onboarding.cta', '/dashboard', 'create-trip', 3, 1);
+      });
+      seed();
+    },
   ];
 
   if (currentVersion < migrations.length) {

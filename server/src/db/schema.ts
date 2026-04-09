@@ -386,6 +386,26 @@ function createTables(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_collab_notes_trip ON collab_notes(trip_id);
     CREATE INDEX IF NOT EXISTS idx_collab_polls_trip ON collab_polls(trip_id);
     CREATE INDEX IF NOT EXISTS idx_collab_messages_trip ON collab_messages(trip_id);
+
+    CREATE TABLE IF NOT EXISTS notices (
+      id          TEXT    PRIMARY KEY,
+      title_key   TEXT    NOT NULL,
+      body_key    TEXT    NOT NULL,
+      condition   TEXT,
+      cta_label_key TEXT,
+      cta_url     TEXT,
+      cta_action  TEXT,
+      priority    INTEGER NOT NULL DEFAULT 0,
+      active      INTEGER NOT NULL DEFAULT 1,
+      created_at  INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+
+    CREATE TABLE IF NOT EXISTS user_notices (
+      user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      notice_id   TEXT    NOT NULL REFERENCES notices(id) ON DELETE CASCADE,
+      dismissed_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, notice_id)
+    );
   `);
 
   db.exec(`

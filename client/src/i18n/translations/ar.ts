@@ -1690,6 +1690,12 @@ const ar: Record<string, string | { name: string; category: string }[]> = {
   'notif.generic.text': 'لديك إشعار جديد',
   'notif.dev.unknown_event.title': '[DEV] حدث غير معروف',
   'notif.dev.unknown_event.text': 'نوع الحدث "{event}" غير مسجل في EVENT_NOTIFICATION_CONFIG',
+  // System notices
+  'notices.gotIt': 'Got it',
+  'notices.prev': 'Previous',
+  'notices.next': 'Next',
+  'notices.progress': '{current} of {total}',
+
 }
 
 export default ar

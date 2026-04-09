@@ -1687,6 +1687,12 @@ const it: Record<string, string | { name: string; category: string }[]> = {
   'notif.generic.text': 'Hai una nuova notifica',
   'notif.dev.unknown_event.title': '[DEV] Evento sconosciuto',
   'notif.dev.unknown_event.text': 'Il tipo di evento "{event}" non è registrato in EVENT_NOTIFICATION_CONFIG',
+  // System notices
+  'notices.gotIt': 'Got it',
+  'notices.prev': 'Previous',
+  'notices.next': 'Next',
+  'notices.progress': '{current} of {total}',
+
 }
 
 export default it
