@@ -13,6 +13,7 @@ import AtlasPage from './pages/AtlasPage'
 import SharedTripPage from './pages/SharedTripPage'
 import InAppNotificationsPage from './pages/InAppNotificationsPage.tsx'
 import OAuthAuthorizePage from './pages/OAuthAuthorizePage'
+import OAuthRegisterPage from './pages/OAuthRegisterPage'
 import { ToastContainer } from './components/shared/Toast'
 import { TranslationProvider, useTranslation } from './i18n'
 import { authApi } from './api/client'
@@ -166,6 +167,7 @@ export default function App() {
         <Route path="/register" element={<LoginPage />} />
         {/* OAuth 2.1 consent page — intentionally outside ProtectedRoute */}
         <Route path="/oauth/authorize" element={<OAuthAuthorizePage />} />
+        <Route path="/oauth/register" element={<OAuthRegisterPage />} />
         <Route
           path="/dashboard"
           element={

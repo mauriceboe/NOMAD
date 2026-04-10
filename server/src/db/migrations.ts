@@ -933,6 +933,13 @@ function runMigrations(db: Database.Database): void {
         CREATE INDEX IF NOT EXISTS idx_oauth_tokens_parent ON oauth_tokens(parent_token_id);
       `);
     },
+    // Migration: Public client support for browser-initiated dynamic registration (DCR)
+    () => {
+      db.exec(`
+        ALTER TABLE oauth_clients ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE oauth_clients ADD COLUMN created_via TEXT NOT NULL DEFAULT 'settings_ui';
+      `);
+    },
   ];
 
   if (currentVersion < migrations.length) {

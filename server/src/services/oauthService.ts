@@ -55,6 +55,8 @@ interface OAuthClientRow {
   redirect_uris: string;   // JSON array
   allowed_scopes: string;  // JSON array
   created_at: string;
+  is_public: number;       // 0 | 1 (SQLite boolean)
+  created_via: string;     // 'settings_ui' | 'browser-registration'
 }
 
 interface OAuthTokenRow {
@@ -100,13 +102,24 @@ function generateRefreshToken(): string {
 
 export function listOAuthClients(userId: number): Record<string, unknown>[] {
   const rows = db.prepare(
-    'SELECT id, user_id, name, client_id, redirect_uris, allowed_scopes, created_at FROM oauth_clients WHERE user_id = ? ORDER BY created_at DESC'
+    'SELECT id, user_id, name, client_id, redirect_uris, allowed_scopes, created_at, is_public, created_via FROM oauth_clients WHERE user_id = ? ORDER BY created_at DESC'
   ).all(userId) as OAuthClientRow[];
   return rows.map(r => ({
     ...r,
+    is_public: Boolean(r.is_public),
     redirect_uris: JSON.parse(r.redirect_uris),
     allowed_scopes: JSON.parse(r.allowed_scopes),
   }));
+}
+
+/** Returns true if the URI is a valid OAuth redirect target (HTTPS or localhost). */
+export function isValidRedirectUri(uri: string): boolean {
+  try {
+    const url = new URL(uri);
+    return url.protocol === 'https:' || url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  } catch {
+    return false;
+  }
 }
 
 export function createOAuthClient(
@@ -115,6 +128,7 @@ export function createOAuthClient(
   redirectUris: string[],
   allowedScopes: string[],
   ip?: string | null,
+  options?: { isPublic?: boolean; createdVia?: string },
 ): { error?: string; status?: number; client?: Record<string, unknown> } {
   if (!name?.trim()) return { error: 'Name is required', status: 400 };
   if (name.trim().length > 100) return { error: 'Name must be 100 characters or less', status: 400 };
@@ -122,13 +136,14 @@ export function createOAuthClient(
   if (redirectUris.length > 10) return { error: 'Maximum 10 redirect URIs per client', status: 400 };
 
   for (const uri of redirectUris) {
+    let parsed: URL;
     try {
-      const url = new URL(uri);
-      if (url.protocol !== 'https:' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
-        return { error: `Redirect URI must use HTTPS (localhost exempt): ${uri}`, status: 400 };
-      }
+      parsed = new URL(uri);
     } catch {
       return { error: `Invalid redirect URI: ${uri}`, status: 400 };
+    }
+    if (parsed.protocol !== 'https:' && parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1') {
+      return { error: `Redirect URI must use HTTPS (localhost exempt): ${uri}`, status: 400 };
     }
   }
 
@@ -139,20 +154,23 @@ export function createOAuthClient(
   const count = (db.prepare('SELECT COUNT(*) as count FROM oauth_clients WHERE user_id = ?').get(userId) as { count: number }).count;
   if (count >= 10) return { error: 'Maximum of 10 OAuth clients per user', status: 400 };
 
+  const isPublic    = options?.isPublic ?? false;
+  const createdVia  = options?.createdVia ?? 'settings_ui';
   const id          = randomUUID();
   const clientId    = randomUUID();
-  const rawSecret   = 'trekcs_' + randomBytes(24).toString('hex');
-  const secretHash  = hashToken(rawSecret);
+  // Public clients have no usable secret; store an opaque random value to satisfy NOT NULL.
+  const rawSecret   = isPublic ? null : 'trekcs_' + randomBytes(24).toString('hex');
+  const secretHash  = rawSecret ? hashToken(rawSecret) : randomBytes(32).toString('hex');
 
   db.prepare(
-    'INSERT INTO oauth_clients (id, user_id, name, client_id, client_secret_hash, redirect_uris, allowed_scopes) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).run(id, userId, name.trim(), clientId, secretHash, JSON.stringify(redirectUris), JSON.stringify(allowedScopes));
+    'INSERT INTO oauth_clients (id, user_id, name, client_id, client_secret_hash, redirect_uris, allowed_scopes, is_public, created_via) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(id, userId, name.trim(), clientId, secretHash, JSON.stringify(redirectUris), JSON.stringify(allowedScopes), isPublic ? 1 : 0, createdVia);
 
   const row = db.prepare(
-    'SELECT id, user_id, name, client_id, redirect_uris, allowed_scopes, created_at FROM oauth_clients WHERE id = ?'
+    'SELECT id, user_id, name, client_id, redirect_uris, allowed_scopes, created_at, is_public, created_via FROM oauth_clients WHERE id = ?'
   ).get(id) as OAuthClientRow;
 
-  writeAudit({ userId, action: 'oauth.client.create', details: { client_id: clientId, name: name.trim() }, ip });
+  writeAudit({ userId, action: 'oauth.client.create', details: { client_id: clientId, name: name.trim(), is_public: isPublic }, ip });
 
   return {
     client: {
@@ -163,7 +181,10 @@ export function createOAuthClient(
       redirect_uris: JSON.parse(row.redirect_uris),
       allowed_scopes: JSON.parse(row.allowed_scopes),
       created_at: row.created_at,
-      client_secret: rawSecret, // shown once — not stored in plain text
+      is_public: Boolean(row.is_public),
+      created_via: row.created_via,
+      // client_secret only present for confidential clients — shown once, not stored in plain text
+      ...(rawSecret ? { client_secret: rawSecret } : {}),
     },
   };
 }
@@ -173,8 +194,9 @@ export function rotateOAuthClientSecret(
   clientRowId: string,
   ip?: string | null,
 ): { error?: string; status?: number; client_secret?: string } {
-  const row = db.prepare('SELECT id, client_id FROM oauth_clients WHERE id = ? AND user_id = ?').get(clientRowId, userId) as OAuthClientRow | undefined;
+  const row = db.prepare('SELECT id, client_id, is_public FROM oauth_clients WHERE id = ? AND user_id = ?').get(clientRowId, userId) as OAuthClientRow | undefined;
   if (!row) return { error: 'Client not found', status: 404 };
+  if (row.is_public) return { error: 'Public clients do not use a client secret', status: 400 };
 
   const rawSecret  = 'trekcs_' + randomBytes(24).toString('hex');
   const secretHash = hashToken(rawSecret);
@@ -363,12 +385,16 @@ function revokeChain(rootId: number): number[] {
 export function refreshTokens(
   rawRefreshToken: string,
   clientId: string,
-  clientSecret: string,
+  clientSecret: string | undefined,
   ip?: string | null,
 ): { error?: string; status?: number; tokens?: ReturnType<typeof issueTokens> } {
-  const client = db.prepare('SELECT client_id, client_secret_hash FROM oauth_clients WHERE client_id = ?').get(clientId) as OAuthClientRow | undefined;
+  const client = db.prepare('SELECT client_id, client_secret_hash, is_public FROM oauth_clients WHERE client_id = ?').get(clientId) as OAuthClientRow | undefined;
   if (!client) return { error: 'invalid_client', status: 401 };
-  if (!timingSafeEqualHex(hashToken(clientSecret), client.client_secret_hash)) return { error: 'invalid_client', status: 401 };
+  if (!client.is_public) {
+    if (!clientSecret || !timingSafeEqualHex(hashToken(clientSecret), client.client_secret_hash)) {
+      return { error: 'invalid_client', status: 401 };
+    }
+  }
 
   const hash = hashToken(rawRefreshToken);
   const row = db.prepare(`
@@ -587,10 +613,15 @@ export function verifyPKCE(codeVerifier: string, codeChallenge: string): boolean
 // Client authentication (for token endpoint)
 // ---------------------------------------------------------------------------
 
-export function authenticateClient(clientId: string, clientSecret: string): OAuthClientRow | null {
+export function authenticateClient(clientId: string, clientSecret: string | undefined): OAuthClientRow | null {
   const client = db.prepare('SELECT * FROM oauth_clients WHERE client_id = ?').get(clientId) as OAuthClientRow | undefined;
   if (!client) return null;
+  if (client.is_public) {
+    // Public clients are identified by client_id alone — PKCE provides the security guarantee.
+    return client;
+  }
   // H4: constant-time comparison to prevent timing side-channel
+  if (!clientSecret) return null;
   if (!timingSafeEqualHex(hashToken(clientSecret), client.client_secret_hash)) return null;
   return client;
 }

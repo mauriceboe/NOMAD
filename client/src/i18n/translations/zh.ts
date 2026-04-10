@@ -228,6 +228,7 @@ const zh: Record<string, string> = {
   'settings.mcp.endpoint': 'MCP 端点',
   'settings.mcp.clientConfig': '客户端配置',
   'settings.mcp.clientConfigHint': '将 <your_token> 替换为下方列表中的 API 令牌。npx 的路径可能需要根据您的系统进行调整（例如 Windows 上为 C:\\PROGRA~1\\nodejs\\npx.cmd）。',
+  'settings.mcp.clientConfigHintOAuth': 'Replace <your_client_id> and <your_client_secret> with the credentials shown in the OAuth 2.1 client you created above. mcp-remote will open your browser to complete the authorization the first time you connect. The path to npx may need to be adjusted for your system (e.g. C:\PROGRA~1\nodejs\npx.cmd on Windows).',
   'settings.mcp.copy': '复制',
   'settings.mcp.copied': '已复制！',
   'settings.mcp.apiTokens': 'API 令牌',

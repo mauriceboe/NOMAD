@@ -2,11 +2,12 @@ import Section from './Section'
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from '../../i18n'
 import { useToast } from '../shared/Toast'
-import { Trash2, Copy, Terminal, Plus, Check, KeyRound, ShieldCheck, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react'
+import { Trash2, Copy, Terminal, Plus, Check, KeyRound, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react'
 import { authApi, oauthApi } from '../../api/client'
 import { useAddonStore } from '../../store/addonStore'
 import PhotoProvidersSection from './PhotoProvidersSection'
-import { getScopesByGroup, ALL_SCOPES } from '../../api/oauthScopes'
+import { ALL_SCOPES } from '../../api/oauthScopes'
+import ScopeGroupPicker from '../OAuth/ScopeGroupPicker'
 
 interface OAuthPreset {
   id: string
@@ -114,8 +115,13 @@ export default function IntegrationsTab(): React.ReactElement {
   const [oauthRotateId, setOauthRotateId] = useState<string | null>(null)
   const [oauthRotatedSecret, setOauthRotatedSecret] = useState<string | null>(null)
   const [oauthRotating, setOauthRotating] = useState(false)
-  const [oauthScopesOpen, setOauthScopesOpen] = useState<Record<string, boolean>>({})
+  // oauthScopesOpen is managed internally by ScopeGroupPicker
   const [oauthScopesExpanded, setOauthScopesExpanded] = useState<Record<string, boolean>>({})
+
+  // MCP sub-tab state
+  const [activeMcpTab, setActiveMcpTab] = useState<'oauth' | 'apitokens'>('oauth')
+  const [configOpenOAuth, setConfigOpenOAuth] = useState(false)
+  const [configOpenToken, setConfigOpenToken] = useState(false)
 
   // MCP state
   const [mcpTokens, setMcpTokens] = useState<McpToken[]>([])
@@ -127,6 +133,19 @@ export default function IntegrationsTab(): React.ReactElement {
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
   const mcpEndpoint = `${window.location.origin}/mcp`
+  const mcpJsonConfigOAuth = `{
+  "mcpServers": {
+    "trek": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "${mcpEndpoint}",
+        "--static-oauth-client-info",
+        "{\\"client_id\\": \\"<your_client_id>\\", \\"client_secret\\": \\"<your_client_secret>\\"}"
+      ]
+    }
+  }
+}`
   const mcpJsonConfig = `{
   "mcpServers": {
     "trek": {
@@ -241,8 +260,6 @@ export default function IntegrationsTab(): React.ReactElement {
     }
   }
 
-  const scopesByGroup = getScopesByGroup()
-
   return (
     <>
       <PhotoProvidersSection />
@@ -263,113 +280,193 @@ export default function IntegrationsTab(): React.ReactElement {
             </div>
           </div>
 
-          {/* JSON config box */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{t('settings.mcp.clientConfig')}</label>
-              <button onClick={() => handleCopy(mcpJsonConfig, 'json')}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-                style={{ borderColor: 'var(--border-primary)', color: 'var(--text-secondary)' }}>
-                {copiedKey === 'json' ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
-                {copiedKey === 'json' ? t('settings.mcp.copied') : t('settings.mcp.copy')}
-              </button>
-            </div>
-            <pre className="p-3 rounded-lg text-xs font-mono overflow-x-auto border" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}>
-              {mcpJsonConfig}
-            </pre>
-            <p className="mt-1.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>{t('settings.mcp.clientConfigHint')}</p>
+          {/* Sub-tab bar */}
+          <div className="flex gap-1 rounded-lg p-1" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)' }}>
+            <button
+              onClick={() => setActiveMcpTab('oauth')}
+              className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                activeMcpTab === 'oauth' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}>
+              {t('settings.oauth.clients')}
+            </button>
+            <button
+              onClick={() => setActiveMcpTab('apitokens')}
+              className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-2 ${
+                activeMcpTab === 'apitokens' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}>
+              {t('settings.mcp.apiTokens')}
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                style={{ background: 'rgba(245,158,11,0.15)', color: '#b45309', border: '1px solid rgba(245,158,11,0.4)' }}>
+                Deprecated
+              </span>
+            </button>
           </div>
 
-          {/* OAuth Clients */}
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <ShieldCheck className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-              <label className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{t('settings.oauth.clients')}</label>
-            </div>
-            <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>{t('settings.oauth.clientsHint')}</p>
-
-            <div className="flex justify-end mb-2">
-              <button onClick={() => { setOauthCreateOpen(true); setOauthCreatedClient(null); setOauthNewName(''); setOauthNewUris(''); setOauthNewScopes([]) }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-                style={{ background: 'var(--accent-primary, #4f46e5)', color: '#fff' }}>
-                <Plus className="w-3.5 h-3.5" /> {t('settings.oauth.createClient')}
-              </button>
-            </div>
-
-            {oauthClients.length === 0 ? (
-              <p className="text-sm py-3 text-center rounded-lg border" style={{ color: 'var(--text-tertiary)', borderColor: 'var(--border-primary)' }}>
-                {t('settings.oauth.noClients')}
-              </p>
-            ) : (
+          {/* OAuth 2.1 Clients tab */}
+          {activeMcpTab === 'oauth' && (
+            <>
+              {/* JSON config — OAuth (collapsible) */}
               <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-primary)' }}>
-                {oauthClients.map((client, i) => (
-                  <div key={client.id} className="px-4 py-3"
-                    style={{ borderBottom: i < oauthClients.length - 1 ? '1px solid var(--border-primary)' : undefined }}>
-                    <div className="flex items-center gap-3">
-                      <KeyRound className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{client.name}</p>
-                        <p className="text-xs font-mono mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                          {t('settings.oauth.clientId')}: {client.client_id}
-                          <span className="ml-3 font-sans">{t('settings.mcp.tokenCreatedAt')} {new Date(client.created_at).toLocaleDateString(locale)}</span>
-                        </p>
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          {(oauthScopesExpanded[client.id] ? client.allowed_scopes : client.allowed_scopes.slice(0, 5)).map(s => (
-                            <span key={s} className="px-1.5 py-0.5 rounded text-xs" style={{ background: 'var(--bg-secondary)', color: 'var(--text-tertiary)', border: '1px solid var(--border-primary)' }}>{s}</span>
-                          ))}
-                          {client.allowed_scopes.length > 5 && (
-                            <button
-                              onClick={() => setOauthScopesExpanded(prev => ({ ...prev, [client.id]: !prev[client.id] }))}
-                              className="px-1.5 py-0.5 rounded text-xs transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-                              style={{ color: 'var(--text-tertiary)', border: '1px solid var(--border-primary)' }}>
-                              {oauthScopesExpanded[client.id] ? '−' : `+${client.allowed_scopes.length - 5}`}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <button onClick={() => setOauthRotateId(client.id)}
-                        className="p-1.5 rounded-lg transition-colors hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20"
-                        style={{ color: 'var(--text-tertiary)' }} title={t('settings.oauth.rotateSecret')}>
-                        <RefreshCw className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => setOauthDeleteId(client.id)}
-                        className="p-1.5 rounded-lg transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
-                        style={{ color: 'var(--text-tertiary)' }} title={t('settings.oauth.deleteClient')}>
-                        <Trash2 className="w-4 h-4" />
+                <button
+                  onClick={() => setConfigOpenOAuth(o => !o)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+                  style={{ background: 'var(--bg-secondary)' }}>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{t('settings.mcp.clientConfig')}</span>
+                  {configOpenOAuth ? <ChevronDown className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} /> : <ChevronRight className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />}
+                </button>
+                {configOpenOAuth && (
+                  <div className="p-3 border-t" style={{ borderColor: 'var(--border-primary)' }}>
+                    <div className="flex justify-end mb-1.5">
+                      <button onClick={() => handleCopy(mcpJsonConfigOAuth, 'json-oauth')}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
+                        style={{ borderColor: 'var(--border-primary)', color: 'var(--text-secondary)' }}>
+                        {copiedKey === 'json-oauth' ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                        {copiedKey === 'json-oauth' ? t('settings.mcp.copied') : t('settings.mcp.copy')}
                       </button>
                     </div>
+                    <pre className="p-3 rounded-lg text-xs font-mono overflow-x-auto border" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}>
+                      {mcpJsonConfigOAuth}
+                    </pre>
+                    <p className="mt-1.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>{t('settings.mcp.clientConfigHintOAuth')}</p>
                   </div>
-                ))}
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Token list — deprecated */}
-          <div className="rounded-lg border" style={{ borderColor: 'var(--border-primary)' }}>
-            <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-primary)', background: 'rgba(245,158,11,0.06)' }}>
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{t('settings.mcp.apiTokens')}</label>
-                <span className="px-1.5 py-0.5 rounded text-xs font-medium" style={{ background: 'rgba(245,158,11,0.15)', color: '#b45309', border: '1px solid rgba(245,158,11,0.4)' }}>
-                  Deprecated
-                </span>
+              <div>
+                <p className="text-xs mb-3" style={{ color: 'var(--text-tertiary)' }}>{t('settings.oauth.clientsHint')}</p>
+
+                <div className="flex justify-end mb-2">
+                  <button onClick={() => { setOauthCreateOpen(true); setOauthCreatedClient(null); setOauthNewName(''); setOauthNewUris(''); setOauthNewScopes([]) }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-slate-900 text-white hover:bg-slate-700">
+                    <Plus className="w-3.5 h-3.5" /> {t('settings.oauth.createClient')}
+                  </button>
+                </div>
+
+                {oauthClients.length === 0 ? (
+                  <p className="text-sm py-3 text-center rounded-lg border" style={{ color: 'var(--text-tertiary)', borderColor: 'var(--border-primary)' }}>
+                    {t('settings.oauth.noClients')}
+                  </p>
+                ) : (
+                  <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-primary)' }}>
+                    {oauthClients.map((client, i) => (
+                      <div key={client.id} className="px-4 py-3"
+                        style={{ borderBottom: i < oauthClients.length - 1 ? '1px solid var(--border-primary)' : undefined }}>
+                        <div className="flex items-center gap-3">
+                          <KeyRound className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{client.name}</p>
+                            <p className="text-xs font-mono mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                              {t('settings.oauth.clientId')}: {client.client_id}
+                              <span className="ml-3 font-sans">{t('settings.mcp.tokenCreatedAt')} {new Date(client.created_at).toLocaleDateString(locale)}</span>
+                            </p>
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {(oauthScopesExpanded[client.id] ? client.allowed_scopes : client.allowed_scopes.slice(0, 5)).map(s => (
+                                <span key={s} className="px-1.5 py-0.5 rounded text-xs" style={{ background: 'var(--bg-secondary)', color: 'var(--text-tertiary)', border: '1px solid var(--border-primary)' }}>{s}</span>
+                              ))}
+                              {client.allowed_scopes.length > 5 && (
+                                <button
+                                  onClick={() => setOauthScopesExpanded(prev => ({ ...prev, [client.id]: !prev[client.id] }))}
+                                  className="px-1.5 py-0.5 rounded text-xs transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
+                                  style={{ color: 'var(--text-tertiary)', border: '1px solid var(--border-primary)' }}>
+                                  {oauthScopesExpanded[client.id] ? '−' : `+${client.allowed_scopes.length - 5}`}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <button onClick={() => setOauthRotateId(client.id)}
+                            className="p-1.5 rounded-lg transition-colors hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20"
+                            style={{ color: 'var(--text-tertiary)' }} title={t('settings.oauth.rotateSecret')}>
+                            <RefreshCw className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => setOauthDeleteId(client.id)}
+                            className="p-1.5 rounded-lg transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                            style={{ color: 'var(--text-tertiary)' }} title={t('settings.oauth.deleteClient')}>
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <button onClick={() => { setMcpModalOpen(true); setMcpCreatedToken(null); setMcpNewName('') }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors opacity-60"
-                style={{ background: 'var(--bg-tertiary, #e5e7eb)', color: 'var(--text-secondary)' }}>
-                <Plus className="w-3.5 h-3.5" /> {t('settings.mcp.createToken')}
-              </button>
-            </div>
-            <div className="px-4 py-2.5 flex items-start gap-2 border-b" style={{ borderColor: 'var(--border-primary)', background: 'rgba(245,158,11,0.06)' }}>
-              <span className="text-amber-500 mt-0.5 flex-shrink-0">⚠</span>
-              <p className="text-xs" style={{ color: '#92400e' }}>{t('settings.mcp.apiTokensDeprecated')}</p>
-            </div>
-            <div className="p-4">
+
+              {/* Active OAuth Sessions */}
+              {oauthSessions.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium block mb-2" style={{ color: 'var(--text-secondary)' }}>{t('settings.oauth.activeSessions')}</label>
+                  <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-primary)' }}>
+                    {oauthSessions.map((session, i) => (
+                      <div key={session.id} className="flex items-center gap-3 px-4 py-3"
+                        style={{ borderBottom: i < oauthSessions.length - 1 ? '1px solid var(--border-primary)' : undefined }}>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{session.client_name}</p>
+                          <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                            {t('settings.oauth.sessionScopes')}: {session.scopes.join(', ')}
+                            <span className="ml-3">{t('settings.oauth.sessionExpires')} {new Date(session.access_token_expires_at).toLocaleDateString(locale)}</span>
+                          </p>
+                        </div>
+                        <button onClick={() => setOauthRevokeId(session.id)}
+                          className="px-2.5 py-1 rounded text-xs border transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                          style={{ borderColor: 'var(--border-primary)', color: 'var(--text-tertiary)' }}>
+                          {t('settings.oauth.revoke')}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* API Tokens tab (deprecated) */}
+          {activeMcpTab === 'apitokens' && (
+            <>
+              <div className="flex items-baseline gap-2 px-3 py-2.5 rounded-lg" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)' }}>
+                <span className="text-amber-500 flex-shrink-0 leading-none">⚠</span>
+                <p className="text-xs" style={{ color: '#92400e' }}>{t('settings.mcp.apiTokensDeprecated')}</p>
+              </div>
+
+              {/* JSON config — API Token (collapsible) */}
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-primary)' }}>
+                <button
+                  onClick={() => setConfigOpenToken(o => !o)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+                  style={{ background: 'var(--bg-secondary)' }}>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{t('settings.mcp.clientConfig')}</span>
+                  {configOpenToken ? <ChevronDown className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} /> : <ChevronRight className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />}
+                </button>
+                {configOpenToken && (
+                  <div className="p-3 border-t" style={{ borderColor: 'var(--border-primary)' }}>
+                    <div className="flex justify-end mb-1.5">
+                      <button onClick={() => handleCopy(mcpJsonConfig, 'json-token')}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
+                        style={{ borderColor: 'var(--border-primary)', color: 'var(--text-secondary)' }}>
+                        {copiedKey === 'json-token' ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                        {copiedKey === 'json-token' ? t('settings.mcp.copied') : t('settings.mcp.copy')}
+                      </button>
+                    </div>
+                    <pre className="p-3 rounded-lg text-xs font-mono overflow-x-auto border" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-primary)', color: 'var(--text-primary)' }}>
+                      {mcpJsonConfig}
+                    </pre>
+                    <p className="mt-1.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>{t('settings.mcp.clientConfigHint')}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end">
+                <button onClick={() => { setMcpModalOpen(true); setMcpCreatedToken(null); setMcpNewName('') }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors opacity-60"
+                  style={{ background: 'var(--bg-tertiary, #e5e7eb)', color: 'var(--text-secondary)' }}>
+                  <Plus className="w-3.5 h-3.5" /> {t('settings.mcp.createToken')}
+                </button>
+              </div>
+
               {mcpTokens.length === 0 ? (
                 <p className="text-sm py-2 text-center" style={{ color: 'var(--text-tertiary)' }}>
                   {t('settings.mcp.noTokens')}
                 </p>
               ) : (
-                <div className="space-y-0 rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-primary)' }}>
+                <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-primary)' }}>
                   {mcpTokens.map((token, i) => (
                     <div key={token.id} className="flex items-center gap-3 px-4 py-3"
                       style={{ borderBottom: i < mcpTokens.length - 1 ? '1px solid var(--border-primary)' : undefined }}>
@@ -392,33 +489,7 @@ export default function IntegrationsTab(): React.ReactElement {
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* Active OAuth Sessions */}
-          {oauthSessions.length > 0 && (
-            <div>
-              <label className="text-sm font-medium block mb-2" style={{ color: 'var(--text-secondary)' }}>{t('settings.oauth.activeSessions')}</label>
-              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-primary)' }}>
-                {oauthSessions.map((session, i) => (
-                  <div key={session.id} className="flex items-center gap-3 px-4 py-3"
-                    style={{ borderBottom: i < oauthSessions.length - 1 ? '1px solid var(--border-primary)' : undefined }}>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{session.client_name}</p>
-                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                        {t('settings.oauth.sessionScopes')}: {session.scopes.join(', ')}
-                        <span className="ml-3">{t('settings.oauth.sessionExpires')} {new Date(session.access_token_expires_at).toLocaleDateString(locale)}</span>
-                      </p>
-                    </div>
-                    <button onClick={() => setOauthRevokeId(session.id)}
-                      className="px-2.5 py-1 rounded text-xs border transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
-                      style={{ borderColor: 'var(--border-primary)', color: 'var(--text-tertiary)' }}>
-                      {t('settings.oauth.revoke')}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
+            </>
           )}
         </Section>
       )}
@@ -436,7 +507,7 @@ export default function IntegrationsTab(): React.ReactElement {
                   <input type="text" value={mcpNewName} onChange={e => setMcpNewName(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleCreateMcpToken()}
                     placeholder={t('settings.mcp.modal.tokenNamePlaceholder')}
-                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
                     style={{ borderColor: 'var(--border-primary)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
                     autoFocus />
                 </div>
@@ -446,8 +517,7 @@ export default function IntegrationsTab(): React.ReactElement {
                     {t('common.cancel')}
                   </button>
                   <button onClick={handleCreateMcpToken} disabled={!mcpNewName.trim() || mcpCreating}
-                    className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
-                    style={{ background: 'var(--accent-primary, #4f46e5)' }}>
+                    className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-slate-900 hover:bg-slate-700 disabled:opacity-50">
                     {mcpCreating ? t('settings.mcp.modal.creating') : t('settings.mcp.modal.create')}
                   </button>
                 </div>
@@ -471,8 +541,7 @@ export default function IntegrationsTab(): React.ReactElement {
                 </div>
                 <div className="flex justify-end">
                   <button onClick={() => { setMcpModalOpen(false); setMcpCreatedToken(null) }}
-                    className="px-4 py-2 rounded-lg text-sm font-medium text-white"
-                    style={{ background: 'var(--accent-primary, #4f46e5)' }}>
+                    className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-slate-900 hover:bg-slate-700">
                     {t('settings.mcp.modal.done')}
                   </button>
                 </div>
@@ -536,7 +605,7 @@ export default function IntegrationsTab(): React.ReactElement {
                   <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>{t('settings.oauth.modal.clientName')}</label>
                   <input type="text" value={oauthNewName} onChange={e => setOauthNewName(e.target.value)}
                     placeholder={t('settings.oauth.modal.clientNamePlaceholder')}
-                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
                     style={{ borderColor: 'var(--border-primary)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
                     autoFocus />
                 </div>
@@ -546,78 +615,15 @@ export default function IntegrationsTab(): React.ReactElement {
                   <textarea value={oauthNewUris} onChange={e => setOauthNewUris(e.target.value)}
                     placeholder={t('settings.oauth.modal.redirectUrisPlaceholder')}
                     rows={3}
-                    className="w-full px-3 py-2.5 border rounded-lg text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full px-3 py-2.5 border rounded-lg text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-slate-400"
                     style={{ borderColor: 'var(--border-primary)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }} />
                   <p className="mt-1 text-xs" style={{ color: 'var(--text-tertiary)' }}>{t('settings.oauth.modal.redirectUrisHint')}</p>
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{t('settings.oauth.modal.scopes')}</label>
-                    <button type="button"
-                      onClick={() => {
-                        const allScopes = Object.values(scopesByGroup).flat().map(s => s.scope)
-                        const allSelected = allScopes.every(s => oauthNewScopes.includes(s))
-                        setOauthNewScopes(allSelected ? [] : allScopes)
-                      }}
-                      className="text-xs px-2 py-0.5 rounded border transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-                      style={{ borderColor: 'var(--border-primary)', color: 'var(--text-secondary)' }}>
-                      {Object.values(scopesByGroup).flat().every(s => oauthNewScopes.includes(s.scope))
-                        ? t('settings.oauth.modal.deselectAll')
-                        : t('settings.oauth.modal.selectAll')}
-                    </button>
-                  </div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('settings.oauth.modal.scopes')}</label>
                   <p className="text-xs mb-2" style={{ color: 'var(--text-tertiary)' }}>{t('settings.oauth.modal.scopesHint')}</p>
-                  <div className="space-y-1 max-h-56 overflow-y-auto pr-1">
-                    {Object.entries(scopesByGroup).map(([group, groupScopes]) => {
-                      const groupScopeKeys = groupScopes.map(s => s.scope)
-                      const allGroupSelected = groupScopeKeys.every(s => oauthNewScopes.includes(s))
-                      const someGroupSelected = groupScopeKeys.some(s => oauthNewScopes.includes(s))
-                      return (
-                        <div key={group} className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border-primary)' }}>
-                          <div className="flex items-center gap-1 px-3 py-2" style={{ background: 'var(--bg-secondary)' }}>
-                            <button type="button"
-                              onClick={() => setOauthScopesOpen(prev => ({ ...prev, [group]: !prev[group] }))}
-                              className="flex items-center gap-1 flex-1 text-xs font-semibold hover:opacity-70 transition-opacity text-left"
-                              style={{ color: 'var(--text-secondary)' }}>
-                              {oauthScopesOpen[group] ? <ChevronDown className="w-3 h-3 flex-shrink-0" /> : <ChevronRight className="w-3 h-3 flex-shrink-0" />}
-                              {group}
-                              {someGroupSelected && (
-                                <span className="ml-1.5 text-xs font-normal" style={{ color: 'var(--text-tertiary)' }}>
-                                  ({groupScopeKeys.filter(s => oauthNewScopes.includes(s)).length}/{groupScopeKeys.length})
-                                </span>
-                              )}
-                            </button>
-                            <input type="checkbox"
-                              checked={allGroupSelected}
-                              ref={el => { if (el) el.indeterminate = someGroupSelected && !allGroupSelected }}
-                              onChange={e => setOauthNewScopes(prev =>
-                                e.target.checked
-                                  ? [...new Set([...prev, ...groupScopeKeys])]
-                                  : prev.filter(s => !groupScopeKeys.includes(s))
-                              )}
-                              className="rounded" title={allGroupSelected ? `Deselect all ${group}` : `Select all ${group}`} />
-                          </div>
-                          {oauthScopesOpen[group] && (
-                            <div className="divide-y" style={{ borderColor: 'var(--border-primary)' }}>
-                              {groupScopes.map(({ scope, label, description }) => (
-                                <label key={scope} className="flex items-start gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                  <input type="checkbox"
-                                    checked={oauthNewScopes.includes(scope)}
-                                    onChange={e => setOauthNewScopes(prev => e.target.checked ? [...prev, scope] : prev.filter(s => s !== scope))}
-                                    className="mt-0.5 rounded flex-shrink-0" />
-                                  <div>
-                                    <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{label}</p>
-                                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{description}</p>
-                                  </div>
-                                </label>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
+                  <ScopeGroupPicker selected={oauthNewScopes} onChange={setOauthNewScopes} />
                 </div>
 
                 <div className="flex gap-2 justify-end pt-1">
@@ -627,8 +633,7 @@ export default function IntegrationsTab(): React.ReactElement {
                   </button>
                   <button onClick={handleCreateOAuthClient}
                     disabled={!oauthNewName.trim() || !oauthNewUris.trim() || oauthCreating}
-                    className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
-                    style={{ background: 'var(--accent-primary, #4f46e5)' }}>
+                    className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-slate-900 hover:bg-slate-700 disabled:opacity-50">
                     {oauthCreating ? t('settings.oauth.modal.creating') : t('settings.oauth.modal.create')}
                   </button>
                 </div>
@@ -672,8 +677,7 @@ export default function IntegrationsTab(): React.ReactElement {
 
                 <div className="flex justify-end">
                   <button onClick={() => { setOauthCreateOpen(false); setOauthCreatedClient(null) }}
-                    className="px-4 py-2 rounded-lg text-sm font-medium text-white"
-                    style={{ background: 'var(--accent-primary, #4f46e5)' }}>
+                    className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-slate-900 hover:bg-slate-700">
                     {t('settings.mcp.modal.done')}
                   </button>
                 </div>
@@ -717,8 +721,7 @@ export default function IntegrationsTab(): React.ReactElement {
                 {t('common.cancel')}
               </button>
               <button onClick={() => handleRotateSecret(oauthRotateId)} disabled={oauthRotating}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
-                style={{ background: 'var(--accent-primary, #4f46e5)' }}>
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-slate-900 hover:bg-slate-700 disabled:opacity-50">
                 {oauthRotating ? t('settings.oauth.rotateSecretConfirming') : t('settings.oauth.rotateSecretConfirm')}
               </button>
             </div>
@@ -750,8 +753,7 @@ export default function IntegrationsTab(): React.ReactElement {
             </div>
             <div className="flex justify-end">
               <button onClick={() => setOauthRotatedSecret(null)}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white"
-                style={{ background: 'var(--accent-primary, #4f46e5)' }}>
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-slate-900 hover:bg-slate-700">
                 {t('settings.mcp.modal.done')}
               </button>
             </div>

@@ -233,6 +233,7 @@ const ar: Record<string, string | { name: string; category: string }[]> = {
   'settings.mcp.endpoint': 'نقطة نهاية MCP',
   'settings.mcp.clientConfig': 'إعداد العميل',
   'settings.mcp.clientConfigHint': 'استبدل <your_token> برمز API من القائمة أدناه. قد يحتاج مسار npx إلى ضبط وفق نظامك (مثلاً C:\\PROGRA~1\\nodejs\\npx.cmd على Windows).',
+  'settings.mcp.clientConfigHintOAuth': 'Replace <your_client_id> and <your_client_secret> with the credentials shown in the OAuth 2.1 client you created above. mcp-remote will open your browser to complete the authorization the first time you connect. The path to npx may need to be adjusted for your system (e.g. C:\PROGRA~1\nodejs\npx.cmd on Windows).',
   'settings.mcp.copy': 'نسخ',
   'settings.mcp.copied': 'تم النسخ!',
   'settings.mcp.apiTokens': 'رموز API',

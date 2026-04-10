@@ -180,6 +180,7 @@ const hu: Record<string, string | { name: string; category: string }[]> = {
   'settings.mcp.endpoint': 'MCP végpont',
   'settings.mcp.clientConfig': 'Kliens konfiguráció',
   'settings.mcp.clientConfigHint': 'Cserélje ki a <your_token> részt egy API tokenre az alábbi listából. Az npx elérési útját szükség lehet módosítani a rendszeréhez (pl. C:\\PROGRA~1\\nodejs\\npx.cmd Windows-on).',
+  'settings.mcp.clientConfigHintOAuth': 'Replace <your_client_id> and <your_client_secret> with the credentials shown in the OAuth 2.1 client you created above. mcp-remote will open your browser to complete the authorization the first time you connect. The path to npx may need to be adjusted for your system (e.g. C:\PROGRA~1\nodejs\npx.cmd on Windows).',
   'settings.mcp.copy': 'Másolás',
   'settings.mcp.copied': 'Másolva!',
   'settings.mcp.apiTokens': 'API tokenek',

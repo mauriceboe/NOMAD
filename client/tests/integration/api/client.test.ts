@@ -21,6 +21,7 @@ const wsMock = await import('../../../src/api/websocket');
 
 // Import the API client AFTER the mock is set up so it picks up our getSocketId mock
 const {
+  apiClient,
   authApi,
   tripsApi,
   placesApi,
@@ -465,19 +466,25 @@ describe('API client interceptors', () => {
   });
 
   it('FE-API-022: authApi.uploadAvatar sends multipart/form-data', async () => {
-    let contentType = '';
+    // jsdom's FormData ≠ undici's FormData, so Node.js's Request always
+    // serialises it as text/plain — Content-Type header checks are unreliable.
+    // MSW wraps XHR in a Proxy, so XHR prototype spies never fire. axios.create()
+    // copies prototype methods onto the instance as bound functions, so prototype
+    // spies don't fire either. Spy on the exported apiClient instance directly.
     server.use(
-      http.post('/api/auth/avatar', ({ request }) => {
-        contentType = request.headers.get('Content-Type') ?? '';
+      http.post('/api/auth/avatar', () => {
         return HttpResponse.json({ avatar_url: '/uploads/avatar.jpg' });
       })
     );
+
+    const postSpy = vi.spyOn(apiClient, 'post');
 
     const formData = new FormData();
     formData.append('avatar', new Blob(['img'], { type: 'image/jpeg' }), 'avatar.jpg');
 
     await authApi.uploadAvatar(formData);
-    expect(contentType).toMatch(/multipart\/form-data/);
+    expect(postSpy).toHaveBeenCalledWith('/auth/avatar', expect.any(FormData), expect.anything());
+    postSpy.mockRestore();
   });
 
   it('FE-API-023: authApi.mcpTokens.create posts name to /api/auth/mcp-tokens', async () => {

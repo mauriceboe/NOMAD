@@ -181,6 +181,7 @@ const cs: Record<string, string | { name: string; category: string }[]> = {
   'settings.mcp.endpoint': 'MCP endpoint',
   'settings.mcp.clientConfig': 'Konfigurace klienta',
   'settings.mcp.clientConfigHint': 'Nahraďte <your_token> API tokenem ze seznamu níže. Cestu k npx může být nutné upravit pro váš systém (např. C:\\PROGRA~1\\nodejs\\npx.cmd ve Windows).',
+  'settings.mcp.clientConfigHintOAuth': 'Replace <your_client_id> and <your_client_secret> with the credentials shown in the OAuth 2.1 client you created above. mcp-remote will open your browser to complete the authorization the first time you connect. The path to npx may need to be adjusted for your system (e.g. C:\PROGRA~1\nodejs\npx.cmd on Windows).',
   'settings.mcp.copy': 'Kopírovat',
   'settings.mcp.copied': 'Zkopírováno!',
   'settings.mcp.apiTokens': 'API tokeny',

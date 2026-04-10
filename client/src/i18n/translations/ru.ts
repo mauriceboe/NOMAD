@@ -228,6 +228,7 @@ const ru: Record<string, string> = {
   'settings.mcp.endpoint': 'MCP-эндпоинт',
   'settings.mcp.clientConfig': 'Конфигурация клиента',
   'settings.mcp.clientConfigHint': 'Замените <your_token> на API-токен из списка ниже. Путь к npx может потребовать настройки для вашей системы (например, C:\\PROGRA~1\\nodejs\\npx.cmd в Windows).',
+  'settings.mcp.clientConfigHintOAuth': 'Replace <your_client_id> and <your_client_secret> with the credentials shown in the OAuth 2.1 client you created above. mcp-remote will open your browser to complete the authorization the first time you connect. The path to npx may need to be adjusted for your system (e.g. C:\PROGRA~1\nodejs\npx.cmd on Windows).',
   'settings.mcp.copy': 'Копировать',
   'settings.mcp.copied': 'Скопировано!',
   'settings.mcp.apiTokens': 'API-токены',

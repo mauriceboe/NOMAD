@@ -69,18 +69,26 @@ describe('IntegrationsTab', () => {
     expect(codeEl!.textContent).toContain('/mcp');
   });
 
-  it('FE-COMP-INTEGRATIONS-005: JSON config block is rendered', async () => {
+  it('FE-COMP-INTEGRATIONS-005: JSON config block is rendered when expanded', async () => {
+    const user = userEvent.setup();
     enableMcp();
     render(<IntegrationsTab />);
     await screen.findByText('MCP Configuration');
+    // Config is collapsed by default — no <pre> yet
+    expect(document.querySelector('pre')).toBeNull();
+    // Expand by clicking the "Client Configuration" toggle
+    await user.click(screen.getByRole('button', { name: /Client Configuration/i }));
     const preEl = document.querySelector('pre');
     expect(preEl).not.toBeNull();
     expect(preEl!.textContent).toContain('mcpServers');
   });
 
   it('FE-COMP-INTEGRATIONS-006: "no tokens" message shown when token list is empty', async () => {
+    const user = userEvent.setup();
     enableMcp();
     render(<IntegrationsTab />);
+    await screen.findByText('MCP Configuration');
+    await user.click(screen.getByRole('button', { name: /API Tokens/i }));
     await screen.findByText('No tokens yet. Create one to connect MCP clients.');
   });
 
@@ -95,8 +103,11 @@ describe('IntegrationsTab', () => {
         }),
       ),
     );
+    const user = userEvent.setup();
     enableMcp();
     render(<IntegrationsTab />);
+    await screen.findByText('MCP Configuration');
+    await user.click(screen.getByRole('button', { name: /API Tokens/i }));
     await screen.findByText('My Token');
     await screen.findByText('Other Token');
   });
@@ -106,6 +117,7 @@ describe('IntegrationsTab', () => {
     enableMcp();
     render(<IntegrationsTab />);
     await screen.findByText('MCP Configuration');
+    await user.click(screen.getByRole('button', { name: /API Tokens/i }));
     const createBtn = screen.getByRole('button', { name: /Create New Token/i });
     await user.click(createBtn);
     await screen.findByText('Create API Token');
@@ -116,6 +128,7 @@ describe('IntegrationsTab', () => {
     enableMcp();
     render(<IntegrationsTab />);
     await screen.findByText('MCP Configuration');
+    await user.click(screen.getByRole('button', { name: /API Tokens/i }));
     await user.click(screen.getByRole('button', { name: /Create New Token/i }));
     await screen.findByText('Create API Token');
     const modalCreateBtn = screen.getByRole('button', { name: /^Create Token$/i });
@@ -127,6 +140,7 @@ describe('IntegrationsTab', () => {
     enableMcp();
     render(<IntegrationsTab />);
     await screen.findByText('MCP Configuration');
+    await user.click(screen.getByRole('button', { name: /API Tokens/i }));
     await user.click(screen.getByRole('button', { name: /Create New Token/i }));
     await screen.findByText('Create API Token');
     const input = screen.getByPlaceholderText(/Claude Desktop/i);
@@ -153,6 +167,7 @@ describe('IntegrationsTab', () => {
     enableMcp();
     render(<IntegrationsTab />);
     await screen.findByText('MCP Configuration');
+    await user.click(screen.getByRole('button', { name: /API Tokens/i }));
     await user.click(screen.getByRole('button', { name: /Create New Token/i }));
     await screen.findByText('Create API Token');
     const input = screen.getByPlaceholderText(/Claude Desktop/i);
@@ -182,6 +197,7 @@ describe('IntegrationsTab', () => {
     enableMcp();
     render(<IntegrationsTab />);
     await screen.findByText('MCP Configuration');
+    await user.click(screen.getByRole('button', { name: /API Tokens/i }));
     await user.click(screen.getByRole('button', { name: /Create New Token/i }));
     await screen.findByText('Create API Token');
     await user.type(screen.getByPlaceholderText(/Claude Desktop/i), 'test');
@@ -206,6 +222,8 @@ describe('IntegrationsTab', () => {
     const user = userEvent.setup();
     enableMcp();
     render(<IntegrationsTab />);
+    await screen.findByText('MCP Configuration');
+    await user.click(screen.getByRole('button', { name: /API Tokens/i }));
     await screen.findByText('Delete Me');
     await user.click(screen.getByTitle('Delete Token'));
     await screen.findByText('This token will stop working immediately. Any MCP client using it will lose access.');
@@ -230,6 +248,8 @@ describe('IntegrationsTab', () => {
     const user = userEvent.setup();
     enableMcp();
     render(<IntegrationsTab />);
+    await screen.findByText('MCP Configuration');
+    await user.click(screen.getByRole('button', { name: /API Tokens/i }));
     await screen.findByText('Delete Me');
     await user.click(screen.getByTitle('Delete Token'));
     // There are two "Delete Token" buttons: the trash icon (title) and the confirm button in modal
@@ -289,6 +309,8 @@ describe('IntegrationsTab', () => {
     const user = userEvent.setup();
     enableMcp();
     render(<IntegrationsTab />);
+    await screen.findByText('MCP Configuration');
+    await user.click(screen.getByRole('button', { name: /API Tokens/i }));
     await screen.findByText('Cancel Token');
     await user.click(screen.getByTitle('Delete Token'));
     await screen.findByRole('button', { name: /^Cancel$/i });
@@ -319,6 +341,7 @@ describe('IntegrationsTab', () => {
     enableMcp();
     render(<IntegrationsTab />);
     await screen.findByText('MCP Configuration');
+    await user.click(screen.getByRole('button', { name: /API Tokens/i }));
     await user.click(screen.getByRole('button', { name: /Create New Token/i }));
     await screen.findByText('Create API Token');
     const input = screen.getByPlaceholderText(/Claude Desktop/i);
@@ -327,5 +350,33 @@ describe('IntegrationsTab', () => {
     await waitFor(() => {
       expect(postCalled).toBe(true);
     });
+  });
+
+  it('FE-COMP-INTEGRATIONS-019: default tab is OAuth 2.1 Clients — OAuth hint visible, token list hidden', async () => {
+    enableMcp();
+    render(<IntegrationsTab />);
+    await screen.findByText('MCP Configuration');
+    // OAuth hint is visible on the default tab
+    expect(screen.getByText(/Register OAuth 2\.1 clients/i)).toBeInTheDocument();
+    // API Tokens "no tokens" message is not rendered
+    expect(screen.queryByText('No tokens yet. Create one to connect MCP clients.')).toBeNull();
+  });
+
+  it('FE-COMP-INTEGRATIONS-020: switching tabs toggles content visibility', async () => {
+    const user = userEvent.setup();
+    enableMcp();
+    render(<IntegrationsTab />);
+    await screen.findByText('MCP Configuration');
+    // Default: OAuth hint visible, token list absent
+    expect(screen.getByText(/Register OAuth 2\.1 clients/i)).toBeInTheDocument();
+    expect(screen.queryByText('No tokens yet. Create one to connect MCP clients.')).toBeNull();
+    // Switch to API Tokens tab
+    await user.click(screen.getByRole('button', { name: /API Tokens/i }));
+    await screen.findByText('No tokens yet. Create one to connect MCP clients.');
+    expect(screen.queryByText(/Register OAuth 2\.1 clients/i)).toBeNull();
+    // Switch back to OAuth tab
+    await user.click(screen.getByRole('button', { name: /OAuth 2\.1 Clients/i }));
+    await screen.findByText(/Register OAuth 2\.1 clients/i);
+    expect(screen.queryByText('No tokens yet. Create one to connect MCP clients.')).toBeNull();
   });
 });

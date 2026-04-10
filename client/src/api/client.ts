@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios'
 import { getSocketId } from './websocket'
 
-const apiClient: AxiosInstance = axios.create({
+export const apiClient: AxiosInstance = axios.create({
   baseURL: '/api',
   withCredentials: true,
   headers: {
@@ -94,6 +94,15 @@ export const oauthApi = {
     code_challenge_method: string
     approved: boolean
   }) => apiClient.post('/oauth/authorize', body).then(r => r.data),
+
+  register: {
+    /** Validate DCR params — called by registration page on load */
+    validate: (params: { redirect_uri: string; client_name?: string; scope?: string; state?: string }) =>
+      apiClient.get('/oauth/register/validate', { params }).then(r => r.data),
+    /** Submit registration approval or cancellation */
+    submit: (body: { client_name: string; redirect_uri: string; scopes: string[]; state?: string; approved: boolean }) =>
+      apiClient.post('/oauth/register', body).then(r => r.data),
+  },
 
   clients: {
     list: () => apiClient.get('/oauth/clients').then(r => r.data),

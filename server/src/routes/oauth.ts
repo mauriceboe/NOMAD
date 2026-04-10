@@ -14,6 +14,7 @@ import {
   revokeToken,
   verifyPKCE,
   authenticateClient,
+  isValidRedirectUri,
   listOAuthClients,
   createOAuthClient,
   deleteOAuthClient,
@@ -76,10 +77,11 @@ oauthPublicRouter.get('/.well-known/oauth-authorization-server', (req: Request, 
     authorization_endpoint:                `${base}/oauth/authorize`,
     token_endpoint:                        `${base}/oauth/token`,
     revocation_endpoint:                   `${base}/oauth/revoke`,
+    registration_endpoint:                 `${base}/oauth/register`,
     response_types_supported:              ['code'],
     grant_types_supported:                 ['authorization_code', 'refresh_token'],
     code_challenge_methods_supported:      ['S256'],
-    token_endpoint_auth_methods_supported: ['client_secret_post'],
+    token_endpoint_auth_methods_supported: ['client_secret_post', 'none'],
     scopes_supported:                      ALL_SCOPES,
     scope_descriptions:                    Object.fromEntries(
       ALL_SCOPES.map(s => [s, SCOPE_INFO[s].label])
@@ -102,8 +104,8 @@ oauthPublicRouter.post('/oauth/token', tokenLimiter, (req: Request, res: Respons
     return res.status(403).json({ error: 'mcp_disabled', error_description: 'MCP is not enabled' });
   }
 
-  if (!client_id || !client_secret) {
-    return res.status(401).json({ error: 'invalid_client', error_description: 'client_id and client_secret are required' });
+  if (!client_id) {
+    return res.status(401).json({ error: 'invalid_client', error_description: 'client_id is required' });
   }
 
   // ---- authorization_code grant ----
@@ -180,8 +182,8 @@ oauthPublicRouter.post('/oauth/revoke', revokeLimiter, (req: Request, res: Respo
   const { token, client_id, client_secret } = body;
   const ip = getClientIp(req);
 
-  if (!token || !client_id || !client_secret) {
-    return res.status(400).json({ error: 'invalid_request', error_description: 'token, client_id, and client_secret are required' });
+  if (!token || !client_id) {
+    return res.status(400).json({ error: 'invalid_request', error_description: 'token and client_id are required' });
   }
 
   if (!authenticateClient(client_id, client_secret)) {
@@ -301,6 +303,76 @@ oauthApiRouter.post('/authorize', requireCookieAuth, (req: Request, res: Respons
   url.searchParams.set('code', code);
   if (state) url.searchParams.set('state', state);
 
+  return res.json({ redirect: url.toString() });
+});
+
+// ---- Browser-initiated dynamic client registration ----
+
+// SPA calls this on load to validate DCR params before rendering scope selection UI
+oauthApiRouter.get('/register/validate', validateLimiter, optionalAuth, (req: Request, res: Response) => {
+  if (!isAddonEnabled(ADDON_IDS.MCP)) return res.status(404).end();
+
+  const { redirect_uri, client_name, scope } = req.query as Record<string, string>;
+  const userId = (req as OptionalAuthRequest).user?.id ?? null;
+
+  if (!redirect_uri) {
+    return res.json({ valid: false, error: 'invalid_request', error_description: 'redirect_uri is required' });
+  }
+
+  if (!isValidRedirectUri(redirect_uri)) {
+    return res.json({ valid: false, error: 'invalid_redirect_uri', error_description: 'redirect_uri must use HTTPS (localhost is exempt)' });
+  }
+
+  // Anti-fingerprinting: don't expose details to unauthenticated callers
+  if (userId === null) {
+    return res.json({ valid: true, loginRequired: true });
+  }
+
+  const resolvedName     = (client_name || '').trim().slice(0, 100) || 'MCP Client';
+  const requestedScopes  = (scope || '').split(' ').filter(s => (ALL_SCOPES as string[]).includes(s));
+
+  return res.json({ valid: true, client_name: resolvedName, requested_scopes: requestedScopes });
+});
+
+// User submits DCR approval (or cancel) — requires cookie auth
+oauthApiRouter.post('/register', requireCookieAuth, (req: Request, res: Response) => {
+  if (!isAddonEnabled(ADDON_IDS.MCP)) return res.status(403).json({ error: 'MCP is not enabled' });
+
+  const { user } = req as AuthRequest;
+  const { client_name, redirect_uri, scopes, state, approved } = req.body as {
+    client_name: string;
+    redirect_uri: string;
+    scopes: string[];
+    state?: string;
+    approved?: boolean;
+  };
+  const ip = getClientIp(req);
+
+  // Validate redirect_uri before constructing any redirect URL
+  if (!redirect_uri || !isValidRedirectUri(redirect_uri)) {
+    return res.status(400).json({ error: 'invalid_request', error_description: 'Invalid redirect_uri' });
+  }
+
+  if (approved === false) {
+    const url = new URL(redirect_uri);
+    url.searchParams.set('error', 'access_denied');
+    url.searchParams.set('error_description', 'User cancelled the registration');
+    if (state) url.searchParams.set('state', state);
+    return res.json({ redirect: url.toString() });
+  }
+
+  const result = createOAuthClient(
+    user.id, client_name, [redirect_uri], scopes, ip,
+    { isPublic: true, createdVia: 'browser-registration' },
+  );
+  if (result.error) return res.status(result.status || 400).json({ error: result.error });
+
+  const newClientId = result.client!.client_id as string;
+  saveConsent(newClientId, user.id, scopes, ip);
+
+  const url = new URL(redirect_uri);
+  url.searchParams.set('client_id', newClientId);
+  if (state) url.searchParams.set('state', state);
   return res.json({ redirect: url.toString() });
 });
 
