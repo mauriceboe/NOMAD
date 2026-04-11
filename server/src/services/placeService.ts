@@ -20,7 +20,7 @@ interface UnsplashSearchResponse {
 
 export function listPlaces(
   tripId: string,
-  filters: { search?: string; category?: string; tag?: string },
+  filters: { search?: string; category?: string; tag?: string; assignment?: 'all' | 'unassigned' | 'assigned' },
 ) {
   let query = `
     SELECT DISTINCT p.*, c.name as category_name, c.color as category_color, c.icon as category_icon
@@ -44,6 +44,14 @@ export function listPlaces(
   if (filters.tag) {
     query += ' AND p.id IN (SELECT place_id FROM place_tags WHERE tag_id = ?)';
     params.push(filters.tag);
+  }
+
+  if (filters.assignment === 'unassigned') {
+    query += ` AND p.id NOT IN (SELECT da.place_id FROM day_assignments da JOIN days d ON da.day_id = d.id WHERE d.trip_id = ?)`;
+    params.push(tripId);
+  } else if (filters.assignment === 'assigned') {
+    query += ` AND p.id IN (SELECT da.place_id FROM day_assignments da JOIN days d ON da.day_id = d.id WHERE d.trip_id = ?)`;
+    params.push(tripId);
   }
 
   query += ' ORDER BY p.created_at DESC';
@@ -133,7 +141,7 @@ export function updatePlace(
     category_id?: number; price?: number; currency?: string;
     place_time?: string; end_time?: string;
     duration_minutes?: number; notes?: string; image_url?: string;
-    google_place_id?: string; website?: string; phone?: string;
+    google_place_id?: string; osm_id?: string; website?: string; phone?: string;
     transport_mode?: string; tags?: number[];
   },
 ) {
@@ -143,7 +151,7 @@ export function updatePlace(
   const {
     name, description, lat, lng, address, category_id, price, currency,
     place_time, end_time,
-    duration_minutes, notes, image_url, google_place_id, website, phone,
+    duration_minutes, notes, image_url, google_place_id, osm_id, website, phone,
     transport_mode, tags,
   } = body;
 
@@ -163,6 +171,7 @@ export function updatePlace(
       notes = ?,
       image_url = ?,
       google_place_id = ?,
+      osm_id = ?,
       website = ?,
       phone = ?,
       transport_mode = COALESCE(?, transport_mode),
@@ -183,6 +192,7 @@ export function updatePlace(
     notes !== undefined ? notes : existingPlace.notes,
     image_url !== undefined ? image_url : existingPlace.image_url,
     google_place_id !== undefined ? google_place_id : existingPlace.google_place_id,
+    osm_id !== undefined ? osm_id : existingPlace.osm_id,
     website !== undefined ? website : existingPlace.website,
     phone !== undefined ? phone : existingPlace.phone,
     transport_mode || null,

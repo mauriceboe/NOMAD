@@ -29,12 +29,13 @@ interface PlacesSidebarProps {
   days: Day[]
   isMobile: boolean
   onCategoryFilterChange?: (categoryId: string) => void
+  onPlacesFilterChange?: (filter: string) => void
   pushUndo?: (label: string, undoFn: () => Promise<void> | void) => void
 }
 
 const PlacesSidebar = React.memo(function PlacesSidebar({
   tripId, places, categories, assignments, selectedDayId, selectedPlaceId,
-  onPlaceClick, onAddPlace, onAssignToDay, onEditPlace, onDeletePlace, days, isMobile, onCategoryFilterChange, pushUndo,
+  onPlaceClick, onAddPlace, onAssignToDay, onEditPlace, onDeletePlace, days, isMobile, onCategoryFilterChange, onPlacesFilterChange, pushUndo,
 }: PlacesSidebarProps) {
   const { t } = useTranslation()
   const toast = useToast()
@@ -177,7 +178,7 @@ const PlacesSidebar = React.memo(function PlacesSidebar({
         {/* Filter-Tabs */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
           {[{ id: 'all', label: t('places.all') }, { id: 'unplanned', label: t('places.unplanned') }].map(f => (
-            <button key={f.id} onClick={() => setFilter(f.id)} style={{
+            <button key={f.id} onClick={() => { setFilter(f.id); onPlacesFilterChange?.(f.id) }} style={{
               padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer',
               fontSize: 11, fontWeight: 500, fontFamily: 'inherit',
               background: filter === f.id ? 'var(--accent)' : 'var(--bg-tertiary)',

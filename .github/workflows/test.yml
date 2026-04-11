@@ -9,6 +9,7 @@ on:
     paths:
       - 'server/**'
       - '.github/workflows/test.yml'
+      - 'client/**'
 
 jobs:
   server-tests:
@@ -34,6 +35,33 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v6
         with:
-          name: coverage
+          name: backend-coverage
           path: server/coverage/
+          retention-days: 7
+
+  client-tests:
+    name: Client Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: cd client && npm ci
+
+      - name: Run tests
+        run: cd client && npm run test:coverage
+
+      - name: Upload coverage
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: frontend-coverage
+          path: client/coverage/
           retention-days: 7

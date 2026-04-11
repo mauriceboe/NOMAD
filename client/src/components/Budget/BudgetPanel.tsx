@@ -4,7 +4,7 @@ import DOM from 'react-dom'
 import { useTripStore } from '../../store/tripStore'
 import { useCanDo } from '../../store/permissionsStore'
 import { useTranslation } from '../../i18n'
-import { Plus, Trash2, Calculator, Wallet, Pencil, Users, Check, Info, ChevronDown, ChevronRight, Download } from 'lucide-react'
+import { Plus, Trash2, Calculator, Wallet, Pencil, Users, Check, Info, ChevronDown, ChevronRight, Download, GripVertical } from 'lucide-react'
 import CustomSelect from '../shared/CustomSelect'
 import { budgetApi } from '../../api/client'
 import { CustomDatePicker } from '../shared/CustomDateTimePicker'
@@ -443,7 +443,7 @@ interface BudgetPanelProps {
 }
 
 export default function BudgetPanel({ tripId, tripMembers = [] }: BudgetPanelProps) {
-  const { trip, budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, loadBudgetItems, updateTrip, setBudgetItemMembers, toggleBudgetMemberPaid } = useTripStore()
+  const { trip, budgetItems, addBudgetItem, updateBudgetItem, deleteBudgetItem, loadBudgetItems, updateTrip, setBudgetItemMembers, toggleBudgetMemberPaid, reorderBudgetItems, reorderBudgetCategories } = useTripStore()
   const can = useCanDo()
   const { t, locale } = useTranslation()
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -455,6 +455,14 @@ export default function BudgetPanel({ tripId, tripMembers = [] }: BudgetPanelPro
 
   const fmt = (v, cur) => fmtNum(v, locale, cur)
   const hasMultipleMembers = tripMembers.length > 1
+
+  // Drag state for categories
+  const [dragCat, setDragCat] = useState<string | null>(null)
+  const [dragOverCat, setDragOverCat] = useState<string | null>(null)
+  // Drag state for items within a category
+  const [dragItem, setDragItem] = useState<number | null>(null)
+  const [dragOverItem, setDragOverItem] = useState<number | null>(null)
+  const [dragItemCat, setDragItemCat] = useState<string | null>(null)
 
   // Load settlement data whenever budget items change
   useEffect(() => {
@@ -468,21 +476,34 @@ export default function BudgetPanel({ tripId, tripMembers = [] }: BudgetPanelPro
 
   useEffect(() => { if (tripId) loadBudgetItems(tripId) }, [tripId])
 
-  const grouped = useMemo(() => (budgetItems || []).reduce((acc, item) => {
-    const cat = item.category || 'Other'
-    if (!acc[cat]) acc[cat] = []
-    acc[cat].push(item)
-    return acc
-  }, {}), [budgetItems])
+  const grouped = useMemo(() => {
+    const map = new Map<string, BudgetItem[]>()
+    for (const item of (budgetItems || [])) {
+      const cat = item.category || 'Other'
+      if (!map.has(cat)) map.set(cat, [])
+      map.get(cat)!.push(item)
+    }
+    return map
+  }, [budgetItems])
 
-  const categoryNames = Object.keys(grouped)
+  const categoryNames = Array.from(grouped.keys())
+
+  // Stable color mapping: assign index-based colors once, never reassign on reorder
+  const colorMapRef = useRef(new Map<string, string>())
+  const categoryColor = useCallback((cat: string) => {
+    const map = colorMapRef.current
+    if (!map.has(cat)) {
+      map.set(cat, PIE_COLORS[map.size % PIE_COLORS.length])
+    }
+    return map.get(cat)!
+  }, [])
   const grandTotal = (budgetItems || []).reduce((s, i) => s + (i.total_price || 0), 0)
 
   const pieSegments = useMemo(() =>
     categoryNames.map((cat, i) => ({
       name: cat,
-      value: grouped[cat].reduce((s, x) => s + (x.total_price || 0), 0),
-      color: PIE_COLORS[i % PIE_COLORS.length],
+      value: (grouped.get(cat) || []).reduce((s, x) => s + (x.total_price || 0), 0),
+      color: categoryColor(cat),
     })).filter(s => s.value > 0)
   , [grouped, categoryNames])
 
@@ -490,7 +511,7 @@ export default function BudgetPanel({ tripId, tripMembers = [] }: BudgetPanelPro
   const handleUpdateField = async (id, field, value) => { try { await updateBudgetItem(tripId, id, { [field]: value }) } catch {} }
   const handleDeleteItem = async (id) => { try { await deleteBudgetItem(tripId, id) } catch {} }
   const handleDeleteCategory = async (cat) => {
-    const items = grouped[cat] || []
+    const items = grouped.get(cat) || []
     for (const item of Array.from(items)) await deleteBudgetItem(tripId, item.id)
   }
   const handleRenameCategory = async (oldName, newName) => {
@@ -515,7 +536,7 @@ export default function BudgetPanel({ tripId, tripMembers = [] }: BudgetPanelPro
     const rows = [header.join(sep)]
 
     for (const cat of categoryNames) {
-      for (const item of (grouped[cat] || [])) {
+      for (const item of (grouped.get(cat) || [])) {
         const pp = calcPP(item.total_price, item.persons)
         const pd = calcPD(item.total_price, item.days)
         const ppd = calcPPD(item.total_price, item.persons, item.days)
@@ -584,14 +605,50 @@ export default function BudgetPanel({ tripId, tripMembers = [] }: BudgetPanelPro
       <div style={{ display: 'flex', gap: 20, padding: '0 16px 40px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {categoryNames.map((cat, ci) => {
-            const items = grouped[cat]
+            const items = grouped.get(cat) || []
             const subtotal = items.reduce((s, x) => s + (x.total_price || 0), 0)
-            const color = PIE_COLORS[ci % PIE_COLORS.length]
+            const color = categoryColor(cat)
 
             return (
-              <div key={cat} style={{ marginBottom: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#000000', color: '#fff', borderRadius: '10px 10px 0 0', padding: '9px 14px' }}>
+              <div key={cat} data-drag-cat={cat} style={{
+                  marginBottom: 16, opacity: dragCat === cat ? 0.4 : 1,
+                  transition: 'opacity 0.15s',
+                  position: 'relative',
+                }}
+                onDragOver={e => {
+                  if (!dragCat || dragCat === cat || dragItem) return
+                  e.preventDefault(); e.dataTransfer.dropEffect = 'move'
+                  setDragOverCat(cat)
+                }}
+                onDragLeave={e => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverCat(null)
+                }}
+                onDrop={e => {
+                  e.preventDefault()
+                  if (dragCat && dragCat !== cat) {
+                    const newOrder = [...categoryNames]
+                    const fromIdx = newOrder.indexOf(dragCat)
+                    const toIdx = newOrder.indexOf(cat)
+                    newOrder.splice(fromIdx, 1)
+                    newOrder.splice(toIdx, 0, dragCat)
+                    reorderBudgetCategories(tripId, newOrder)
+                  }
+                  setDragCat(null); setDragOverCat(null)
+                }}
+              >
+                {dragOverCat === cat && <div style={{ position: 'absolute', top: -2, left: 0, right: 0, height: 4, background: 'var(--accent)', borderRadius: 2, zIndex: 10 }} />}
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#000000', color: '#fff',
+                  borderRadius: '10px 10px 0 0', padding: '9px 14px',
+                }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                    {canEdit && (
+                      <div draggable onDragStart={e => { e.stopPropagation(); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/x-budget-cat', cat); setDragCat(cat) }}
+                        onDragEnd={() => { setDragCat(null); setDragOverCat(null) }}
+                        style={{ cursor: 'grab', display: 'flex', alignItems: 'center', color: 'rgba(255,255,255,0.4)', flexShrink: 0 }}>
+                        <GripVertical size={14} />
+                      </div>
+                    )}
                     <div style={{ width: 10, height: 10, borderRadius: 3, background: color, flexShrink: 0 }} />
                     {canEdit && editingCat?.name === cat ? (
                       <input
@@ -627,7 +684,8 @@ export default function BudgetPanel({ tripId, tripMembers = [] }: BudgetPanelPro
                   </div>
                 </div>
 
-                <div style={{ overflowX: 'auto', border: '1px solid var(--border-primary)', borderTop: 'none', borderRadius: '0 0 10px 10px' }}>
+                <div style={{ overflowX: 'auto', border: '1px solid var(--border-primary)', borderTop: 'none', borderRadius: '0 0 10px 10px' }}
+                  onDragOver={e => { if (dragCat) { e.preventDefault(); e.dataTransfer.dropEffect = 'move' } }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
@@ -650,10 +708,40 @@ export default function BudgetPanel({ tripId, tripMembers = [] }: BudgetPanelPro
                         const ppd = calcPPD(item.total_price, item.persons, item.days)
                         const hasMembers = item.members?.length > 0
                         return (
-                          <tr key={item.id} style={{ transition: 'background 0.1s' }}
+                          <tr key={item.id}
+                            style={{
+                              transition: 'background 0.1s, opacity 0.15s',
+                              opacity: dragItem === item.id ? 0.4 : 1,
+                              boxShadow: dragOverItem === item.id ? 'inset 4px 0 0 0 var(--accent)' : 'none',
+                            }}
+                            onDragOver={e => {
+                              if (dragCat && dragCat !== cat) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return }
+                              if (dragItem && dragItemCat === cat && dragItem !== item.id) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverItem(item.id) }
+                            }}
+                            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverItem(null) }}
+                            onDrop={e => {
+                              if (dragItem && dragItemCat === cat && dragItem !== item.id) {
+                                e.preventDefault(); e.stopPropagation()
+                                const ids = items.map(i => i.id)
+                                const fromIdx = ids.indexOf(dragItem)
+                                const toIdx = ids.indexOf(item.id)
+                                ids.splice(fromIdx, 1)
+                                ids.splice(toIdx, 0, dragItem)
+                                reorderBudgetItems(tripId, ids)
+                                setDragItem(null); setDragOverItem(null); setDragItemCat(null)
+                              }
+                            }}
                             onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                            <td style={td}>
+                            <td style={{ ...td, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              {canEdit && (
+                                <div draggable onDragStart={e => { e.stopPropagation(); e.dataTransfer.effectAllowed = 'move'; setDragItem(item.id); setDragItemCat(cat) }}
+                                  onDragEnd={() => { setDragItem(null); setDragOverItem(null); setDragItemCat(null) }}
+                                  style={{ cursor: 'grab', display: 'flex', alignItems: 'center', color: 'var(--text-faint)', flexShrink: 0 }}>
+                                  <GripVertical size={12} />
+                                </div>
+                              )}
+                              <div style={{ flex: 1, minWidth: 0 }}>
                               <InlineEditCell value={item.name} onSave={v => handleUpdateField(item.id, 'name', v)} placeholder={t('budget.table.name')} locale={locale} editTooltip={item.reservation_id ? t('budget.linkedToReservation') : t('budget.editTooltip')} readOnly={!canEdit || !!item.reservation_id} />
                               {/* Mobile: larger chips under name since Persons column is hidden */}
                               {hasMultipleMembers && (
@@ -668,6 +756,7 @@ export default function BudgetPanel({ tripId, tripMembers = [] }: BudgetPanelPro
                                   />
                                 </div>
                               )}
+                              </div>
                             </td>
                             <td style={{ ...td, textAlign: 'center' }}>
                               <InlineEditCell value={item.total_price} type="number" decimals={currencyDecimals(currency)} onSave={v => handleUpdateField(item.id, 'total_price', v)} style={{ textAlign: 'center' }} placeholder={currencyDecimals(currency) === 0 ? '0' : '0,00'} locale={locale} editTooltip={t('budget.editTooltip')} readOnly={!canEdit} />

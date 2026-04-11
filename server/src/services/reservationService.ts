@@ -200,6 +200,10 @@ export function updateReservation(id: string | number, tripId: string | number, 
 
   // Update or create accommodation for hotel reservations
   let resolvedAccId: number | null = accommodation_id !== undefined ? (accommodation_id || null) : (current.accommodation_id ?? null);
+  if (resolvedAccId) {
+    const accExists = db.prepare('SELECT id FROM day_accommodations WHERE id = ?').get(resolvedAccId);
+    if (!accExists) resolvedAccId = null;
+  }
   if (type === 'hotel' && create_accommodation) {
     const { place_id: accPlaceId, start_day_id, end_day_id, check_in, check_out, confirmation: accConf } = create_accommodation;
     if (accPlaceId && start_day_id && end_day_id) {

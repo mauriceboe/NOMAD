@@ -76,6 +76,12 @@
 - **Collab** — Chat with your group, share notes, create polls, and track who's signed up for each day's activities
 - **Dashboard Widgets** — Currency converter and timezone clock, toggleable per user
 
+### AI / MCP Integration
+- **MCP Server** — Built-in [Model Context Protocol](MCP.md) server exposes 80+ tools and 27 resources so AI assistants (Claude, Cursor, etc.) can read and modify your trips
+- **Full Trip Automation** — AI can create trips, plan itineraries, build packing lists, manage budgets, send collab messages, mark countries visited, and more in a single conversation
+- **Prompts** — Pre-built `trip-summary`, `packing-list`, and `budget-overview` prompts give AI clients instant structured context
+- **Addon-Aware** — Atlas, Collab, and Vacay features are exposed automatically when those addons are enabled
+
 ### Customization & Admin
 - **Dashboard Views** — Toggle between card grid and compact list view on the My Trips page
 - **Dark Mode** — Full light and dark theme with dynamic status bar color matching
@@ -173,6 +179,8 @@ services:
       retries: 3
       start_period: 15s
 ```
+
+This example is aimed at reverse-proxy deployments. If you access TREK directly on `http://<host>:3000` without nginx, Caddy, Traefik, or another TLS-terminating proxy in front of it, set `FORCE_HTTPS=false` and remove `TRUST_PROXY` to avoid redirects to a non-existent HTTPS endpoint.
 
 ```bash
 docker compose up -d
@@ -283,9 +291,9 @@ trek.yourdomain.com {
 | `TZ` | Timezone for logs, reminders and cron jobs (e.g. `Europe/Berlin`) | `UTC` |
 | `LOG_LEVEL` | `info` = concise user actions, `debug` = verbose details | `info` |
 | `ALLOWED_ORIGINS` | Comma-separated origins for CORS and email links | same-origin |
-| `FORCE_HTTPS` | Redirect HTTP to HTTPS behind a TLS-terminating proxy | `false` |
+| `FORCE_HTTPS` | Redirect HTTP to HTTPS behind a TLS-terminating proxy. If you access TREK directly on `http://host:3000`, keep this `false`. | `false` |
 | `COOKIE_SECURE` | Set to `false` to allow session cookies over plain HTTP (e.g. accessing via IP without HTTPS). Defaults to `true` in production. **Not recommended to disable in production.** | `true` |
-| `TRUST_PROXY` | Number of trusted reverse proxies for `X-Forwarded-For` | `1` |
+| `TRUST_PROXY` | Number of trusted reverse proxies for `X-Forwarded-For`. Use this only when TREK is actually behind a reverse proxy. | `1` |
 | `ALLOW_INTERNAL_NETWORK` | Allow outbound requests to private/RFC-1918 IP addresses. Set to `true` if Immich or other integrated services are hosted on your local network. Loopback (`127.x`) and link-local/metadata addresses (`169.254.x`) are always blocked regardless of this setting. | `false` |
 | `APP_URL` | Public base URL of this instance (e.g. `https://trek.example.com`). Required when OIDC is enabled — must match the redirect URI registered with your IdP. Also used as the base URL for external links in email notifications. | — |
 | **OIDC / SSO** | | |

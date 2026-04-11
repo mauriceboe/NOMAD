@@ -214,6 +214,37 @@ export function handleRemoteEvent(set: SetState, event: WebSocketEvent): void {
               : i
           ),
         }
+      case 'budget:reordered': {
+        if (payload.orderedIds) {
+          const orderedIds = payload.orderedIds as number[]
+          const byId = new Map(state.budgetItems.map(i => [i.id, i]))
+          const reordered = orderedIds.map((id, idx) => {
+            const item = byId.get(id)
+            return item ? { ...item, sort_order: idx } : null
+          }).filter((i): i is BudgetItem => i !== null)
+          const remaining = state.budgetItems.filter(i => !orderedIds.includes(i.id))
+          return { budgetItems: [...reordered, ...remaining] }
+        }
+        if (payload.orderedCategories) {
+          const orderedCategories = payload.orderedCategories as string[]
+          const grouped = new Map<string, BudgetItem[]>()
+          for (const item of state.budgetItems) {
+            const cat = item.category || 'Other'
+            if (!grouped.has(cat)) grouped.set(cat, [])
+            grouped.get(cat)!.push(item)
+          }
+          const reordered: BudgetItem[] = []
+          for (const cat of orderedCategories) {
+            const items = grouped.get(cat)
+            if (items) reordered.push(...items)
+          }
+          for (const [cat, items] of grouped) {
+            if (!orderedCategories.includes(cat)) reordered.push(...items)
+          }
+          return { budgetItems: reordered }
+        }
+        return {}
+      }
 
       // Reservations
       case 'reservation:created':

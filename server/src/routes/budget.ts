@@ -14,6 +14,8 @@ import {
   toggleMemberPaid,
   getPerPersonSummary,
   calculateSettlement,
+  reorderBudgetItems,
+  reorderBudgetCategories,
 } from '../services/budgetService';
 
 const router = express.Router({ mergeParams: true });
@@ -54,6 +56,38 @@ router.post('/', authenticate, (req: Request, res: Response) => {
   const item = createBudgetItem(tripId, req.body);
   res.status(201).json({ item });
   broadcast(tripId, 'budget:created', { item }, req.headers['x-socket-id'] as string);
+});
+
+router.put('/reorder/items', authenticate, (req: Request, res: Response) => {
+  const authReq = req as AuthRequest;
+  const { tripId } = req.params;
+  const { orderedIds } = req.body;
+
+  const trip = verifyTripAccess(tripId, authReq.user.id);
+  if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+  if (!checkPermission('budget_edit', authReq.user.role, trip.user_id, authReq.user.id, trip.user_id !== authReq.user.id))
+    return res.status(403).json({ error: 'No permission' });
+
+  reorderBudgetItems(tripId, orderedIds);
+  res.json({ success: true });
+  broadcast(tripId, 'budget:reordered', { orderedIds }, req.headers['x-socket-id'] as string);
+});
+
+router.put('/reorder/categories', authenticate, (req: Request, res: Response) => {
+  const authReq = req as AuthRequest;
+  const { tripId } = req.params;
+  const { orderedCategories } = req.body;
+
+  const trip = verifyTripAccess(tripId, authReq.user.id);
+  if (!trip) return res.status(404).json({ error: 'Trip not found' });
+
+  if (!checkPermission('budget_edit', authReq.user.role, trip.user_id, authReq.user.id, trip.user_id !== authReq.user.id))
+    return res.status(403).json({ error: 'No permission' });
+
+  reorderBudgetCategories(tripId, orderedCategories);
+  res.json({ success: true });
+  broadcast(tripId, 'budget:reordered', { orderedCategories }, req.headers['x-socket-id'] as string);
 });
 
 router.put('/:id', authenticate, (req: Request, res: Response) => {
