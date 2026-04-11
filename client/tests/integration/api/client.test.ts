@@ -903,3 +903,54 @@ describe('API namespace smoke tests', () => {
     await expect(backupApi.create()).resolves.toMatchObject({ filename: 'backup.zip' });
   });
 });
+
+describe('mapsApi', () => {
+  it('FE-MAPS-001: mapsApi.autocomplete sends input, lang, and locationBias', async () => {
+    let capturedBody: any = null;
+
+    server.use(
+      http.post('/api/maps/autocomplete', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({
+          suggestions: [{ placeId: 'ChIJ1234', mainText: 'Paris', secondaryText: 'France' }],
+          source: 'google',
+        });
+      })
+    );
+
+    const result = await mapsApi.autocomplete('Par', 'fr', { lat: 48.8, lng: 2.3 });
+
+    expect(capturedBody).toEqual({
+      input: 'Par',
+      lang: 'fr',
+      locationBias: { lat: 48.8, lng: 2.3 },
+    });
+    expect(result.suggestions).toHaveLength(1);
+    expect(result.suggestions[0].mainText).toBe('Paris');
+    expect(result.source).toBe('google');
+  });
+
+  it('FE-MAPS-002: mapsApi.autocomplete works without optional params', async () => {
+    server.use(
+      http.post('/api/maps/autocomplete', async ({ request }) => {
+        const body: any = await request.json();
+        expect(body.lang).toBeUndefined();
+        expect(body.locationBias).toBeUndefined();
+        return HttpResponse.json({ suggestions: [], source: 'nominatim' });
+      })
+    );
+
+    const result = await mapsApi.autocomplete('test');
+    expect(result.suggestions).toEqual([]);
+  });
+
+  it('FE-MAPS-003: mapsApi.autocomplete rejects on server error', async () => {
+    server.use(
+      http.post('/api/maps/autocomplete', () => {
+        return HttpResponse.json({ error: 'Rate limited' }, { status: 429 });
+      })
+    );
+
+    await expect(mapsApi.autocomplete('test')).rejects.toThrow();
+  });
+});

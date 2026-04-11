@@ -7,6 +7,7 @@ import {
   getPlacePhoto,
   reverseGeocode,
   resolveGoogleMapsUrl,
+  autocompletePlaces,
 } from '../services/mapsService';
 
 const router = express.Router();
@@ -25,6 +26,35 @@ router.post('/search', authenticate, async (req: Request, res: Response) => {
     const status = (err as { status?: number }).status || 500;
     const message = err instanceof Error ? err.message : 'Search error';
     console.error('Maps search error:', err);
+    res.status(status).json({ error: message });
+  }
+});
+
+// POST /autocomplete
+router.post('/autocomplete', authenticate, async (req: Request, res: Response) => {
+  const authReq = req as AuthRequest;
+  const { input, lang, locationBias } = req.body;
+
+  if (!input || typeof input !== 'string') {
+    return res.status(400).json({ error: 'Input is required' });
+  }
+
+  if (locationBias && (!Number.isFinite(locationBias.lat) || !Number.isFinite(locationBias.lng))) {
+    return res.status(400).json({ error: 'Invalid locationBias: lat and lng must be finite numbers' });
+  }
+
+  try {
+    const result = await autocompletePlaces(
+      authReq.user.id,
+      input,
+      lang as string,
+      locationBias as { lat: number; lng: number } | undefined,
+    );
+    res.json(result);
+  } catch (err: unknown) {
+    const status = (err as { status?: number }).status || 500;
+    const message = err instanceof Error ? err.message : 'Autocomplete error';
+    console.error('Maps autocomplete error:', err);
     res.status(status).json({ error: message });
   }
 });

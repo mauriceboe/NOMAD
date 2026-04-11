@@ -44,6 +44,7 @@ vi.mock('../../src/config', () => ({
 // URLs that look internal); individual tests override with mockResolvedValueOnce.
 vi.mock('../../src/services/mapsService', () => ({
   searchPlaces: vi.fn(),
+  autocompletePlaces: vi.fn(),
   getPlaceDetails: vi.fn(),
   getPlacePhoto: vi.fn(),
   reverseGeocode: vi.fn(),
@@ -276,5 +277,110 @@ describe('Maps happy paths (mocked service)', () => {
     expect(res.status).toBe(200);
     expect(res.body.name).toBeNull();
     expect(res.body.address).toBeNull();
+  });
+});
+
+describe('Maps autocomplete', () => {
+  it('MAPS-009 — POST /maps/autocomplete without auth returns 401', async () => {
+    const res = await request(app)
+      .post('/api/maps/autocomplete')
+      .send({ input: 'Paris' });
+    expect(res.status).toBe(401);
+  });
+
+  it('MAPS-010 — POST /maps/autocomplete without input returns 400', async () => {
+    const { user } = createUser(testDb);
+
+    const res = await request(app)
+      .post('/api/maps/autocomplete')
+      .set('Cookie', authCookie(user.id))
+      .send({});
+    expect(res.status).toBe(400);
+  });
+
+  it('MAPS-011 — POST /maps/autocomplete with non-string input returns 400', async () => {
+    const { user } = createUser(testDb);
+
+    const res = await request(app)
+      .post('/api/maps/autocomplete')
+      .set('Cookie', authCookie(user.id))
+      .send({ input: 123 });
+    expect(res.status).toBe(400);
+  });
+
+  it('MAPS-012 — POST /maps/autocomplete with invalid locationBias returns 400', async () => {
+    const { user } = createUser(testDb);
+
+    const res = await request(app)
+      .post('/api/maps/autocomplete')
+      .set('Cookie', authCookie(user.id))
+      .send({ input: 'Paris', locationBias: { lat: NaN, lng: 2.3 } });
+    expect(res.status).toBe(400);
+  });
+
+  it('MAPS-013 — POST /maps/autocomplete returns suggestions from service', async () => {
+    const { user } = createUser(testDb);
+    vi.mocked(mapsService.autocompletePlaces).mockResolvedValueOnce({
+      suggestions: [
+        { placeId: 'ChIJ1234', mainText: 'Paris', secondaryText: 'France' },
+      ],
+      source: 'google',
+    });
+
+    const res = await request(app)
+      .post('/api/maps/autocomplete')
+      .set('Cookie', authCookie(user.id))
+      .send({ input: 'Paris' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.suggestions).toHaveLength(1);
+    expect(res.body.suggestions[0].mainText).toBe('Paris');
+    expect(res.body.source).toBe('google');
+  });
+
+  it('MAPS-014 — POST /maps/autocomplete passes lang and locationBias to service', async () => {
+    const { user } = createUser(testDb);
+    vi.mocked(mapsService.autocompletePlaces).mockResolvedValueOnce({
+      suggestions: [],
+      source: 'google',
+    });
+
+    await request(app)
+      .post('/api/maps/autocomplete')
+      .set('Cookie', authCookie(user.id))
+      .send({ input: 'test', lang: 'fr', locationBias: { lat: 48.8, lng: 2.3 } });
+
+    expect(mapsService.autocompletePlaces).toHaveBeenCalledWith(
+      user.id,
+      'test',
+      'fr',
+      { lat: 48.8, lng: 2.3 },
+    );
+  });
+
+  it('MAPS-015 — autocomplete service error propagates correct status', async () => {
+    const { user } = createUser(testDb);
+    const err = Object.assign(new Error('Rate limited'), { status: 429 });
+    vi.mocked(mapsService.autocompletePlaces).mockRejectedValueOnce(err);
+
+    const res = await request(app)
+      .post('/api/maps/autocomplete')
+      .set('Cookie', authCookie(user.id))
+      .send({ input: 'test' });
+
+    expect(res.status).toBe(429);
+    expect(res.body.error).toBe('Rate limited');
+  });
+
+  it('MAPS-016 — autocomplete service error without status returns 500', async () => {
+    const { user } = createUser(testDb);
+    vi.mocked(mapsService.autocompletePlaces).mockRejectedValueOnce(new Error('Unknown'));
+
+    const res = await request(app)
+      .post('/api/maps/autocomplete')
+      .set('Cookie', authCookie(user.id))
+      .send({ input: 'test' });
+
+    expect(res.status).toBe(500);
   });
 });

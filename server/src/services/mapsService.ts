@@ -32,6 +32,16 @@ interface GooglePlaceResult {
   types?: string[];
 }
 
+interface GoogleAutocompleteSuggestion {
+  placePrediction?: {
+    placeId: string;
+    structuredFormat?: {
+      mainText?: { text: string };
+      secondaryText?: { text: string };
+    };
+  };
+}
+
 interface GooglePlaceDetails extends GooglePlaceResult {
   userRatingCount?: number;
   regularOpeningHours?: { weekdayDescriptions?: string[]; openNow?: boolean };
@@ -301,6 +311,83 @@ export async function searchPlaces(userId: number, query: string, lang?: string)
   }));
 
   return { places, source: 'google' };
+}
+
+// ── Autocomplete (Google or Nominatim fallback) ─────────────────────────────
+
+export async function autocompletePlaces(
+  userId: number,
+  input: string,
+  lang?: string,
+  locationBias?: { lat: number; lng: number },
+): Promise<{ suggestions: { placeId: string; mainText: string; secondaryText: string }[]; source: string }> {
+  const apiKey = getMapsKey(userId);
+
+  if (!apiKey) {
+    return autocompleteNominatim(input, lang);
+  }
+
+  const body: Record<string, unknown> = {
+    input,
+    languageCode: lang || 'en',
+  };
+  if (locationBias) {
+    body.locationBias = {
+      circle: {
+        center: { latitude: locationBias.lat, longitude: locationBias.lng },
+        radius: 50000.0,
+      },
+    };
+  }
+
+  const response = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': apiKey,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await response.json() as { suggestions?: GoogleAutocompleteSuggestion[]; error?: { message?: string } };
+
+  if (!response.ok) {
+    const err = new Error(data.error?.message || 'Google Places Autocomplete error') as Error & { status: number };
+    err.status = response.status;
+    throw err;
+  }
+
+  const suggestions = (data.suggestions || [])
+    .filter((s) => s.placePrediction)
+    .slice(0, 5)
+    .map((s) => ({
+      placeId: s.placePrediction!.placeId,
+      mainText: s.placePrediction!.structuredFormat?.mainText?.text || '',
+      secondaryText: s.placePrediction!.structuredFormat?.secondaryText?.text || '',
+    }));
+
+  return { suggestions, source: 'google' };
+}
+
+async function autocompleteNominatim(
+  input: string,
+  lang?: string,
+): Promise<{ suggestions: { placeId: string; mainText: string; secondaryText: string }[]; source: string }> {
+  try {
+    const places = await searchNominatim(input, lang);
+    const suggestions = places.slice(0, 5).map((p) => {
+      const parts = (p.address || '').split(',').map((s) => s.trim());
+      return {
+        placeId: p.osm_id || '',
+        mainText: p.name || parts[0] || '',
+        secondaryText: parts.slice(1).join(', '),
+      };
+    });
+    return { suggestions, source: 'nominatim' };
+  } catch (err) {
+    console.error('Nominatim autocomplete failed:', err);
+    return { suggestions: [], source: 'nominatim' };
+  }
 }
 
 // ── Place details (Google or OSM) ────────────────────────────────────────────

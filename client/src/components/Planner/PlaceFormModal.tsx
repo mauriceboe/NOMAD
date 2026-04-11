@@ -25,6 +25,25 @@ interface PlaceFormData {
   website: string
 }
 
+function isGoogleMapsUrl(input: string): boolean {
+  try {
+    const { hostname, pathname } = new URL(input.trim())
+    const h = hostname.toLowerCase()
+    // maps.app.goo.gl, goo.gl/maps
+    if (h === 'maps.app.goo.gl') return true
+    if (h === 'goo.gl' && pathname.startsWith('/maps')) return true
+    // maps.google.* (e.g. maps.google.com, maps.google.co.uk)
+    // Must be maps.google.<tld> or maps.google.<sld>.<tld> — reject maps.google.evil.com
+    if (/^maps\.google\.[a-z]{2,3}(\.[a-z]{2})?$/.test(h)) return true
+    // google.*/maps (e.g. google.com/maps, www.google.co.uk/maps)
+    const bare = h.startsWith('www.') ? h.slice(4) : h
+    if (/^google\.[a-z]{2,3}(\.[a-z]{2})?$/.test(bare) && pathname.startsWith('/maps')) return true
+    return false
+  } catch {
+    return false
+  }
+}
+
 const DEFAULT_FORM: PlaceFormData = {
   name: '',
   description: '',
@@ -65,6 +84,10 @@ export default function PlaceFormModal({
   const [isSaving, setIsSaving] = useState(false)
   const [pendingFiles, setPendingFiles] = useState([])
   const fileRef = useRef(null)
+  const [acSuggestions, setAcSuggestions] = useState<{ placeId: string; mainText: string; secondaryText: string }[]>([])
+  const [acHighlight, setAcHighlight] = useState(-1)
+  const acDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [acTrigger, setAcTrigger] = useState(0)
   const toast = useToast()
   const { t, language } = useTranslation()
   const { hasMapsKey } = useAuthStore()
@@ -101,6 +124,43 @@ export default function PlaceFormModal({
     setPendingFiles([])
   }, [place, prefillCoords, isOpen])
 
+  // Derive location bias from the trip's existing places
+  const places = useTripStore((s) => s.places)
+  const locationBias = useMemo(() => {
+    const firstWithCoords = places?.find((p) => p.lat != null && p.lng != null)
+    if (!firstWithCoords) return undefined
+    const lat = Number(firstWithCoords.lat)
+    const lng = Number(firstWithCoords.lng)
+    return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : undefined
+  }, [places])
+
+  // Debounced autocomplete
+  useEffect(() => {
+    if (acDebounceRef.current) clearTimeout(acDebounceRef.current)
+
+    const trimmed = mapsSearch.trim()
+    if (trimmed.length < 2 || isGoogleMapsUrl(trimmed)) {
+      setAcSuggestions([])
+      setAcHighlight(-1)
+      return
+    }
+
+    acDebounceRef.current = setTimeout(async () => {
+      try {
+        const result = await mapsApi.autocomplete(trimmed, language, locationBias)
+        setAcSuggestions(result.suggestions || [])
+        setAcHighlight(-1)
+      } catch (err) {
+        console.error('Autocomplete failed:', err)
+        setAcSuggestions([])
+      }
+    }, 300)
+
+    return () => {
+      if (acDebounceRef.current) clearTimeout(acDebounceRef.current)
+    }
+  }, [mapsSearch, language, locationBias, acTrigger])
+
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }))
   }
@@ -111,7 +171,7 @@ export default function PlaceFormModal({
     try {
       // Detect Google Maps URLs and resolve them directly
       const trimmed = mapsSearch.trim()
-      if (trimmed.match(/^https?:\/\/(www\.)?(google\.[a-z.]+\/maps|maps\.google\.[a-z.]+|maps\.app\.goo\.gl|goo\.gl)/i)) {
+      if (isGoogleMapsUrl(trimmed)) {
         const resolved = await mapsApi.resolveUrl(trimmed)
         if (resolved.lat && resolved.lng) {
           setForm(prev => ({
@@ -150,6 +210,55 @@ export default function PlaceFormModal({
     }))
     setMapsResults([])
     setMapsSearch('')
+  }
+
+  const handleSelectSuggestion = async (suggestion: { placeId: string; mainText: string; secondaryText: string }) => {
+    setAcSuggestions([])
+    setAcHighlight(-1)
+    const previousSearch = mapsSearch
+    setMapsSearch('')
+    setIsSearchingMaps(true)
+    try {
+      const result = await mapsApi.details(suggestion.placeId, language)
+      if (result.place) {
+        handleSelectMapsResult(result.place)
+      } else {
+        setMapsSearch(previousSearch)
+        toast.error(t('places.mapsSearchError'))
+      }
+    } catch (err) {
+      console.error('Failed to fetch place details:', err)
+      setMapsSearch(previousSearch)
+      toast.error(t('places.mapsSearchError'))
+    } finally {
+      setIsSearchingMaps(false)
+    }
+  }
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (acSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setAcHighlight(prev => (prev + 1) % acSuggestions.length)
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setAcHighlight(prev => (prev <= 0 ? acSuggestions.length - 1 : prev - 1))
+      } else if (e.key === 'Enter') {
+        e.preventDefault()
+        if (acHighlight >= 0) {
+          handleSelectSuggestion(acSuggestions[acHighlight])
+        } else {
+          setAcSuggestions([])
+          handleMapsSearch()
+        }
+      } else if (e.key === 'Escape') {
+        setAcSuggestions([])
+        setAcHighlight(-1)
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      handleMapsSearch()
+    }
   }
 
   const handleCreateCategory = async () => {
@@ -229,24 +338,56 @@ export default function PlaceFormModal({
               {t('places.osmActive')}
             </p>
           )}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={mapsSearch}
-              onChange={e => setMapsSearch(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleMapsSearch())}
-              placeholder={t('places.mapsSearchPlaceholder')}
-              className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white"
-            />
-            <button
-              type="button"
-              onClick={handleMapsSearch}
-              disabled={isSearchingMaps}
-              className="bg-slate-900 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-slate-700 disabled:opacity-60"
-            >
-              {isSearchingMaps ? '...' : <Search className="w-4 h-4" />}
-            </button>
+          <div className="relative">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={mapsSearch}
+                onChange={e => setMapsSearch(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                onBlur={() => setTimeout(() => setAcSuggestions([]), 150)}
+                onFocus={() => {
+                  if (mapsSearch.trim().length >= 2 && acSuggestions.length === 0 && mapsResults.length === 0) {
+                    setAcTrigger(prev => prev + 1)
+                  }
+                }}
+                placeholder={t('places.mapsSearchPlaceholder')}
+                className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 bg-white"
+              />
+              <button
+                type="button"
+                onClick={() => { setAcSuggestions([]); handleMapsSearch() }}
+                disabled={isSearchingMaps}
+                className="bg-slate-900 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-slate-700 disabled:opacity-60"
+              >
+                {isSearchingMaps ? '...' : <Search className="w-4 h-4" />}
+              </button>
+            </div>
+
+            {/* Autocomplete dropdown */}
+            {acSuggestions.length > 0 && (
+              <div className="absolute left-0 right-0 z-20 mt-1 bg-white rounded-lg border border-slate-200 shadow-lg overflow-hidden">
+                {acSuggestions.map((s, idx) => (
+                  <button
+                    key={s.placeId}
+                    type="button"
+                    onMouseDown={() => handleSelectSuggestion(s)}
+                    onMouseEnter={() => setAcHighlight(idx)}
+                    className={`w-full text-left px-3 py-2 border-b border-slate-100 last:border-0 ${
+                      idx === acHighlight ? 'bg-slate-100' : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="font-medium text-sm">{s.mainText}</div>
+                    {s.secondaryText && (
+                      <div className="text-xs text-slate-500 truncate">{s.secondaryText}</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+
+          {/* Search results (populated after full search) */}
           {mapsResults.length > 0 && (
             <div className="bg-white rounded-lg border border-slate-200 overflow-hidden max-h-40 overflow-y-auto mt-2">
               {mapsResults.map((result, idx) => (

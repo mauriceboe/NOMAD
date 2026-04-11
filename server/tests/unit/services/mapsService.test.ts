@@ -709,6 +709,202 @@ describe('searchPlaces (fetch stubbed)', () => {
   });
 });
 
+// ── autocompletePlaces (fetch stubbed) ──────────────────────────────────────
+
+describe('autocompletePlaces (fetch stubbed)', () => {
+  it('MAPS-081: uses Nominatim when user has no API key', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [
+        { osm_type: 'node', osm_id: '1', lat: '48.8', lon: '2.3', display_name: 'Paris, Île-de-France, France', name: 'Paris' },
+      ],
+    }));
+    const { autocompletePlaces } = await import('../../../src/services/mapsService');
+    const result = await autocompletePlaces(999, 'Paris');
+    expect(result.source).toBe('nominatim');
+    expect(result.suggestions).toHaveLength(1);
+    expect(result.suggestions[0].mainText).toBe('Paris');
+    expect(result.suggestions[0].placeId).toBe('node:1');
+  });
+
+  it('MAPS-082: uses Google when user has an API key', async () => {
+    mockDbGet
+      .mockReturnValueOnce({ maps_api_key: 'ENCRYPTED' })
+      .mockReturnValueOnce(null);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        suggestions: [
+          {
+            placePrediction: {
+              placeId: 'ChIJ1234',
+              structuredFormat: {
+                mainText: { text: 'Eiffel Tower' },
+                secondaryText: { text: 'Paris, France' },
+              },
+            },
+          },
+        ],
+      }),
+    }));
+    const { autocompletePlaces } = await import('../../../src/services/mapsService');
+    const result = await autocompletePlaces(1, 'Eiffel');
+    expect(result.source).toBe('google');
+    expect(result.suggestions).toHaveLength(1);
+    expect(result.suggestions[0].placeId).toBe('ChIJ1234');
+    expect(result.suggestions[0].mainText).toBe('Eiffel Tower');
+    expect(result.suggestions[0].secondaryText).toBe('Paris, France');
+  });
+
+  it('MAPS-083: throws with Google error status when API returns non-ok', async () => {
+    mockDbGet.mockReturnValueOnce({ maps_api_key: 'some-key' });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: { message: 'API key invalid' } }),
+    }));
+    const { autocompletePlaces } = await import('../../../src/services/mapsService');
+    await expect(autocompletePlaces(1, 'anything')).rejects.toMatchObject({
+      message: 'API key invalid',
+      status: 403,
+    });
+  });
+
+  it('MAPS-084: throws generic message when Google error has no message', async () => {
+    mockDbGet.mockReturnValueOnce({ maps_api_key: 'some-key' });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: {} }),
+    }));
+    const { autocompletePlaces } = await import('../../../src/services/mapsService');
+    await expect(autocompletePlaces(1, 'anything')).rejects.toMatchObject({
+      message: 'Google Places Autocomplete error',
+      status: 500,
+    });
+  });
+
+  it('MAPS-085: returns empty suggestions when Google returns no results', async () => {
+    mockDbGet.mockReturnValueOnce({ maps_api_key: 'some-key' });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ suggestions: [] }),
+    }));
+    const { autocompletePlaces } = await import('../../../src/services/mapsService');
+    const result = await autocompletePlaces(1, 'very obscure place');
+    expect(result.source).toBe('google');
+    expect(result.suggestions).toHaveLength(0);
+  });
+
+  it('MAPS-086: filters out suggestions without placePrediction', async () => {
+    mockDbGet.mockReturnValueOnce({ maps_api_key: 'some-key' });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        suggestions: [
+          { placePrediction: { placeId: 'A', structuredFormat: { mainText: { text: 'Good' } } } },
+          { queryPrediction: { text: 'some query' } },
+          { placePrediction: { placeId: 'B', structuredFormat: { mainText: { text: 'Also Good' } } } },
+        ],
+      }),
+    }));
+    const { autocompletePlaces } = await import('../../../src/services/mapsService');
+    const result = await autocompletePlaces(1, 'test');
+    expect(result.suggestions).toHaveLength(2);
+    expect(result.suggestions[0].placeId).toBe('A');
+    expect(result.suggestions[1].placeId).toBe('B');
+  });
+
+  it('MAPS-087: limits results to 5 suggestions', async () => {
+    mockDbGet.mockReturnValueOnce({ maps_api_key: 'some-key' });
+    const manySuggestions = Array.from({ length: 10 }, (_, i) => ({
+      placePrediction: {
+        placeId: `id-${i}`,
+        structuredFormat: { mainText: { text: `Place ${i}` } },
+      },
+    }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ suggestions: manySuggestions }),
+    }));
+    const { autocompletePlaces } = await import('../../../src/services/mapsService');
+    const result = await autocompletePlaces(1, 'test');
+    expect(result.suggestions).toHaveLength(5);
+  });
+
+  it('MAPS-088: includes locationBias in Google request when provided', async () => {
+    mockDbGet.mockReturnValueOnce({ maps_api_key: 'test-key' });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ suggestions: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const { autocompletePlaces } = await import('../../../src/services/mapsService');
+    await autocompletePlaces(1, 'test', 'en', { lat: 48.8, lng: 2.3 });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.locationBias).toEqual({
+      circle: {
+        center: { latitude: 48.8, longitude: 2.3 },
+        radius: 50000.0,
+      },
+    });
+  });
+
+  it('MAPS-089: omits locationBias from Google request when not provided', async () => {
+    mockDbGet.mockReturnValueOnce({ maps_api_key: 'test-key' });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ suggestions: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const { autocompletePlaces } = await import('../../../src/services/mapsService');
+    await autocompletePlaces(1, 'test', 'en');
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.locationBias).toBeUndefined();
+  });
+
+  it('MAPS-090: handles missing structuredFormat fields gracefully', async () => {
+    mockDbGet.mockReturnValueOnce({ maps_api_key: 'some-key' });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        suggestions: [
+          { placePrediction: { placeId: 'sparse-id' } },
+        ],
+      }),
+    }));
+    const { autocompletePlaces } = await import('../../../src/services/mapsService');
+    const result = await autocompletePlaces(1, 'sparse');
+    expect(result.suggestions[0].placeId).toBe('sparse-id');
+    expect(result.suggestions[0].mainText).toBe('');
+    expect(result.suggestions[0].secondaryText).toBe('');
+  });
+
+  it('MAPS-091: Nominatim fallback returns empty suggestions on searchNominatim error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')));
+    const { autocompletePlaces } = await import('../../../src/services/mapsService');
+    const result = await autocompletePlaces(999, 'fail');
+    expect(result.source).toBe('nominatim');
+    expect(result.suggestions).toHaveLength(0);
+  });
+
+  it('MAPS-092: Nominatim fallback splits address into mainText and secondaryText', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [
+        { osm_type: 'way', osm_id: '42', lat: '51.5', lon: '-0.1', display_name: 'Big Ben, Westminster, London, UK', name: 'Big Ben' },
+      ],
+    }));
+    const { autocompletePlaces } = await import('../../../src/services/mapsService');
+    const result = await autocompletePlaces(999, 'Big Ben');
+    expect(result.suggestions[0].mainText).toBe('Big Ben');
+    expect(result.suggestions[0].secondaryText).toBe('Westminster, London, UK');
+  });
+});
+
 // ── getPlaceDetails (fetch stubbed) ─────────────────────────────────────────
 
 describe('getPlaceDetails (fetch stubbed)', () => {
