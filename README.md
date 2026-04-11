@@ -149,9 +149,9 @@ services:
       - TZ=${TZ:-UTC} # Timezone for logs, reminders and scheduled tasks (e.g. Europe/Berlin)
       - LOG_LEVEL=${LOG_LEVEL:-info} # info = concise user actions; debug = verbose admin-level details
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-} # Comma-separated origins for CORS and email notification links
-      - FORCE_HTTPS=true # Redirect HTTP to HTTPS when behind a TLS-terminating proxy
+      # - FORCE_HTTPS=true # Optional: let TREK send HTTP->HTTPS redirects and HSTS behind a TLS-terminating proxy
       # - COOKIE_SECURE=false # Uncomment if accessing over plain HTTP (no HTTPS). Not recommended for production.
-      - TRUST_PROXY=1 # Number of trusted proxies for X-Forwarded-For
+      - TRUST_PROXY=1 # Trust X-Forwarded-* headers from your reverse proxy
       # - ALLOW_INTERNAL_NETWORK=true # Uncomment if Immich or other services are on your local network (RFC-1918 IPs)
       - APP_URL=${APP_URL:-} # Base URL of this instance — required when OIDC is enabled; must match the redirect URI registered with your IdP; Also used as the base URL for email notifications and other external links
       # - OIDC_ISSUER=https://auth.example.com # OpenID Connect provider URL
@@ -180,7 +180,11 @@ services:
       start_period: 15s
 ```
 
-This example is aimed at reverse-proxy deployments. If you access TREK directly on `http://<host>:3000` without nginx, Caddy, Traefik, or another TLS-terminating proxy in front of it, set `FORCE_HTTPS=false` and remove `TRUST_PROXY` to avoid redirects to a non-existent HTTPS endpoint.
+This example is aimed at reverse-proxy deployments. `TRUST_PROXY=1` is the important part here so Express trusts `X-Forwarded-*` headers from nginx, Caddy, Traefik, or another proxy in front of TREK.
+
+`FORCE_HTTPS` is optional in that setup: enable it only if you want TREK itself to send HTTP->HTTPS redirects and HSTS headers. If your reverse proxy already enforces HTTPS, leaving `FORCE_HTTPS=false` is fine.
+
+If you access TREK directly on `http://<host>:3000` without a TLS-terminating proxy in front of it, leave `FORCE_HTTPS=false` and remove `TRUST_PROXY` to avoid redirects to a non-existent HTTPS endpoint.
 
 ```bash
 docker compose up -d
@@ -291,9 +295,9 @@ trek.yourdomain.com {
 | `TZ` | Timezone for logs, reminders and cron jobs (e.g. `Europe/Berlin`) | `UTC` |
 | `LOG_LEVEL` | `info` = concise user actions, `debug` = verbose details | `info` |
 | `ALLOWED_ORIGINS` | Comma-separated origins for CORS and email links | same-origin |
-| `FORCE_HTTPS` | Redirect HTTP to HTTPS behind a TLS-terminating proxy. If you access TREK directly on `http://host:3000`, keep this `false`. | `false` |
+| `FORCE_HTTPS` | Optional application-layer HTTPS enforcement. Enable this only if TREK is behind a TLS-terminating proxy that forwards `X-Forwarded-Proto` and you want TREK itself to send HTTP->HTTPS redirects and HSTS. If your proxy already enforces HTTPS, or you access TREK directly on `http://host:3000`, keep this `false`. | `false` |
 | `COOKIE_SECURE` | Set to `false` to allow session cookies over plain HTTP (e.g. accessing via IP without HTTPS). Defaults to `true` in production. **Not recommended to disable in production.** | `true` |
-| `TRUST_PROXY` | Number of trusted reverse proxies for `X-Forwarded-For`. Use this only when TREK is actually behind a reverse proxy. | `1` |
+| `TRUST_PROXY` | Number of trusted reverse proxies in front of TREK so Express trusts `X-Forwarded-*` headers for client IP and forwarded protocol handling. Use this only when TREK is actually behind a reverse proxy. | `1` |
 | `ALLOW_INTERNAL_NETWORK` | Allow outbound requests to private/RFC-1918 IP addresses. Set to `true` if Immich or other integrated services are hosted on your local network. Loopback (`127.x`) and link-local/metadata addresses (`169.254.x`) are always blocked regardless of this setting. | `false` |
 | `APP_URL` | Public base URL of this instance (e.g. `https://trek.example.com`). Required when OIDC is enabled — must match the redirect URI registered with your IdP. Also used as the base URL for external links in email notifications. | — |
 | **OIDC / SSO** | | |
