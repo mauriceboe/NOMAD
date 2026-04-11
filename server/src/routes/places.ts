@@ -16,6 +16,7 @@ import {
   importGoogleList,
   searchPlaceImage,
 } from '../services/placeService';
+import { onPlaceCreated, onPlaceUpdated, onPlaceDeleted } from '../services/journeyService';
 
 const gpxUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -49,6 +50,7 @@ router.post('/', authenticate, requireTripAccess, validateStringLengths({ name: 
   const place = createPlace(tripId, req.body);
   res.status(201).json({ place });
   broadcast(tripId, 'place:created', { place }, req.headers['x-socket-id'] as string);
+  try { onPlaceCreated(Number(tripId), place.id); } catch {}
 });
 
 // Import places from GPX file with full track geometry (must be before /:id)
@@ -142,6 +144,7 @@ router.put('/:id', authenticate, requireTripAccess, validateStringLengths({ name
 
   res.json({ place });
   broadcast(tripId, 'place:updated', { place }, req.headers['x-socket-id'] as string);
+  try { onPlaceUpdated(place.id); } catch {}
 });
 
 router.delete('/:id', authenticate, requireTripAccess, (req: Request, res: Response) => {
@@ -151,6 +154,7 @@ router.delete('/:id', authenticate, requireTripAccess, (req: Request, res: Respo
 
   const { tripId, id } = req.params;
 
+  try { onPlaceDeleted(Number(id)); } catch {} // sync before actual delete
   const deleted = deletePlace(tripId, id);
   if (!deleted) {
     return res.status(404).json({ error: 'Place not found' });

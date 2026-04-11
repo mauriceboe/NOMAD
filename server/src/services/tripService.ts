@@ -259,6 +259,18 @@ export function deleteTrip(tripId: string | number, userId: number, userRole: st
     ownerEmail = (db.prepare('SELECT email FROM users WHERE id = ?').get(trip.user_id) as { email: string } | undefined)?.email;
   }
 
+  // Clean up journey entries synced from this trip before deleting
+  // Delete skeleton entries (unfilled synced places)
+  db.prepare(`
+    DELETE FROM journey_entries
+    WHERE source_trip_id = ? AND type = 'skeleton'
+  `).run(tripId);
+  // Detach filled entries (keep user's written content, just remove trip link)
+  db.prepare(`
+    UPDATE journey_entries SET source_trip_id = NULL, source_place_id = NULL
+    WHERE source_trip_id = ?
+  `).run(tripId);
+
   db.prepare('DELETE FROM trips WHERE id = ?').run(tripId);
 
   return { tripId: Number(tripId), title: trip.title, ownerId: trip.user_id, isAdminDelete, ownerEmail };

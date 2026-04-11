@@ -123,6 +123,31 @@ export function canAccessUserPhoto(requestingUserId: number, ownerUserId: number
     if (requestingUserId === ownerUserId) {
         return true;
     }
+
+    // Journey photos use tripId=0 — check journey_photos + journey_contributors
+    if (tripId === '0') {
+        const journeyPhoto = db.prepare(`
+            SELECT jp.entry_id, je.journey_id
+            FROM journey_photos jp
+            JOIN journey_entries je ON je.id = jp.entry_id
+            WHERE jp.asset_id = ?
+              AND jp.provider = ?
+              AND jp.owner_id = ?
+            LIMIT 1
+        `).get(assetId, provider, ownerUserId) as { entry_id: number; journey_id: number } | undefined;
+        if (!journeyPhoto) return false;
+
+        // Check if requesting user is the journey owner or a contributor
+        const access = db.prepare(`
+            SELECT 1 FROM journeys WHERE id = ? AND user_id = ?
+            UNION ALL
+            SELECT 1 FROM journey_contributors WHERE journey_id = ? AND user_id = ?
+            LIMIT 1
+        `).get(journeyPhoto.journey_id, requestingUserId, journeyPhoto.journey_id, requestingUserId);
+        return !!access;
+    }
+
+    // Regular trip photos
     const sharedAsset = db.prepare(`
     SELECT 1
     FROM trip_photos

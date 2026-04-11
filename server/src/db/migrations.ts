@@ -885,6 +885,438 @@ function runMigrations(db: Database.Database): void {
         ins.run(r.trip_id, r.category, idx++);
       }
     },
+    // Migration 84: Journey addon — trip tracking & travel journal
+    () => {
+      // Register addon (disabled by default — opt-in)
+      db.prepare(`
+        INSERT OR IGNORE INTO addons (id, name, description, type, icon, enabled, config, sort_order)
+        VALUES ('journey', 'Journey', 'Trip tracking & travel journal — check-ins, photos, daily stories', 'global', 'Compass', 0, '{}', 35)
+      `).run();
+
+      // Core journey table
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS journeys (
+          id TEXT PRIMARY KEY,
+          trip_id INTEGER REFERENCES trips(id) ON DELETE SET NULL,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          title TEXT NOT NULL,
+          description TEXT,
+          cover_image TEXT,
+          status TEXT NOT NULL DEFAULT 'draft',
+          started_at TEXT,
+          ended_at TEXT,
+          is_public INTEGER NOT NULL DEFAULT 0,
+          public_token TEXT UNIQUE,
+          settings TEXT DEFAULT '{}',
+          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+          updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+        )
+      `);
+
+      // Check-ins — visited locations
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS journey_checkins (
+          id TEXT PRIMARY KEY,
+          journey_id TEXT NOT NULL REFERENCES journeys(id) ON DELETE CASCADE,
+          place_id INTEGER REFERENCES places(id) ON DELETE SET NULL,
+          name TEXT NOT NULL,
+          lat REAL,
+          lng REAL,
+          address TEXT,
+          country_code TEXT,
+          notes TEXT,
+          checked_in_at TEXT NOT NULL,
+          source TEXT NOT NULL DEFAULT 'manual',
+          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+        )
+      `);
+
+      // Journal entries — daily stories
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS journey_entries (
+          id TEXT PRIMARY KEY,
+          journey_id TEXT NOT NULL REFERENCES journeys(id) ON DELETE CASCADE,
+          checkin_id TEXT REFERENCES journey_checkins(id) ON DELETE SET NULL,
+          entry_date TEXT NOT NULL,
+          title TEXT,
+          body TEXT,
+          mood TEXT,
+          weather TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+          updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+        )
+      `);
+
+      // Photos — local uploads + provider references (Immich/Synology)
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS journey_photos (
+          id TEXT PRIMARY KEY,
+          journey_id TEXT NOT NULL REFERENCES journeys(id) ON DELETE CASCADE,
+          checkin_id TEXT REFERENCES journey_checkins(id) ON DELETE SET NULL,
+          entry_id TEXT REFERENCES journey_entries(id) ON DELETE SET NULL,
+          storage_type TEXT NOT NULL DEFAULT 'local',
+          asset_id TEXT,
+          file_path TEXT,
+          thumbnail_path TEXT,
+          original_name TEXT,
+          mime_type TEXT,
+          size_bytes INTEGER,
+          caption TEXT,
+          taken_at TEXT,
+          lat REAL,
+          lng REAL,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+        )
+      `);
+
+      // GPS trail points (Dawarich integration)
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS journey_location_trail (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          journey_id TEXT NOT NULL REFERENCES journeys(id) ON DELETE CASCADE,
+          lat REAL NOT NULL,
+          lng REAL NOT NULL,
+          altitude REAL,
+          accuracy REAL,
+          recorded_at TEXT NOT NULL,
+          source TEXT NOT NULL DEFAULT 'dawarich'
+        )
+      `);
+
+      // Indexes
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_journeys_user ON journeys(user_id);
+        CREATE INDEX IF NOT EXISTS idx_journeys_trip ON journeys(trip_id);
+        CREATE INDEX IF NOT EXISTS idx_journeys_public_token ON journeys(public_token);
+        CREATE INDEX IF NOT EXISTS idx_journey_checkins_journey ON journey_checkins(journey_id, checked_in_at);
+        CREATE INDEX IF NOT EXISTS idx_journey_entries_journey_date ON journey_entries(journey_id, entry_date);
+        CREATE INDEX IF NOT EXISTS idx_journey_photos_journey ON journey_photos(journey_id);
+        CREATE INDEX IF NOT EXISTS idx_journey_photos_checkin ON journey_photos(checkin_id);
+        CREATE INDEX IF NOT EXISTS idx_journey_photos_entry ON journey_photos(entry_id);
+        CREATE INDEX IF NOT EXISTS idx_journey_trail_journey_time ON journey_location_trail(journey_id, recorded_at);
+      `);
+    },
+    // Migration 85: Journal — richer entry fields for magazine-style design
+    () => {
+      // Highlight tags (JSON array), visibility control, hero photo, color accent
+      try { db.exec('ALTER TABLE journey_entries ADD COLUMN highlight_tags TEXT'); } catch {}
+      try { db.exec("ALTER TABLE journey_entries ADD COLUMN visibility TEXT NOT NULL DEFAULT 'private'"); } catch {}
+      try { db.exec('ALTER TABLE journey_entries ADD COLUMN hero_photo_id TEXT'); } catch {}
+      try { db.exec('ALTER TABLE journey_entries ADD COLUMN color_accent TEXT'); } catch {}
+      try { db.exec('ALTER TABLE journey_entries ADD COLUMN place_name TEXT'); } catch {}
+      try { db.exec('ALTER TABLE journey_entries ADD COLUMN place_id INTEGER REFERENCES places(id) ON DELETE SET NULL'); } catch {}
+      try { db.exec('ALTER TABLE journey_entries ADD COLUMN lat REAL'); } catch {}
+      try { db.exec('ALTER TABLE journey_entries ADD COLUMN lng REAL'); } catch {}
+
+      // Check-in: allow a single cover photo reference
+      try { db.exec('ALTER TABLE journey_checkins ADD COLUMN photo_id TEXT'); } catch {}
+
+      // Photos: add caption edit timestamp for gallery ordering
+      try { db.exec('ALTER TABLE journey_photos ADD COLUMN width INTEGER'); } catch {}
+      try { db.exec('ALTER TABLE journey_photos ADD COLUMN height INTEGER'); } catch {}
+    },
+    // Migration 86: Journey multi-trip support + sharing/collaboration
+    () => {
+      // Junction table: journey can include multiple trips
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS journey_trips (
+          journey_id TEXT NOT NULL REFERENCES journeys(id) ON DELETE CASCADE,
+          trip_id INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          added_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+          PRIMARY KEY (journey_id, trip_id)
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_journey_trips_journey ON journey_trips(journey_id)');
+
+      // Sharing: invite users to a journey
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS journey_members (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          journey_id TEXT NOT NULL REFERENCES journeys(id) ON DELETE CASCADE,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          role TEXT NOT NULL DEFAULT 'viewer',
+          invited_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+          UNIQUE(journey_id, user_id)
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_journey_members_user ON journey_members(user_id)');
+
+      // author tracking on entries and checkins
+      try { db.exec('ALTER TABLE journey_entries ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL'); } catch {}
+      try { db.exec('ALTER TABLE journey_checkins ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL'); } catch {}
+    },
+    // Migration 87: Journey rebuild — new schema with trip sync
+    () => {
+      // Migrate existing data from old tables into backup, then rebuild
+      const hasOldJourneys = db.prepare(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='journeys'"
+      ).get();
+
+      let oldJourneys: any[] = [];
+      let oldEntries: any[] = [];
+      let oldPhotos: any[] = [];
+
+      if (hasOldJourneys) {
+        // Save existing data before dropping
+        try { oldJourneys = db.prepare('SELECT * FROM journeys').all(); } catch {}
+        try { oldEntries = db.prepare('SELECT * FROM journey_entries').all(); } catch {}
+        try { oldPhotos = db.prepare('SELECT * FROM journey_photos').all(); } catch {}
+
+        // Drop all old journey tables
+        db.exec('DROP TABLE IF EXISTS journey_location_trail');
+        db.exec('DROP TABLE IF EXISTS journey_photos');
+        db.exec('DROP TABLE IF EXISTS journey_entries');
+        db.exec('DROP TABLE IF EXISTS journey_checkins');
+        db.exec('DROP TABLE IF EXISTS journey_members');
+        db.exec('DROP TABLE IF EXISTS journey_trips');
+        db.exec('DROP TABLE IF EXISTS journeys');
+      }
+
+      // New schema
+      db.exec(`
+        CREATE TABLE journeys (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          title TEXT NOT NULL,
+          subtitle TEXT,
+          cover_gradient TEXT,
+          status TEXT DEFAULT 'draft',
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+      `);
+
+      db.exec(`
+        CREATE TABLE journey_trips (
+          journey_id INTEGER NOT NULL,
+          trip_id INTEGER NOT NULL,
+          added_at INTEGER NOT NULL,
+          PRIMARY KEY (journey_id, trip_id),
+          FOREIGN KEY (journey_id) REFERENCES journeys(id) ON DELETE CASCADE,
+          FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE
+        )
+      `);
+
+      db.exec(`
+        CREATE TABLE journey_entries (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          journey_id INTEGER NOT NULL,
+          source_trip_id INTEGER,
+          source_place_id INTEGER,
+          author_id INTEGER NOT NULL,
+          type TEXT NOT NULL,
+          title TEXT,
+          story TEXT,
+          entry_date TEXT NOT NULL,
+          entry_time TEXT,
+          location_name TEXT,
+          location_lat REAL,
+          location_lng REAL,
+          mood TEXT,
+          weather TEXT,
+          tags TEXT,
+          visibility TEXT DEFAULT 'private',
+          sort_order INTEGER DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (journey_id) REFERENCES journeys(id) ON DELETE CASCADE,
+          FOREIGN KEY (source_trip_id) REFERENCES trips(id) ON DELETE SET NULL,
+          FOREIGN KEY (source_place_id) REFERENCES places(id) ON DELETE SET NULL,
+          FOREIGN KEY (author_id) REFERENCES users(id)
+        )
+      `);
+
+      db.exec(`
+        CREATE TABLE journey_photos (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          entry_id INTEGER NOT NULL,
+          file_path TEXT NOT NULL,
+          thumbnail_path TEXT,
+          caption TEXT,
+          sort_order INTEGER DEFAULT 0,
+          width INTEGER,
+          height INTEGER,
+          created_at INTEGER NOT NULL,
+          FOREIGN KEY (entry_id) REFERENCES journey_entries(id) ON DELETE CASCADE
+        )
+      `);
+
+      db.exec(`
+        CREATE TABLE journey_contributors (
+          journey_id INTEGER NOT NULL,
+          user_id INTEGER NOT NULL,
+          role TEXT NOT NULL,
+          added_at INTEGER NOT NULL,
+          PRIMARY KEY (journey_id, user_id),
+          FOREIGN KEY (journey_id) REFERENCES journeys(id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+      `);
+
+      // Indexes
+      db.exec(`
+        CREATE INDEX idx_journeys_user ON journeys(user_id);
+        CREATE INDEX idx_journey_entries_journey ON journey_entries(journey_id, entry_date);
+        CREATE INDEX idx_journey_entries_source ON journey_entries(source_place_id);
+        CREATE INDEX idx_journey_photos_entry ON journey_photos(entry_id);
+        CREATE INDEX idx_journey_trips_journey ON journey_trips(journey_id);
+        CREATE INDEX idx_journey_contributors_user ON journey_contributors(user_id);
+      `);
+
+      // Re-import old data if it existed
+      if (oldJourneys.length > 0) {
+        const ts = Date.now();
+        const journeyIdMap = new Map<string, number>(); // old TEXT id -> new INTEGER id
+
+        for (const j of oldJourneys) {
+          const res = db.prepare(`
+            INSERT INTO journeys (user_id, title, subtitle, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `).run(
+            j.user_id,
+            j.title || 'Untitled Journey',
+            j.description || null,
+            j.status || 'draft',
+            j.created_at ? new Date(j.created_at).getTime() : ts,
+            j.updated_at ? new Date(j.updated_at).getTime() : ts
+          );
+          journeyIdMap.set(j.id, Number(res.lastInsertRowid));
+
+          // Add owner as contributor
+          db.prepare(`
+            INSERT OR IGNORE INTO journey_contributors (journey_id, user_id, role, added_at)
+            VALUES (?, ?, 'owner', ?)
+          `).run(Number(res.lastInsertRowid), j.user_id, ts);
+
+          // Link trip if old journey had one
+          if (j.trip_id) {
+            try {
+              db.prepare(`
+                INSERT OR IGNORE INTO journey_trips (journey_id, trip_id, added_at)
+                VALUES (?, ?, ?)
+              `).run(Number(res.lastInsertRowid), j.trip_id, ts);
+            } catch {}
+          }
+        }
+
+        // Migrate entries
+        const entryIdMap = new Map<string, number>();
+        for (const e of oldEntries) {
+          const newJourneyId = journeyIdMap.get(e.journey_id);
+          if (!newJourneyId) continue;
+
+          const res = db.prepare(`
+            INSERT INTO journey_entries (journey_id, author_id, type, title, story, entry_date, entry_time, location_name, location_lat, location_lng, mood, weather, visibility, sort_order, created_at, updated_at)
+            VALUES (?, ?, 'entry', ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            newJourneyId,
+            e.user_id || oldJourneys.find((j: any) => j.id === e.journey_id)?.user_id || 1,
+            e.title || null,
+            e.body || null,
+            e.entry_date || new Date().toISOString().split('T')[0],
+            e.place_name || null,
+            e.lat || null,
+            e.lng || null,
+            e.mood || null,
+            e.weather || null,
+            e.visibility || 'private',
+            e.sort_order || 0,
+            e.created_at ? new Date(e.created_at).getTime() : ts,
+            e.updated_at ? new Date(e.updated_at).getTime() : ts
+          );
+          entryIdMap.set(e.id, Number(res.lastInsertRowid));
+        }
+
+        // Migrate photos
+        for (const p of oldPhotos) {
+          const newEntryId = p.entry_id ? entryIdMap.get(p.entry_id) : null;
+          if (!newEntryId || !p.file_path) continue;
+
+          db.prepare(`
+            INSERT INTO journey_photos (entry_id, file_path, thumbnail_path, caption, sort_order, width, height, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            newEntryId,
+            p.file_path,
+            p.thumbnail_path || null,
+            p.caption || null,
+            p.sort_order || 0,
+            p.width || null,
+            p.height || null,
+            p.created_at ? new Date(p.created_at).getTime() : ts
+          );
+        }
+
+        console.log(`[DB] Journey migration: imported ${journeyIdMap.size} journeys, ${entryIdMap.size} entries, photos migrated`);
+      }
+    },
+    // Migration 88: Journey photos — provider support (Immich/Synology)
+    () => {
+      try { db.exec("ALTER TABLE journey_photos ADD COLUMN provider TEXT NOT NULL DEFAULT 'local'"); } catch {}
+      try { db.exec('ALTER TABLE journey_photos ADD COLUMN asset_id TEXT'); } catch {}
+      try { db.exec('ALTER TABLE journey_photos ADD COLUMN owner_id INTEGER REFERENCES users(id)'); } catch {}
+      try { db.exec('ALTER TABLE journey_photos ADD COLUMN shared INTEGER NOT NULL DEFAULT 1'); } catch {}
+      // file_path was NOT NULL — recreate table to make it nullable
+      const hasProvider = db.prepare("SELECT 1 FROM pragma_table_info('journey_photos') WHERE name = 'provider'").get();
+      if (hasProvider) {
+        // Already has the column, just ensure file_path is nullable by recreating
+        try {
+          db.exec(`
+            CREATE TABLE journey_photos_new (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              entry_id INTEGER NOT NULL,
+              provider TEXT NOT NULL DEFAULT 'local',
+              asset_id TEXT,
+              owner_id INTEGER REFERENCES users(id),
+              file_path TEXT,
+              thumbnail_path TEXT,
+              caption TEXT,
+              sort_order INTEGER DEFAULT 0,
+              width INTEGER,
+              height INTEGER,
+              shared INTEGER NOT NULL DEFAULT 1,
+              created_at INTEGER NOT NULL,
+              FOREIGN KEY (entry_id) REFERENCES journey_entries(id) ON DELETE CASCADE
+            );
+            INSERT INTO journey_photos_new SELECT id, entry_id, provider, asset_id, owner_id, file_path, thumbnail_path, caption, sort_order, width, height, shared, created_at FROM journey_photos;
+            DROP TABLE journey_photos;
+            ALTER TABLE journey_photos_new RENAME TO journey_photos;
+            CREATE INDEX idx_journey_photos_entry ON journey_photos(entry_id);
+          `);
+        } catch {}
+      }
+    },
+    // Migration 89: Journey cover image
+    () => {
+      try { db.exec('ALTER TABLE journeys ADD COLUMN cover_image TEXT'); } catch {}
+    },
+    // Migration 90: Pros/Cons for journey entries
+    () => {
+      try { db.exec('ALTER TABLE journey_entries ADD COLUMN pros_cons TEXT'); } catch {}
+    },
+    // Migration 91: Journey share tokens
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS journey_share_tokens (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          journey_id INTEGER NOT NULL,
+          token TEXT NOT NULL UNIQUE,
+          created_by INTEGER NOT NULL,
+          share_timeline INTEGER DEFAULT 1,
+          share_gallery INTEGER DEFAULT 1,
+          share_map INTEGER DEFAULT 1,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (journey_id) REFERENCES journeys(id) ON DELETE CASCADE,
+          FOREIGN KEY (created_by) REFERENCES users(id)
+        )
+      `);
+      db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_journey_share_journey ON journey_share_tokens(journey_id)');
+    },
     // Migration: OAuth 2.1 clients, consents, and tokens for MCP
     () => {
       db.exec(`

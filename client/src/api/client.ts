@@ -26,7 +26,7 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 && (error.response?.data as { code?: string } | undefined)?.code === 'AUTH_REQUIRED') {
-      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register') && !window.location.pathname.startsWith('/shared/')) {
+      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register') && !window.location.pathname.startsWith('/shared/') && !window.location.pathname.startsWith('/public/')) {
         const currentPath = window.location.pathname + window.location.search
         window.location.href = '/login?redirect=' + encodeURIComponent(currentPath)
       }
@@ -245,6 +245,48 @@ export const adminApi = {
 
 export const addonsApi = {
   enabled: () => apiClient.get('/addons').then(r => r.data),
+}
+
+export const journeyApi = {
+  list: () => apiClient.get('/journeys').then(r => r.data),
+  create: (data: { title: string; subtitle?: string; trip_ids?: number[] }) => apiClient.post('/journeys', data).then(r => r.data),
+  get: (id: number) => apiClient.get(`/journeys/${id}`).then(r => r.data),
+  update: (id: number, data: Record<string, unknown>) => apiClient.patch(`/journeys/${id}`, data).then(r => r.data),
+  delete: (id: number) => apiClient.delete(`/journeys/${id}`).then(r => r.data),
+
+  suggestions: () => apiClient.get('/journeys/suggestions').then(r => r.data),
+  availableTrips: () => apiClient.get('/journeys/available-trips').then(r => r.data),
+
+  // Trips (sync sources)
+  addTrip: (id: number, tripId: number) => apiClient.post(`/journeys/${id}/trips`, { trip_id: tripId }).then(r => r.data),
+  removeTrip: (id: number, tripId: number) => apiClient.delete(`/journeys/${id}/trips/${tripId}`).then(r => r.data),
+
+  // Entries
+  listEntries: (id: number) => apiClient.get(`/journeys/${id}/entries`).then(r => r.data),
+  createEntry: (id: number, data: Record<string, unknown>) => apiClient.post(`/journeys/${id}/entries`, data).then(r => r.data),
+  updateEntry: (entryId: number, data: Record<string, unknown>) => apiClient.patch(`/journeys/entries/${entryId}`, data).then(r => r.data),
+  deleteEntry: (entryId: number) => apiClient.delete(`/journeys/entries/${entryId}`).then(r => r.data),
+
+  // Photos
+  uploadPhotos: (entryId: number, formData: FormData) => apiClient.post(`/journeys/entries/${entryId}/photos`, formData, { headers: { 'Content-Type': undefined as any } }).then(r => r.data),
+  addProviderPhoto: (entryId: number, provider: string, assetId: string, caption?: string) => apiClient.post(`/journeys/entries/${entryId}/provider-photos`, { provider, asset_id: assetId, caption }).then(r => r.data),
+  linkPhoto: (entryId: number, photoId: number) => apiClient.post(`/journeys/entries/${entryId}/link-photo`, { photo_id: photoId }).then(r => r.data),
+  updatePhoto: (photoId: number, data: Record<string, unknown>) => apiClient.patch(`/journeys/photos/${photoId}`, data).then(r => r.data),
+  deletePhoto: (photoId: number) => apiClient.delete(`/journeys/photos/${photoId}`).then(r => r.data),
+
+  // Cover
+  uploadCover: (id: number, formData: FormData) => apiClient.post(`/journeys/${id}/cover`, formData, { headers: { 'Content-Type': undefined as any } }).then(r => r.data),
+
+  // Contributors
+  addContributor: (id: number, userId: number, role: string) => apiClient.post(`/journeys/${id}/contributors`, { user_id: userId, role }).then(r => r.data),
+  updateContributor: (id: number, userId: number, role: string) => apiClient.patch(`/journeys/${id}/contributors/${userId}`, { role }).then(r => r.data),
+  removeContributor: (id: number, userId: number) => apiClient.delete(`/journeys/${id}/contributors/${userId}`).then(r => r.data),
+
+  // Share
+  getShareLink: (id: number) => apiClient.get(`/journeys/${id}/share-link`).then(r => r.data),
+  createShareLink: (id: number, perms: { share_timeline?: boolean; share_gallery?: boolean; share_map?: boolean }) => apiClient.post(`/journeys/${id}/share-link`, perms).then(r => r.data),
+  deleteShareLink: (id: number) => apiClient.delete(`/journeys/${id}/share-link`).then(r => r.data),
+  getPublicJourney: (token: string) => apiClient.get(`/public/journey/${token}`).then(r => r.data),
 }
 
 export const mapsApi = {

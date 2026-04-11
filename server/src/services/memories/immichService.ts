@@ -357,3 +357,63 @@ export async function syncAlbumAssets(
     return { error: 'Could not reach Immich', status: 502 };
   }
 }
+
+// ── Upload to Immich ──────────────────────────────────────────────────────
+
+export async function uploadToImmich(userId: number, filePath: string, fileName: string): Promise<string | null> {
+  const creds = getImmichCredentials(userId);
+  if (!creds) return null;
+
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+
+  const fullPath = path.join(__dirname, '../../../uploads', filePath);
+  if (!fs.existsSync(fullPath)) return null;
+
+  try {
+    const fileBuffer = fs.readFileSync(fullPath);
+    const boundary = '----ImmichUpload' + Date.now();
+    const ext = path.extname(fileName).toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+      '.gif': 'image/gif', '.webp': 'image/webp', '.heic': 'image/heic',
+    };
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
+    const now = new Date().toISOString();
+
+    const parts: Buffer[] = [];
+    const addField = (name: string, value: string) => {
+      parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`));
+    };
+    addField('deviceAssetId', `trek-${Date.now()}`);
+    addField('deviceId', 'TREK');
+    addField('fileCreatedAt', now);
+    addField('fileModifiedAt', now);
+
+    parts.push(Buffer.from(
+      `--${boundary}\r\nContent-Disposition: form-data; name="assetData"; filename="${fileName}"\r\nContent-Type: ${contentType}\r\n\r\n`
+    ));
+    parts.push(fileBuffer);
+    parts.push(Buffer.from(`\r\n--${boundary}--\r\n`));
+
+    const body = Buffer.concat(parts);
+
+    const res = await safeFetch(`${creds.immich_url}/api/assets`, {
+      method: 'POST',
+      headers: {
+        'x-api-key': creds.immich_api_key,
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': String(body.length),
+      },
+      body,
+    });
+
+    if (res.ok) {
+      const data = await res.json() as { id?: string };
+      return data.id || null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}

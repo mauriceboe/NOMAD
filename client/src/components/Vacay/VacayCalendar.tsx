@@ -1,7 +1,8 @@
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useState, useCallback, useEffect } from 'react'
 import { useVacayStore } from '../../store/vacayStore'
 import { useTranslation } from '../../i18n'
 import { isWeekend } from './holidays'
+import { tripsApi } from '../../api/client'
 import VacayMonthCard from './VacayMonthCard'
 import { Building2, MousePointer2 } from 'lucide-react'
 
@@ -9,6 +10,30 @@ export default function VacayCalendar() {
   const { t } = useTranslation()
   const { selectedYear, selectedUserId, entries, companyHolidays, toggleEntry, toggleCompanyHoliday, plan, users, holidays } = useVacayStore()
   const [companyMode, setCompanyMode] = useState(false)
+  const [tripDates, setTripDates] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const data = await tripsApi.list()
+        const dates = new Set<string>()
+        for (const trip of data.trips || []) {
+          if (!trip.start_date || !trip.end_date) continue
+          const start = new Date(trip.start_date + 'T00:00:00')
+          const end = new Date(trip.end_date + 'T00:00:00')
+          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const y = d.getFullYear()
+            if (y === selectedYear) {
+              dates.add(`${y}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
+            }
+          }
+        }
+        if (!cancelled) setTripDates(dates)
+      } catch { /* ignore */ }
+    })()
+    return () => { cancelled = true }
+  }, [selectedYear])
 
   const companyHolidaySet = useMemo(() => {
     const s = new Set()
@@ -59,6 +84,7 @@ export default function VacayCalendar() {
             companyMode={companyMode}
             blockWeekends={blockWeekends}
             weekendDays={weekendDays}
+            tripDates={tripDates}
           />
         ))}
       </div>

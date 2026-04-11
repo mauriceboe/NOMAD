@@ -38,6 +38,8 @@ import atlasRoutes from './routes/atlas';
 import memoriesRoutes from './routes/memories/unified';
 import notificationRoutes from './routes/notifications';
 import shareRoutes from './routes/share';
+import journeyRoutes from './routes/journey';
+import journeyPublicRoutes from './routes/journeyPublic';
 import { mcpHandler } from './mcp';
 import { Addon } from './types';
 import { getPhotoProviderConfig } from './services/memories/helpersService';
@@ -143,9 +145,10 @@ export function createApp(): express.Application {
     });
   }
 
-  // Static: avatars and covers are public
+  // Static: avatars, covers, and journey photos
   app.use('/uploads/avatars', express.static(path.join(__dirname, '../uploads/avatars')));
   app.use('/uploads/covers', express.static(path.join(__dirname, '../uploads/covers')));
+  app.use('/uploads/journey', express.static(path.join(__dirname, '../uploads/journey')));
 
   // Photos require auth or valid share token
   app.get('/uploads/photos/:filename', (req: Request, res: Response) => {
@@ -259,6 +262,8 @@ export function createApp(): express.Application {
   // Addon routes
   app.use('/api/addons/vacay', vacayRoutes);
   app.use('/api/addons/atlas', atlasRoutes);
+  app.use('/api/journeys', journeyRoutes);
+  app.use('/api/public/journey', journeyPublicRoutes);
   app.use('/api/integrations/memories', memoriesRoutes);
   app.use('/api/maps', mapsRoutes);
   app.use('/api/weather', weatherRoutes);

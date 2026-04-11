@@ -15,7 +15,7 @@ import { useToast } from '../components/shared/Toast'
 import {
   Plus, Calendar, Trash2, Edit2, Map, ChevronDown, ChevronUp,
   Archive, ArchiveRestore, Clock, MapPin, Settings, X, ArrowRightLeft, Users,
-  LayoutGrid, List, Copy,
+  LayoutGrid, List, Copy, Bell,
 } from 'lucide-react'
 import { useCanDo } from '../store/permissionsStore'
 
@@ -151,180 +151,312 @@ interface TripCardProps {
   dark?: boolean
 }
 
-function SpotlightCard({ trip, onEdit, onCopy, onDelete, onArchive, onClick, t, locale, dark }: TripCardProps): React.ReactElement {
+function SpotlightCard({ trip, onEdit, onCopy, onDelete, onArchive, onClick, t, locale }: TripCardProps): React.ReactElement {
   const status = getTripStatus(trip)
+  const isLive = status === 'ongoing'
+  const today = new Date().toISOString().split('T')[0]
+  const startDate = trip.start_date || today
+  const endDate = trip.end_date || today
+  const totalDays = Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000) + 1)
+  const currentDay = Math.min(totalDays, Math.ceil((new Date(today).getTime() - new Date(startDate).getTime()) / 86400000) + 1)
+  const daysLeft = Math.max(0, totalDays - currentDay)
+  const progress = Math.round((currentDay / totalDays) * 100)
 
-  const coverBg = trip.cover_image
-    ? `url(${trip.cover_image}) center/cover no-repeat`
-    : tripGradient(trip.id)
-
-  return (
-    <LiquidGlass dark={dark} style={{ marginBottom: 32, borderRadius: 20, boxShadow: '0 8px 40px rgba(0,0,0,0.13)', cursor: 'pointer' }}
-      onClick={() => onClick(trip)}>
-      {/* Cover / Background */}
-      <div style={{ height: 300, background: coverBg, position: 'relative' }}>
-        <div style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.25) 50%, rgba(0,0,0,0.1) 100%)',
-        }} />
-
-        {/* Badges top-left */}
-        <div style={{ position: 'absolute', top: 16, left: 16, display: 'flex', gap: 8 }}>
-          {status && (
-            <span style={{
-              background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)',
-              color: 'white', fontSize: 12, fontWeight: 700,
-              padding: '5px 12px', borderRadius: 99, border: '1px solid rgba(255,255,255,0.25)',
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}>
-              {status === 'ongoing' && (
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ef4444', animation: 'blink 1s ease-in-out infinite', display: 'inline-block', flexShrink: 0 }} />
-              )}
-              {status === 'ongoing' ? t('dashboard.status.ongoing')
-                : status === 'today' ? t('dashboard.status.today')
-                : status === 'tomorrow' ? t('dashboard.status.tomorrow')
-                : status === 'future' ? t('dashboard.status.daysLeft', { count: daysUntil(trip.start_date) })
-                : t('dashboard.status.past')}
-            </span>
-          )}
-        </div>
-
-        {/* Top-right actions */}
-        {(onEdit || onCopy || onArchive || onDelete) && (
-        <div style={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 6 }}
-          onClick={e => e.stopPropagation()}>
-          {onEdit && <IconBtn onClick={() => onEdit(trip)} title={t('common.edit')}><Edit2 size={14} /></IconBtn>}
-          {onCopy && <IconBtn onClick={() => onCopy(trip)} title={t('dashboard.copyTrip')}><Copy size={14} /></IconBtn>}
-          {onArchive && <IconBtn onClick={() => onArchive(trip.id)} title={t('dashboard.archive')}><Archive size={14} /></IconBtn>}
-          {onDelete && <IconBtn onClick={() => onDelete(trip)} title={t('common.delete')} danger><Trash2 size={14} /></IconBtn>}
-        </div>
-        )}
-
-        {/* Bottom content */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px 24px' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
-            {trip.is_owner ? t('dashboard.nextTrip') : t('dashboard.sharedBy', { name: trip.owner_username })}
-          </div>
-          <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: 'white', lineHeight: 1.2, textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>
-            {trip.title}
-          </h2>
-          {trip.description && (
-            <p style={{ margin: '6px 0 0', fontSize: 13.5, color: 'rgba(255,255,255,0.75)', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-              {trip.description}
-            </p>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
-            {trip.start_date && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>
-                <Calendar size={13} />
-                {formatDateShort(trip.start_date, locale)}
-                {trip.end_date && <> — {formatDateShort(trip.end_date, locale)}</>}
-              </div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>
-              <Clock size={13} /> {trip.day_count || 0} {t('dashboard.days')}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>
-              <MapPin size={13} /> {trip.place_count || 0} {t('dashboard.places')}
-            </div>
-            <div className="hidden md:flex" style={{ alignItems: 'center', gap: 5, color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>
-              <Users size={13} /> {trip.shared_count+1 || 0} {t('dashboard.members')}
-            </div>
-          </div>
-        </div>
-      </div>
-    </LiquidGlass>
-  )
-}
-
-// ── Regular Trip Card ────────────────────────────────────────────────────────
-function TripCard({ trip, onEdit, onCopy, onDelete, onArchive, onClick, t, locale }: Omit<TripCardProps, 'dark'>): React.ReactElement {
-  const status = getTripStatus(trip)
-  const [hovered, setHovered] = useState(false)
-
-  const coverBg = trip.cover_image
-    ? `url(${trip.cover_image}) center/cover no-repeat`
-    : tripGradient(trip.id)
+  const badgeText = isLive ? t('dashboard.mobile.liveNow')
+    : status === 'today' ? t('dashboard.mobile.startsToday')
+    : status === 'tomorrow' ? t('dashboard.mobile.tomorrow')
+    : status === 'future' ? t('dashboard.status.daysLeft', { count: daysUntil(trip.start_date) })
+    : status === 'past' ? t('dashboard.mobile.completed')
+    : null
 
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       onClick={() => onClick(trip)}
-      style={{
-        background: hovered ? 'var(--bg-tertiary)' : 'var(--bg-card)', borderRadius: 16, overflow: 'hidden', cursor: 'pointer',
-        border: `1px solid ${hovered ? 'var(--text-faint)' : 'var(--border-primary)'}`, transition: 'all 0.18s',
-        boxShadow: hovered ? '0 8px 28px rgba(0,0,0,0.15)' : '0 1px 4px rgba(0,0,0,0.04)',
-        transform: hovered ? 'translateY(-2px)' : 'none',
-      }}
+      className="group relative rounded-3xl overflow-hidden cursor-pointer mb-8"
+      style={{ minHeight: 340, boxShadow: '0 8px 40px rgba(0,0,0,0.13)' }}
     >
-      {/* Image area */}
-      <div style={{ height: 120, background: coverBg, position: 'relative', overflow: 'hidden' }}>
-        {trip.cover_image && <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.35) 0%, transparent 60%)' }} />}
-
-        {/* Status badge */}
-        {status && (
-          <div style={{ position: 'absolute', top: 8, left: 8 }}>
-            <span style={{
-              fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 99,
-              background: 'rgba(0,0,0,0.4)', color: 'white', backdropFilter: 'blur(4px)',
-              display: 'flex', alignItems: 'center', gap: 5,
-            }}>
-              {status === 'ongoing' && (
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', animation: 'blink 1s ease-in-out infinite', display: 'inline-block', flexShrink: 0 }} />
-              )}
-              {status === 'ongoing' ? t('dashboard.status.ongoing')
-                : status === 'today' ? t('dashboard.status.today')
-                : status === 'tomorrow' ? t('dashboard.status.tomorrow')
-                : status === 'future' ? t('dashboard.status.daysLeft', { count: daysUntil(trip.start_date) })
-                : t('dashboard.status.past')}
-            </span>
-          </div>
+      {/* Background */}
+      <div className="absolute inset-0" style={{
+        background: trip.cover_image ? undefined : tripGradient(trip.id),
+      }}>
+        {trip.cover_image && (
+          <>
+            <img src={trip.cover_image} className="w-full h-full object-cover" alt="" />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.6) 100%)' }} />
+          </>
         )}
       </div>
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 0%, transparent 40%, rgba(0,0,0,0.5) 100%)' }} />
 
       {/* Content */}
-      <div style={{ padding: '12px 14px 14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', marginBottom: 3 }}>
-          <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {trip.title}
-          </span>
+      <div className="relative p-6 flex flex-col text-white z-[2]" style={{ minHeight: 340 }}>
+        {/* Top: badge + actions */}
+        <div className="flex items-center justify-between mb-5">
+          {badgeText ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-black/40 backdrop-blur-sm border border-white/15 rounded-full text-[10px] font-bold uppercase tracking-[0.1em]">
+              {isLive ? (
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)] animate-pulse" />
+              ) : (
+                <Clock size={10} />
+              )}
+              {badgeText}
+            </span>
+          ) : <span />}
+          <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+            {onEdit && <button title={t('common.edit')} onClick={() => onEdit(trip)} className="w-[34px] h-[34px] rounded-[10px] bg-white/12 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white hover:bg-white/20 transition-colors"><Edit2 size={14} /></button>}
+            {onCopy && <button title={t('dashboard.copyTrip')} onClick={() => onCopy(trip)} className="w-[34px] h-[34px] rounded-[10px] bg-white/12 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white hover:bg-white/20 transition-colors"><Copy size={14} /></button>}
+            {onArchive && <button title={t('dashboard.archive')} onClick={() => onArchive(trip.id)} className="w-[34px] h-[34px] rounded-[10px] bg-white/12 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white hover:bg-white/20 transition-colors"><Archive size={14} /></button>}
+            {onDelete && <button title={t('common.delete')} onClick={() => onDelete(trip)} className="w-[34px] h-[34px] rounded-[10px] bg-white/12 backdrop-blur-sm border border-white/15 flex items-center justify-center text-red-300 hover:bg-red-500/20 transition-colors"><Trash2 size={14} /></button>}
+          </div>
+        </div>
+
+        {/* Title area — pushed to bottom */}
+        <div className="flex-1 flex flex-col justify-end mb-4">
           {!trip.is_owner && (
-            <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', background: 'var(--bg-tertiary)', padding: '1px 6px', borderRadius: 99, whiteSpace: 'nowrap', flexShrink: 0 }}>
-              {t('dashboard.shared')}
+            <span className="inline-flex items-center gap-1 self-start px-2 py-0.5 bg-white/15 backdrop-blur-sm border border-white/15 rounded-full text-[9px] font-semibold uppercase tracking-[0.06em] mb-2">
+              <Users size={9} /> {t('dashboard.sharedBy', { name: trip.owner_username })}
             </span>
           )}
-        </div>
-        {trip.description && (
-          <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {trip.description}
+          <h2 className="text-[32px] font-extrabold tracking-[-0.03em] leading-[0.95] mb-1.5">{trip.title}</h2>
+          <p className="text-[12px] opacity-80 font-medium">
+            {formatDateShort(trip.start_date, locale)} — {formatDateShort(trip.end_date, locale)}
+            {isLive && <> · {t('journey.pdf.day')} {currentDay} / {totalDays}</>}
           </p>
-        )}
+        </div>
 
-        {(trip.start_date || trip.end_date) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
-            <Calendar size={11} style={{ flexShrink: 0 }} />
-            {trip.start_date && trip.end_date
-              ? `${formatDateShort(trip.start_date, locale)} — ${formatDateShort(trip.end_date, locale)}`
-              : formatDate(trip.start_date || trip.end_date, locale)}
+        {/* Progress bar — only for live trips */}
+        {isLive && (
+          <div className="mb-4">
+            <div className="flex justify-between text-[11px] font-semibold mb-1.5">
+              <span className="opacity-85">{t('dashboard.mobile.tripProgress')}</span>
+              <span className="opacity-70">{t('dashboard.mobile.daysLeft', { count: daysLeft })}</span>
+            </div>
+            <div className="h-1.5 bg-white/15 rounded-full overflow-hidden">
+              <div className="h-full bg-white rounded-full relative" style={{ width: `${progress}%` }}>
+                <span className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_12px_rgba(255,255,255,0.9)]" />
+              </div>
+            </div>
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-          <Stat label={t('dashboard.days')} value={trip.day_count || 0} />
-          <Stat label={t('dashboard.places')} value={trip.place_count || 0} />
-          <Stat label={t('dashboard.members')} value={trip.shared_count+1 || 0} />
+        {/* Stats */}
+        <div className="grid grid-cols-4 gap-2.5 p-3.5 bg-black/25 backdrop-blur-sm border border-white/10 rounded-2xl">
+          {trip.start_date && !isLive && (
+            <div className="text-center">
+              <p className="text-[18px] font-extrabold tracking-[-0.02em] leading-none">{formatDateShort(trip.start_date, locale)}</p>
+              <p className="text-[9px] uppercase tracking-[0.1em] opacity-70 font-semibold mt-1">{t('dashboard.mobile.starts')}</p>
+            </div>
+          )}
+          {isLive && (
+            <div className="text-center">
+              <p className="text-[22px] font-extrabold tracking-[-0.02em] leading-none">{totalDays}</p>
+              <p className="text-[9px] uppercase tracking-[0.1em] opacity-70 font-semibold mt-1">{t('dashboard.mobile.duration')}</p>
+            </div>
+          )}
+          <div className="text-center">
+            <p className="text-[22px] font-extrabold tracking-[-0.02em] leading-none">{trip.place_count || 0}</p>
+            <p className="text-[9px] uppercase tracking-[0.1em] opacity-70 font-semibold mt-1">{t('dashboard.mobile.places')}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-[22px] font-extrabold tracking-[-0.02em] leading-none">{trip.shared_count || 0}</p>
+            <p className="text-[9px] uppercase tracking-[0.1em] opacity-70 font-semibold mt-1">{t('dashboard.mobile.buddies')}</p>
+          </div>
+          {!isLive && (
+            <div className="text-center">
+              <p className="text-[22px] font-extrabold tracking-[-0.02em] leading-none">{trip.day_count || totalDays}</p>
+              <p className="text-[9px] uppercase tracking-[0.1em] opacity-70 font-semibold mt-1">{t('dashboard.mobile.days')}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Mobile Trip Card (upcoming style) ────────────────────────────────────────
+function MobileTripCard({ trip, onEdit, onCopy, onDelete, onArchive, onClick, t, locale }: Omit<TripCardProps, 'dark'>): React.ReactElement {
+  const status = getTripStatus(trip)
+  const until = daysUntil(trip.start_date)
+  const duration = trip.start_date && trip.end_date
+    ? Math.ceil((new Date(trip.end_date).getTime() - new Date(trip.start_date).getTime()) / 86400000) + 1
+    : trip.day_count || null
+
+  const badgeText = status === 'ongoing' ? t('dashboard.mobile.ongoing')
+    : status === 'today' ? t('dashboard.mobile.startsToday')
+    : status === 'tomorrow' ? t('dashboard.mobile.tomorrow')
+    : until && until > 0 ? (until < 30 ? t('dashboard.mobile.inDays', { count: until }) : until < 365 ? t('dashboard.mobile.inMonths', { count: Math.round(until / 30) }) : `In ${Math.round(until / 365)}y`)
+    : status === 'past' ? t('dashboard.mobile.completed')
+    : null
+
+  return (
+    <div
+      onClick={() => onClick?.(trip)}
+      className="rounded-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md"
+      style={{ background: 'var(--bg-card)' }}
+    >
+      {/* Cover */}
+      <div className="relative h-[120px] overflow-hidden" style={{ background: trip.cover_image ? undefined : tripGradient(trip.id) }}>
+        {trip.cover_image && (
+          <img src={trip.cover_image} className="absolute inset-0 w-full h-full object-cover" alt="" />
+        )}
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 30%, rgba(0,0,0,0.5) 100%)' }} />
+
+        {/* Action buttons top-right */}
+        <div className="absolute top-3 right-3 z-[2] flex gap-1">
+          {onEdit && <button title={t('common.edit')} onClick={e => { e.stopPropagation(); onEdit(trip) }} className="w-[30px] h-[30px] rounded-[8px] bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white"><Edit2 size={12} /></button>}
+          {onCopy && <button title={t('dashboard.copyTrip')} onClick={e => { e.stopPropagation(); onCopy(trip) }} className="w-[30px] h-[30px] rounded-[8px] bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white"><Copy size={12} /></button>}
+          {onArchive && <button title={t('dashboard.archive')} onClick={e => { e.stopPropagation(); onArchive(trip.id) }} className="w-[30px] h-[30px] rounded-[8px] bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white"><Archive size={12} /></button>}
+          {onDelete && <button title={t('common.delete')} onClick={e => { e.stopPropagation(); onDelete(trip) }} className="w-[30px] h-[30px] rounded-[8px] bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center text-red-300"><Trash2 size={12} /></button>}
         </div>
 
-        {(onEdit || onCopy || onArchive || onDelete) && (
-        <div style={{ display: 'flex', gap: 6, borderTop: '1px solid #f3f4f6', paddingTop: 10 }}
-          onClick={e => e.stopPropagation()}>
-          {onEdit && <CardAction onClick={() => onEdit(trip)} icon={<Edit2 size={12} />} label={t('common.edit')} />}
-          {onCopy && <CardAction onClick={() => onCopy(trip)} icon={<Copy size={12} />} label={t('dashboard.copyTrip')} />}
-          {onArchive && <CardAction onClick={() => onArchive(trip.id)} icon={<Archive size={12} />} label={t('dashboard.archive')} />}
-          {onDelete && <CardAction onClick={() => onDelete(trip)} icon={<Trash2 size={12} />} label={t('common.delete')} danger />}
-        </div>
+        {/* Countdown badge */}
+        {badgeText && (
+          <div className="absolute top-3.5 left-3.5 z-[2]">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-black/40 backdrop-blur-sm border border-white/15 rounded-full text-white text-[10px] font-bold uppercase tracking-[0.08em]">
+              {status === 'ongoing' ? (
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)] animate-pulse" />
+              ) : (
+                <Clock size={10} />
+              )}
+              {badgeText}
+            </span>
+          </div>
         )}
+
+        {/* Title on cover */}
+        <div className="absolute bottom-3.5 left-3.5 right-3.5 z-[2] text-white">
+          <h3 className="text-[22px] font-extrabold tracking-[-0.02em] leading-none">{trip.title}</h3>
+          {trip.description && (
+            <p className="text-[11px] opacity-75 font-medium mt-1 truncate">{trip.description}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom stats */}
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex gap-[18px]">
+          {trip.start_date && (
+            <div className="flex flex-col gap-px">
+              <span className="text-[13px] font-bold tracking-[-0.01em]" style={{ color: 'var(--text-primary)' }}>{formatDateShort(trip.start_date, locale)}</span>
+              <span className="text-[9px] uppercase tracking-[0.06em] font-medium" style={{ color: 'var(--text-faint)' }}>{t('dashboard.mobile.starts')}</span>
+            </div>
+          )}
+          {duration && (
+            <div className="flex flex-col gap-px">
+              <span className="text-[13px] font-bold tracking-[-0.01em]" style={{ color: 'var(--text-primary)' }}>{duration} {duration === 1 ? t('dashboard.mobile.day') : t('dashboard.mobile.days')}</span>
+              <span className="text-[9px] uppercase tracking-[0.06em] font-medium" style={{ color: 'var(--text-faint)' }}>{t('dashboard.mobile.duration')}</span>
+            </div>
+          )}
+          <div className="flex flex-col gap-px">
+            <span className="text-[13px] font-bold tracking-[-0.01em]" style={{ color: 'var(--text-primary)' }}>{trip.place_count || 0}</span>
+            <span className="text-[9px] uppercase tracking-[0.06em] font-medium" style={{ color: 'var(--text-faint)' }}>{t('dashboard.mobile.places')}</span>
+          </div>
+          {(trip.shared_count || 0) > 0 && (
+            <div className="flex flex-col gap-px">
+              <span className="text-[13px] font-bold tracking-[-0.01em]" style={{ color: 'var(--text-primary)' }}>{trip.shared_count}</span>
+              <span className="text-[9px] uppercase tracking-[0.06em] font-medium" style={{ color: 'var(--text-faint)' }}>{t('dashboard.mobile.buddies')}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Regular Trip Card (matches mobile card design) ──────────────────────────
+function TripCard({ trip, onEdit, onCopy, onDelete, onArchive, onClick, t, locale }: Omit<TripCardProps, 'dark'>): React.ReactElement {
+  const status = getTripStatus(trip)
+  const until = daysUntil(trip.start_date)
+  const duration = trip.start_date && trip.end_date
+    ? Math.ceil((new Date(trip.end_date).getTime() - new Date(trip.start_date).getTime()) / 86400000) + 1
+    : trip.day_count || null
+
+  const badgeText = status === 'ongoing' ? t('dashboard.mobile.ongoing')
+    : status === 'today' ? t('dashboard.mobile.startsToday')
+    : status === 'tomorrow' ? t('dashboard.mobile.tomorrow')
+    : until && until > 0 ? (until < 30 ? t('dashboard.mobile.inDays', { count: until }) : until < 365 ? t('dashboard.mobile.inMonths', { count: Math.round(until / 30) }) : `In ${Math.round(until / 365)}y`)
+    : status === 'past' ? t('dashboard.mobile.completed')
+    : null
+
+  return (
+    <div
+      onClick={() => onClick(trip)}
+      className="group rounded-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-lg hover:border-zinc-300 dark:hover:border-zinc-600"
+      style={{ background: 'var(--bg-card)' }}
+    >
+      {/* Cover */}
+      <div className="relative h-[140px] overflow-hidden" style={{ background: trip.cover_image ? undefined : tripGradient(trip.id) }}>
+        {trip.cover_image && (
+          <img src={trip.cover_image} className="absolute inset-0 w-full h-full object-cover" alt="" />
+        )}
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 30%, rgba(0,0,0,0.55) 100%)' }} />
+
+        {/* Action buttons top-right — visible on hover */}
+        <div className="absolute top-3 right-3 z-[2] flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {onEdit && <button title={t('common.edit')} onClick={e => { e.stopPropagation(); onEdit(trip) }} className="w-[30px] h-[30px] rounded-[8px] bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-black/50 transition-colors"><Edit2 size={12} /></button>}
+          {onCopy && <button title={t('dashboard.copyTrip')} onClick={e => { e.stopPropagation(); onCopy(trip) }} className="w-[30px] h-[30px] rounded-[8px] bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-black/50 transition-colors"><Copy size={12} /></button>}
+          {onArchive && <button title={t('dashboard.archive')} onClick={e => { e.stopPropagation(); onArchive(trip.id) }} className="w-[30px] h-[30px] rounded-[8px] bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-black/50 transition-colors"><Archive size={12} /></button>}
+          {onDelete && <button title={t('common.delete')} onClick={e => { e.stopPropagation(); onDelete(trip) }} className="w-[30px] h-[30px] rounded-[8px] bg-black/30 backdrop-blur-sm border border-white/20 flex items-center justify-center text-red-300 hover:bg-red-500/30 transition-colors"><Trash2 size={12} /></button>}
+        </div>
+
+        {/* Status badge top-left */}
+        {badgeText && (
+          <div className="absolute top-3.5 left-3.5 z-[2]">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-black/40 backdrop-blur-sm border border-white/15 rounded-full text-white text-[10px] font-bold uppercase tracking-[0.08em]">
+              {status === 'ongoing' ? (
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)] animate-pulse" />
+              ) : (
+                <Clock size={10} />
+              )}
+              {badgeText}
+            </span>
+          </div>
+        )}
+
+        {/* Shared badge */}
+        {!trip.is_owner && (
+          <div className="absolute top-3.5 right-3.5 z-[1] group-hover:opacity-0 transition-opacity">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-black/40 backdrop-blur-sm border border-white/15 rounded-full text-white text-[9px] font-semibold uppercase tracking-[0.06em]">
+              <Users size={9} /> {t('dashboard.shared')}
+            </span>
+          </div>
+        )}
+
+        {/* Title on cover */}
+        <div className="absolute bottom-3.5 left-3.5 right-3.5 z-[2] text-white">
+          <h3 className="text-[20px] font-extrabold tracking-[-0.02em] leading-tight">{trip.title}</h3>
+          {trip.description && (
+            <p className="text-[11px] opacity-75 font-medium mt-1 truncate">{trip.description}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom stats */}
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex gap-[18px]">
+          {trip.start_date && (
+            <div className="flex flex-col gap-px">
+              <span className="text-[13px] font-bold tracking-[-0.01em]" style={{ color: 'var(--text-primary)' }}>{formatDateShort(trip.start_date, locale)}</span>
+              <span className="text-[9px] uppercase tracking-[0.06em] font-medium" style={{ color: 'var(--text-faint)' }}>{t('dashboard.mobile.starts')}</span>
+            </div>
+          )}
+          {duration && (
+            <div className="flex flex-col gap-px">
+              <span className="text-[13px] font-bold tracking-[-0.01em]" style={{ color: 'var(--text-primary)' }}>{duration} {duration === 1 ? t('dashboard.mobile.day') : t('dashboard.mobile.days')}</span>
+              <span className="text-[9px] uppercase tracking-[0.06em] font-medium" style={{ color: 'var(--text-faint)' }}>{t('dashboard.mobile.duration')}</span>
+            </div>
+          )}
+          <div className="flex flex-col gap-px">
+            <span className="text-[13px] font-bold tracking-[-0.01em]" style={{ color: 'var(--text-primary)' }}>{trip.place_count || 0}</span>
+            <span className="text-[9px] uppercase tracking-[0.06em] font-medium" style={{ color: 'var(--text-faint)' }}>{t('dashboard.mobile.places')}</span>
+          </div>
+          {(trip.shared_count || 0) > 0 && (
+            <div className="flex flex-col gap-px">
+              <span className="text-[13px] font-bold tracking-[-0.01em]" style={{ color: 'var(--text-primary)' }}>{trip.shared_count}</span>
+              <span className="text-[9px] uppercase tracking-[0.06em] font-medium" style={{ color: 'var(--text-faint)' }}>{t('dashboard.mobile.buddies')}</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -415,7 +547,7 @@ function TripListItem({ trip, onEdit, onCopy, onDelete, onArchive, onClick, t, l
           <MapPin size={11} /> {trip.place_count || 0}
         </div>
         <div className="hidden md:flex" style={{ alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-muted)' }}>
-          <Users size={11} /> {trip.shared_count+1 || 0}
+          <Users size={11} /> {trip.shared_count || 0}
         </div>
       </div>
 
@@ -553,7 +685,7 @@ export default function DashboardPage(): React.ReactElement {
   const [showForm, setShowForm] = useState<boolean>(false)
   const [editingTrip, setEditingTrip] = useState<DashboardTrip | null>(null)
   const [showArchived, setShowArchived] = useState<boolean>(false)
-  const [showWidgetSettings, setShowWidgetSettings] = useState<boolean | 'mobile'>(false)
+  const [showWidgetSettings, setShowWidgetSettings] = useState<boolean | 'mobile' | 'mobile-currency' | 'mobile-timezone'>(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => (localStorage.getItem('trek_dashboard_view') as 'grid' | 'list') || 'grid')
   const [deleteTrip, setDeleteTrip] = useState<DashboardTrip | null>(null)
 
@@ -568,7 +700,7 @@ export default function DashboardPage(): React.ReactElement {
   const navigate = useNavigate()
   const toast = useToast()
   const { t, locale } = useTranslation()
-  const { demoMode } = useAuthStore()
+  const { demoMode, user } = useAuthStore()
   const { settings, updateSetting } = useSettingsStore()
   const can = useCanDo()
   const dm = settings.dark_mode
@@ -578,7 +710,7 @@ export default function DashboardPage(): React.ReactElement {
   const showSidebar = showCurrency || showTimezone
 
   useEffect(() => {
-    if (showWidgetSettings === 'mobile') {
+    if (showWidgetSettings === 'mobile' || showWidgetSettings === 'mobile-currency' || showWidgetSettings === 'mobile-timezone') {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = ''
@@ -689,10 +821,183 @@ export default function DashboardPage(): React.ReactElement {
       <Navbar />
       {demoMode && <DemoBanner />}
       <div style={{ flex: 1, overflow: 'auto', overscrollBehavior: 'contain', marginTop: 'var(--nav-h)' }}>
-        <div style={{ maxWidth: 1300, margin: '0 auto', padding: '32px 20px 60px' }}>
+        <div style={{ maxWidth: 1300, margin: '0 auto', paddingTop: 32, paddingLeft: 20, paddingRight: 20, paddingBottom: 'calc(100px + env(safe-area-inset-bottom, 0px))' }}>
 
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
+          {/* Mobile greeting header */}
+          <div className="md:hidden flex items-center justify-between mb-5">
+            <div>
+              <p className="text-[12px] text-zinc-500 font-medium">{new Date().getHours() < 12 ? t('dashboard.greeting.morning') : new Date().getHours() < 18 ? t('dashboard.greeting.afternoon') : t('dashboard.greeting.evening')}</p>
+              <p className="text-[22px] font-extrabold tracking-[-0.025em] leading-tight" style={{ color: 'var(--text-primary)' }}>{user?.username || t('nav.profile')}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate('/notifications')}
+                className="w-10 h-10 rounded-xl flex items-center justify-center relative"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', color: 'var(--text-secondary)' }}
+              >
+                <Bell size={18} />
+              </button>
+              <button
+                onClick={() => navigate('/settings')}
+                className="w-10 h-10 rounded-full flex items-center justify-center text-[15px] font-bold text-white overflow-hidden"
+                style={{ background: user?.avatar_url ? undefined : 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}
+              >
+                {user?.avatar_url
+                  ? <img src={user.avatar_url} className="w-full h-full object-cover" alt="" />
+                  : (user?.username || '?')[0].toUpperCase()
+                }
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile: Live Trip Hero */}
+          {(() => {
+            const liveTrip = trips.find(t => getTripStatus(t) === 'ongoing')
+            if (!liveTrip) return null
+            const today = new Date().toISOString().split('T')[0]
+            const startDate = liveTrip.start_date || today
+            const endDate = liveTrip.end_date || today
+            const totalDays = Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000) + 1)
+            const currentDay = Math.min(totalDays, Math.ceil((new Date(today).getTime() - new Date(startDate).getTime()) / 86400000) + 1)
+            const daysLeft = Math.max(0, totalDays - currentDay)
+            const progress = Math.round((currentDay / totalDays) * 100)
+
+            return (
+              <div className="md:hidden mb-5">
+                <div
+                  onClick={() => navigate(`/trips/${liveTrip.id}`)}
+                  className="relative rounded-3xl overflow-hidden cursor-pointer"
+                  style={{ minHeight: 340 }}
+                >
+                  {/* Background */}
+                  <div className="absolute inset-0" style={{
+                    background: liveTrip.cover_image ? undefined : `radial-gradient(circle at 15% 20%, rgba(16,185,129,0.7), transparent 45%), radial-gradient(circle at 85% 80%, rgba(6,182,212,0.6), transparent 50%), radial-gradient(circle at 50% 50%, rgba(14,165,233,0.4), transparent 55%), linear-gradient(135deg, #064E3B 0%, #065F46 35%, #0E7490 75%, #164E63 100%)`
+                  }}>
+                    {liveTrip.cover_image && (
+                      <>
+                        <img src={liveTrip.cover_image} className="w-full h-full object-cover" alt="" />
+                        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.6) 100%)' }} />
+                      </>
+                    )}
+                  </div>
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 0%, transparent 40%, rgba(0,0,0,0.5) 100%)' }} />
+
+                  {/* Content */}
+                  <div className="relative p-5 flex flex-col text-white z-[2]" style={{ minHeight: 340 }}>
+                    {/* Top badges */}
+                    <div className="flex items-center justify-between mb-5">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-black/40 backdrop-blur-sm border border-white/15 rounded-full text-[10px] font-bold uppercase tracking-[0.1em]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)] animate-pulse" />
+                        {t("dashboard.mobile.liveNow")}
+                      </span>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={e => { e.stopPropagation(); setEditingTrip(liveTrip); setShowForm(true) }}
+                          className="w-[34px] h-[34px] rounded-[10px] bg-white/12 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white hover:bg-white/20"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); handleCopy(liveTrip) }}
+                          className="w-[34px] h-[34px] rounded-[10px] bg-white/12 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white hover:bg-white/20"
+                        >
+                          <Copy size={14} />
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); handleArchive(liveTrip.id) }}
+                          className="w-[34px] h-[34px] rounded-[10px] bg-white/12 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white hover:bg-white/20"
+                        >
+                          <Archive size={14} />
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); handleDelete(liveTrip) }}
+                          className="w-[34px] h-[34px] rounded-[10px] bg-white/12 backdrop-blur-sm border border-white/15 flex items-center justify-center text-red-300 hover:bg-red-500/20"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Title area */}
+                    <div className="flex-1 flex flex-col justify-end mb-4">
+                      <h2 className="text-[32px] font-extrabold tracking-[-0.03em] leading-[0.95] mb-1.5">{liveTrip.title}</h2>
+                      <p className="text-[12px] opacity-80 font-medium">
+                        {formatDateShort(liveTrip.start_date)} — {formatDateShort(liveTrip.end_date)} · {t('journey.pdf.day')} {currentDay} / {totalDays}
+                      </p>
+                    </div>
+
+                    {/* Progress */}
+                    <div className="mb-4">
+                      <div className="flex justify-between text-[11px] font-semibold mb-1.5">
+                        <span className="opacity-85">{t('dashboard.mobile.tripProgress')}</span>
+                        <span className="opacity-70">{daysLeft} days left</span>
+                      </div>
+                      <div className="h-1.5 bg-white/15 rounded-full overflow-hidden">
+                        <div className="h-full bg-white rounded-full relative" style={{ width: `${progress}%` }}>
+                          <span className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_12px_rgba(255,255,255,0.9)]" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-2 gap-2.5 p-3.5 bg-black/25 backdrop-blur-sm border border-white/10 rounded-2xl">
+                      <div className="text-center">
+                        <p className="text-[22px] font-extrabold tracking-[-0.02em] leading-none">{liveTrip.place_count || 0}</p>
+                        <p className="text-[9px] uppercase tracking-[0.1em] opacity-70 font-semibold mt-1">Places</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[22px] font-extrabold tracking-[-0.02em] leading-none">{liveTrip.shared_count || 0}</p>
+                        <p className="text-[9px] uppercase tracking-[0.1em] opacity-70 font-semibold mt-1">Buddies</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Mobile: Quick Actions */}
+          <div className="md:hidden grid grid-cols-3 gap-2 mb-6">
+            {can('trip_create') && (
+              <button
+                onClick={() => { setEditingTrip(null); setShowForm(true) }}
+                className="flex flex-col items-center gap-2 py-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-700"
+                style={{ background: 'var(--bg-card)' }}
+              >
+                <div className="w-9 h-9 rounded-[11px] flex items-center justify-center" style={{ background: '#FEF3C7', color: '#B45309' }}>
+                  <Plus size={16} />
+                </div>
+                <span className="text-[10px] font-semibold" style={{ color: 'var(--text-primary)' }}>{t('dashboard.mobile.newTrip')}</span>
+              </button>
+            )}
+            {showCurrency && (
+              <button
+                onClick={() => setShowWidgetSettings('mobile-currency')}
+                className="flex flex-col items-center gap-2 py-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-700"
+                style={{ background: 'var(--bg-card)' }}
+              >
+                <div className="w-9 h-9 rounded-[11px] flex items-center justify-center" style={{ background: '#DBEAFE', color: '#1E40AF' }}>
+                  <ArrowRightLeft size={16} />
+                </div>
+                <span className="text-[10px] font-semibold" style={{ color: 'var(--text-primary)' }}>{t('dashboard.mobile.currency')}</span>
+              </button>
+            )}
+            {showTimezone && (
+              <button
+                onClick={() => setShowWidgetSettings('mobile-timezone')}
+                className="flex flex-col items-center gap-2 py-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-700"
+                style={{ background: 'var(--bg-card)' }}
+              >
+                <div className="w-9 h-9 rounded-[11px] flex items-center justify-center" style={{ background: '#DCFCE7', color: '#15803D' }}>
+                  <Clock size={16} />
+                </div>
+                <span className="text-[10px] font-semibold" style={{ color: 'var(--text-primary)' }}>{t('dashboard.mobile.timezone')}</span>
+              </button>
+            )}
+          </div>
+
+          {/* Desktop header */}
+          <div className="hidden md:flex" style={{ alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
             <div>
               <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: 'var(--text-primary)' }}>{t('dashboard.title')}</h1>
               <p style={{ margin: '3px 0 0', fontSize: 13, color: '#9ca3af' }}>
@@ -774,17 +1079,7 @@ export default function DashboardPage(): React.ReactElement {
             </div>
           )}
 
-          {/* Mobile widgets button */}
-          {showSidebar && (
-            <button
-              onClick={() => setShowWidgetSettings('mobile')}
-              className="lg:hidden flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-xs font-semibold mb-4"
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
-            >
-              <ArrowRightLeft size={13} style={{ color: 'var(--text-faint)' }} />
-              {showCurrency && showTimezone ? `${t('dashboard.currency')} & ${t('dashboard.timezone')}` : showCurrency ? t('dashboard.currency') : t('dashboard.timezone')}
-            </button>
-          )}
+          {/* Mobile widgets button — replaced by Quick Actions */}
 
           <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
           {/* Main content */}
@@ -819,9 +1114,9 @@ export default function DashboardPage(): React.ReactElement {
             </div>
           )}
 
-          {/* Spotlight (grid mode only) */}
+          {/* Spotlight (grid mode, desktop only — mobile has Live Hero) */}
           {!isLoading && spotlight && viewMode === 'grid' && (
-            <SpotlightCard
+            <div className="hidden md:block"><SpotlightCard
               trip={spotlight}
               t={t} locale={locale} dark={dark}
               onEdit={(can('trip_edit', spotlight) || can('trip_cover_upload', spotlight)) ? tr => { setEditingTrip(tr); setShowForm(true) } : undefined}
@@ -829,13 +1124,37 @@ export default function DashboardPage(): React.ReactElement {
               onDelete={can('trip_delete', spotlight) ? handleDelete : undefined}
               onArchive={can('trip_archive', spotlight) ? handleArchive : undefined}
               onClick={tr => navigate(`/trips/${tr.id}`)}
-            />
+            /></div>
           )}
 
-          {/* Trips — grid or list */}
-          {!isLoading && (viewMode === 'grid' ? rest : trips).length > 0 && (
+          {/* Trips — mobile cards */}
+          {!isLoading && rest.length > 0 && (
+            <div className="md:hidden flex flex-col gap-3 mb-10">
+              <div className="flex items-baseline justify-between px-1 pb-1">
+                <span className="text-[11px] font-bold tracking-[0.12em] uppercase" style={{ color: 'var(--text-faint)' }}>
+                  {rest.some(t => getTripStatus(t) === 'future' || getTripStatus(t) === 'tomorrow') ? t('dashboard.mobile.upcomingTrips') : t('dashboard.mobile.yourTrips')}
+                </span>
+                <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>{rest.length} {t('dashboard.mobile.trips')}</span>
+              </div>
+              {rest.map(trip => (
+                <MobileTripCard
+                  key={trip.id}
+                  trip={trip}
+                  t={t} locale={locale}
+                  onEdit={(can('trip_edit', trip) || can('trip_cover_upload', trip)) ? tr => { setEditingTrip(tr); setShowForm(true) } : undefined}
+                  onCopy={can('trip_create') ? handleCopy : undefined}
+                  onDelete={can('trip_delete', trip) ? handleDelete : undefined}
+                  onArchive={can('trip_archive', trip) ? handleArchive : undefined}
+                  onClick={tr => navigate(`/trips/${tr.id}`)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Trips — desktop grid or list */}
+          {!isLoading && (viewMode === 'grid' ? rest : rest).length > 0 && (
             viewMode === 'grid' ? (
-              <div className="trip-grid" style={{ display: 'grid', gap: 16, marginBottom: 40 }}>
+              <div className="trip-grid hidden md:grid" style={{ gap: 16, marginBottom: 40 }}>
                 {rest.map(trip => (
                   <TripCard
                     key={trip.id}
@@ -850,8 +1169,8 @@ export default function DashboardPage(): React.ReactElement {
                 ))}
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 40 }}>
-                {trips.map(trip => (
+              <div className="hidden md:flex" style={{ flexDirection: 'column', gap: 8, marginBottom: 40 }}>
+                {rest.map(trip => (
                   <TripListItem
                     key={trip.id}
                     trip={trip}
@@ -912,20 +1231,25 @@ export default function DashboardPage(): React.ReactElement {
       </div>
 
       {/* Mobile widgets bottom sheet */}
-      {showWidgetSettings === 'mobile' && (
+      {(showWidgetSettings === 'mobile' || showWidgetSettings === 'mobile-currency' || showWidgetSettings === 'mobile-timezone') && (
         <div className="lg:hidden fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.3)', touchAction: 'none' }} onClick={() => setShowWidgetSettings(false)}>
-          <div className="absolute bottom-0 left-0 right-0 flex flex-col overflow-hidden"
-            style={{ maxHeight: '80vh', background: 'var(--bg-card)', borderRadius: '20px 20px 0 0', overscrollBehavior: 'contain' }}
+          <div className="absolute left-0 right-0 flex flex-col overflow-hidden"
+            style={{ bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))', maxHeight: '70vh', background: 'var(--bg-card)', borderRadius: '20px 20px 0 0', overscrollBehavior: 'contain', animation: 'slideUp 0.25s ease-out' }}
             onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-secondary)' }}>
-              <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Widgets</span>
+            <div className="flex justify-center pt-3 pb-2">
+              <div className="w-10 h-1 rounded-full" style={{ background: 'var(--border-primary)' }} />
+            </div>
+            <div className="flex items-center justify-between px-5 pb-3">
+              <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                {showWidgetSettings === 'mobile-currency' ? t('dashboard.mobile.currencyConverter') : showWidgetSettings === 'mobile-timezone' ? t('dashboard.mobile.timezone') : t('common.settings')}
+              </span>
               <button onClick={() => setShowWidgetSettings(false)} className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: 'var(--bg-secondary)' }}>
                 <X size={14} style={{ color: 'var(--text-primary)' }} />
               </button>
             </div>
-            <div className="flex-1 overflow-auto p-4 space-y-4">
-              {showCurrency && <CurrencyWidget />}
-              {showTimezone && <TimezoneWidget />}
+            <div className="flex-1 overflow-auto p-4 space-y-4" style={{ borderTop: '1px solid var(--border-secondary)' }}>
+              {(showWidgetSettings === 'mobile' || showWidgetSettings === 'mobile-currency') && showCurrency && <CurrencyWidget />}
+              {(showWidgetSettings === 'mobile' || showWidgetSettings === 'mobile-timezone') && showTimezone && <TimezoneWidget />}
             </div>
           </div>
         </div>

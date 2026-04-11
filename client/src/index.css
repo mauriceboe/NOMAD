@@ -140,7 +140,7 @@ html.dark .bg-slate-50\/60, html.dark [class*="bg-slate-50/"] { background-color
 /* ── Design tokens ─────────────────────────────── */
 :root {
   --safe-top: env(safe-area-inset-top, 0px);
-  --nav-h: calc(56px + var(--safe-top));
+  --nav-h: 0px;
   --font-system: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
   --sp-1: 4px;
   --sp-2: 8px;
@@ -177,6 +177,24 @@ html.dark .bg-slate-50\/60, html.dark [class*="bg-slate-50/"] { background-color
   --scrollbar-track: #f1f5f9;
   --scrollbar-thumb: #d1d5db;
   --scrollbar-hover: #9ca3af;
+
+  /* Journey design tokens */
+  --journal-bg: #FAFAFA;
+  --journal-card: #FFFFFF;
+  --journal-border: #E4E4E7;
+  --journal-accent: #6366F1;
+  --journal-text: #09090B;
+  --journal-muted: #71717A;
+  --journal-faint: #A1A1AA;
+  --mood-amazing: #E8654A;
+  --mood-good: #EF9F27;
+  --mood-neutral: #94928C;
+  --mood-tired: #6B9BD2;
+  --mood-rough: #9B8EC4;
+}
+
+@media (min-width: 768px) {
+  :root { --nav-h: calc(56px + env(safe-area-inset-top, 0px)); }
 }
 
 .dark {
@@ -202,6 +220,20 @@ html.dark .bg-slate-50\/60, html.dark [class*="bg-slate-50/"] { background-color
   --scrollbar-track: #131316;
   --scrollbar-thumb: #3f3f46;
   --scrollbar-hover: #52525b;
+
+  /* Journey design tokens (dark) */
+  --journal-bg: #09090B;
+  --journal-card: #18181B;
+  --journal-border: #27272A;
+  --journal-accent: #818CF8;
+  --journal-text: #FAFAFA;
+  --journal-muted: #A1A1AA;
+  --journal-faint: #52525B;
+  --mood-amazing: #f28a6e;
+  --mood-good: #f5b84d;
+  --mood-neutral: #9a9a94;
+  --mood-tired: #6db3f0;
+  --mood-rough: #a9a3f0;
 }
 
 body {
@@ -267,22 +299,23 @@ body {
 
 /* ── iOS-style map tooltip ─────────────────────── */
 .leaflet-tooltip.map-tooltip {
-  background: var(--tooltip-bg);
+  background: rgba(9, 9, 11, 0.85);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: none;
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-elevated);
-  padding: 6px 10px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  padding: 5px 10px;
   font-family: var(--font-system);
+  font-size: 11px;
+  font-weight: 500;
   pointer-events: none;
-  color: var(--text-primary);
+  color: #fff;
 }
-.leaflet-tooltip.map-tooltip::before {
-  border-right-color: var(--tooltip-bg);
-}
-.leaflet-tooltip-left.map-tooltip::before {
-  border-left-color: var(--tooltip-bg);
+.leaflet-tooltip.map-tooltip::before,
+.leaflet-tooltip-left.map-tooltip::before,
+.leaflet-tooltip-top.map-tooltip::before {
+  display: none;
 }
 
 /* Scrollbalken */
@@ -416,6 +449,11 @@ img[alt="TREK"] {
 }
 
 /* Toast-Animationen */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
 @keyframes slide-in-right {
   from { transform: translateX(100%); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }

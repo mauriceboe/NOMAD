@@ -61,7 +61,7 @@ export default function Modal({
       <div
         className={`
           rounded-2xl shadow-2xl w-full ${sizeClasses[size] || sizeClasses.md}
-          flex flex-col max-h-[calc(100vh-90px)]
+          flex flex-col max-h-[calc(100vh-180px)] md:max-h-[calc(100vh-90px)]
           animate-in fade-in zoom-in-95 duration-200
         `}
         style={{

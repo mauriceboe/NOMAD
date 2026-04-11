@@ -23,11 +23,12 @@ interface VacayMonthCardProps {
   companyMode: boolean
   blockWeekends: boolean
   weekendDays?: number[]
+  tripDates?: Set<string>
 }
 
 export default function VacayMonthCard({
   year, month, holidays, companyHolidaySet, companyHolidaysEnabled = true, entryMap,
-  onCellClick, companyMode, blockWeekends, weekendDays = [0, 6]
+  onCellClick, companyMode, blockWeekends, weekendDays = [0, 6], tripDates
 }: VacayMonthCardProps) {
   const { t, locale } = useTranslation()
 
@@ -120,6 +121,10 @@ export default function VacayMonthCard({
                       <div className="absolute bottom-0 left-0 w-1/2 h-1/2" style={{ backgroundColor: dayEntries[2].person_color }} />
                       <div className="absolute bottom-0 right-0 w-1/2 h-1/2" style={{ backgroundColor: dayEntries[3].person_color }} />
                     </div>
+                  )}
+
+                  {tripDates?.has(dateStr) && (
+                    <span className="absolute top-[3px] right-[3px] w-[5px] h-[5px] rounded-full z-[2]" style={{ background: '#3b82f6' }} />
                   )}
 
                   <span className="relative z-[1] text-[11px] font-medium" style={{

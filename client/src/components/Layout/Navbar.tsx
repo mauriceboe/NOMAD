@@ -5,11 +5,11 @@ import { useAuthStore } from '../../store/authStore'
 import { useSettingsStore } from '../../store/settingsStore'
 import { useAddonStore } from '../../store/addonStore'
 import { useTranslation } from '../../i18n'
-import { Plane, LogOut, Settings, ChevronDown, Shield, ArrowLeft, Users, Moon, Sun, Monitor, CalendarDays, Briefcase, Globe } from 'lucide-react'
+import { Plane, LogOut, Settings, ChevronDown, Shield, ArrowLeft, Users, Moon, Sun, Monitor, CalendarDays, Briefcase, Globe, Compass } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import InAppNotificationBell from './InAppNotificationBell.tsx'
 
-const ADDON_ICONS: Record<string, LucideIcon> = { CalendarDays, Briefcase, Globe }
+const ADDON_ICONS: Record<string, LucideIcon> = { CalendarDays, Briefcase, Globe, Compass }
 
 interface NavbarProps {
   tripTitle?: string
@@ -75,7 +75,7 @@ export default function Navbar({ tripTitle, tripId, onBack, showBack, onShare }:
       touchAction: 'manipulation',
       paddingTop: 'env(safe-area-inset-top, 0px)',
       height: 'var(--nav-h)',
-    }} className="flex items-center px-4 gap-4 fixed top-0 left-0 right-0 z-[200]">
+    }} className="hidden md:flex items-center px-4 gap-4 fixed top-0 left-0 right-0 z-[200]">
       {/* Left side */}
       <div className="flex items-center gap-3 min-w-0">
         {showBack && (

@@ -592,32 +592,7 @@ describe('TripPlannerPage', () => {
     });
   });
 
-  describe('FE-PAGE-PLANNER-018: Memories tab renders MemoriesPanel', () => {
-    it('shows MemoriesPanel after clicking the Photos tab with a photo_provider addon enabled', async () => {
-      server.use(
-        http.get('/api/addons', () =>
-          HttpResponse.json({ addons: [{ id: 'google_photos', type: 'photo_provider' }] })
-        )
-      );
-
-      vi.useFakeTimers();
-
-      seedTripStore({ id: 42 });
-
-      renderPlannerPage(42);
-
-      act(() => { vi.runAllTimers(); });
-
-      vi.useRealTimers();
-
-      const photosTab = await screen.findByTitle('Photos');
-      fireEvent.click(photosTab);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('memories-panel')).toBeInTheDocument();
-      });
-    });
-  });
+  // FE-PAGE-PLANNER-018: Removed — MemoriesPanel moved to Journey addon
 
   describe('FE-PAGE-PLANNER-019: Todo subtab in ListsContainer', () => {
     it('shows TodoListPanel after switching to the Todo subtab inside Lists', async () => {

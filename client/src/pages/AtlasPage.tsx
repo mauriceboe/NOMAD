@@ -756,7 +756,7 @@ export default function AtlasPage(): React.ReactElement {
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-primary)' }}>
       <Navbar />
-      <div style={{ position: 'fixed', top: 'var(--nav-h)', left: 0, right: 0, bottom: 0 }}>
+      <div style={{ position: 'fixed', top: 'var(--nav-h)', left: 0, right: 0, bottom: 'env(safe-area-inset-bottom, 0px)' }}>
         {/* Map */}
         <div ref={mapRef} style={{ position: 'absolute', inset: 0, zIndex: 1, background: dark ? '#1a1a2e' : '#f0f0f0' }} />
 
@@ -773,7 +773,7 @@ export default function AtlasPage(): React.ReactElement {
         }} />
         <div
           className="absolute z-20 flex justify-center"
-          style={{ top: 14, left: 0, right: 0, pointerEvents: 'none' }}
+          style={{ top: 'calc(env(safe-area-inset-top, 0px) + 14px)', left: 0, right: 0, pointerEvents: 'none' }}
         >
           <div style={{ width: 'min(520px, calc(100vw - 28px))', pointerEvents: 'auto' }}>
             <div style={{
@@ -896,7 +896,7 @@ export default function AtlasPage(): React.ReactElement {
         </div>
 
         {/* Mobile: Bottom bar */}
-        <div className="md:hidden absolute bottom-3 left-0 right-0 z-10 flex justify-center" style={{ touchAction: 'manipulation' }}>
+        <div className="md:hidden absolute left-0 right-0 z-10 flex justify-center" style={{ bottom: 'calc(84px + env(safe-area-inset-bottom, 0px) + 8px)', touchAction: 'manipulation' }}>
           <div className="flex items-center gap-4 px-5 py-4 rounded-2xl"
             style={{ background: dark ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.5)', backdropFilter: 'blur(16px)' }}>
             {/* Countries highlighted */}
