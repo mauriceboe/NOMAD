@@ -293,10 +293,9 @@ export default function JourneyDetailPage() {
                       const today = new Date().toISOString().split('T')[0]
                       setEditingEntry({ id: 0, journey_id: current.id, author_id: 0, type: 'entry', entry_date: today, visibility: 'private', sort_order: 0, photos: [], created_at: 0, updated_at: 0 } as JourneyEntry)
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-[7px] rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-[12px] font-medium hover:bg-zinc-800 dark:hover:bg-zinc-100"
+                    className="w-8 h-8 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center hover:bg-zinc-800 dark:hover:bg-zinc-100"
                   >
-                    <Plus size={13} />
-                    Add Entry
+                    <Plus size={16} />
                   </button>
                 )}
               </div>

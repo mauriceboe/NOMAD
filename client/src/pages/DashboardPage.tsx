@@ -15,7 +15,7 @@ import { useToast } from '../components/shared/Toast'
 import {
   Plus, Calendar, Trash2, Edit2, Map, ChevronDown, ChevronUp,
   Archive, ArchiveRestore, Clock, MapPin, Settings, X, ArrowRightLeft, Users,
-  LayoutGrid, List, Copy, Bell,
+  LayoutGrid, List, Copy, Bell, CheckCircle2,
 } from 'lucide-react'
 import { useCanDo } from '../store/permissionsStore'
 
@@ -311,10 +311,12 @@ function MobileTripCard({ trip, onEdit, onCopy, onDelete, onArchive, onClick, t,
 
         {/* Countdown badge */}
         {badgeText && (
-          <div className="absolute top-3.5 left-3.5 z-[2]">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-black/40 backdrop-blur-sm border border-white/15 rounded-full text-white text-[10px] font-bold uppercase tracking-[0.08em]">
+          <div className="absolute top-2.5 left-2.5 z-[2]">
+            <span className="inline-flex items-center gap-1 px-2 py-[3px] bg-black/40 backdrop-blur-sm border border-white/15 rounded-full text-white text-[9px] font-bold uppercase tracking-[0.06em]">
               {status === 'ongoing' ? (
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)] animate-pulse" />
+              ) : status === 'past' ? (
+                <CheckCircle2 size={10} />
               ) : (
                 <Clock size={10} />
               )}
@@ -401,10 +403,12 @@ function TripCard({ trip, onEdit, onCopy, onDelete, onArchive, onClick, t, local
 
         {/* Status badge top-left */}
         {badgeText && (
-          <div className="absolute top-3.5 left-3.5 z-[2]">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-black/40 backdrop-blur-sm border border-white/15 rounded-full text-white text-[10px] font-bold uppercase tracking-[0.08em]">
+          <div className="absolute top-2.5 left-2.5 z-[2]">
+            <span className="inline-flex items-center gap-1 px-2 py-[3px] bg-black/40 backdrop-blur-sm border border-white/15 rounded-full text-white text-[9px] font-bold uppercase tracking-[0.06em]">
               {status === 'ongoing' ? (
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)] animate-pulse" />
+              ) : status === 'past' ? (
+                <CheckCircle2 size={10} />
               ) : (
                 <Clock size={10} />
               )}
@@ -850,111 +854,20 @@ export default function DashboardPage(): React.ReactElement {
             </div>
           </div>
 
-          {/* Mobile: Live Trip Hero */}
-          {(() => {
-            const liveTrip = trips.find(t => getTripStatus(t) === 'ongoing')
-            if (!liveTrip) return null
-            const today = new Date().toISOString().split('T')[0]
-            const startDate = liveTrip.start_date || today
-            const endDate = liveTrip.end_date || today
-            const totalDays = Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000) + 1)
-            const currentDay = Math.min(totalDays, Math.ceil((new Date(today).getTime() - new Date(startDate).getTime()) / 86400000) + 1)
-            const daysLeft = Math.max(0, totalDays - currentDay)
-            const progress = Math.round((currentDay / totalDays) * 100)
-
-            return (
-              <div className="md:hidden mb-5">
-                <div
-                  onClick={() => navigate(`/trips/${liveTrip.id}`)}
-                  className="relative rounded-3xl overflow-hidden cursor-pointer"
-                  style={{ minHeight: 340 }}
-                >
-                  {/* Background */}
-                  <div className="absolute inset-0" style={{
-                    background: liveTrip.cover_image ? undefined : `radial-gradient(circle at 15% 20%, rgba(16,185,129,0.7), transparent 45%), radial-gradient(circle at 85% 80%, rgba(6,182,212,0.6), transparent 50%), radial-gradient(circle at 50% 50%, rgba(14,165,233,0.4), transparent 55%), linear-gradient(135deg, #064E3B 0%, #065F46 35%, #0E7490 75%, #164E63 100%)`
-                  }}>
-                    {liveTrip.cover_image && (
-                      <>
-                        <img src={liveTrip.cover_image} className="w-full h-full object-cover" alt="" />
-                        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.6) 100%)' }} />
-                      </>
-                    )}
-                  </div>
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 0%, transparent 40%, rgba(0,0,0,0.5) 100%)' }} />
-
-                  {/* Content */}
-                  <div className="relative p-5 flex flex-col text-white z-[2]" style={{ minHeight: 340 }}>
-                    {/* Top badges */}
-                    <div className="flex items-center justify-between mb-5">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-black/40 backdrop-blur-sm border border-white/15 rounded-full text-[10px] font-bold uppercase tracking-[0.1em]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)] animate-pulse" />
-                        {t("dashboard.mobile.liveNow")}
-                      </span>
-                      <div className="flex gap-1.5">
-                        <button
-                          onClick={e => { e.stopPropagation(); setEditingTrip(liveTrip); setShowForm(true) }}
-                          className="w-[34px] h-[34px] rounded-[10px] bg-white/12 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white hover:bg-white/20"
-                        >
-                          <Edit2 size={14} />
-                        </button>
-                        <button
-                          onClick={e => { e.stopPropagation(); handleCopy(liveTrip) }}
-                          className="w-[34px] h-[34px] rounded-[10px] bg-white/12 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white hover:bg-white/20"
-                        >
-                          <Copy size={14} />
-                        </button>
-                        <button
-                          onClick={e => { e.stopPropagation(); handleArchive(liveTrip.id) }}
-                          className="w-[34px] h-[34px] rounded-[10px] bg-white/12 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white hover:bg-white/20"
-                        >
-                          <Archive size={14} />
-                        </button>
-                        <button
-                          onClick={e => { e.stopPropagation(); handleDelete(liveTrip) }}
-                          className="w-[34px] h-[34px] rounded-[10px] bg-white/12 backdrop-blur-sm border border-white/15 flex items-center justify-center text-red-300 hover:bg-red-500/20"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Title area */}
-                    <div className="flex-1 flex flex-col justify-end mb-4">
-                      <h2 className="text-[32px] font-extrabold tracking-[-0.03em] leading-[0.95] mb-1.5">{liveTrip.title}</h2>
-                      <p className="text-[12px] opacity-80 font-medium">
-                        {formatDateShort(liveTrip.start_date)} — {formatDateShort(liveTrip.end_date)} · {t('journey.pdf.day')} {currentDay} / {totalDays}
-                      </p>
-                    </div>
-
-                    {/* Progress */}
-                    <div className="mb-4">
-                      <div className="flex justify-between text-[11px] font-semibold mb-1.5">
-                        <span className="opacity-85">{t('dashboard.mobile.tripProgress')}</span>
-                        <span className="opacity-70">{daysLeft} days left</span>
-                      </div>
-                      <div className="h-1.5 bg-white/15 rounded-full overflow-hidden">
-                        <div className="h-full bg-white rounded-full relative" style={{ width: `${progress}%` }}>
-                          <span className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_12px_rgba(255,255,255,0.9)]" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="grid grid-cols-2 gap-2.5 p-3.5 bg-black/25 backdrop-blur-sm border border-white/10 rounded-2xl">
-                      <div className="text-center">
-                        <p className="text-[22px] font-extrabold tracking-[-0.02em] leading-none">{liveTrip.place_count || 0}</p>
-                        <p className="text-[9px] uppercase tracking-[0.1em] opacity-70 font-semibold mt-1">Places</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[22px] font-extrabold tracking-[-0.02em] leading-none">{liveTrip.shared_count || 0}</p>
-                        <p className="text-[9px] uppercase tracking-[0.1em] opacity-70 font-semibold mt-1">Buddies</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )
-          })()}
+          {/* Mobile: Hero Trip (spotlight — ongoing or next upcoming) */}
+          {!isLoading && spotlight && (
+            <div className="md:hidden mb-5">
+              <SpotlightCard
+                trip={spotlight}
+                t={t} locale={locale}
+                onEdit={(can('trip_edit', spotlight) || can('trip_cover_upload', spotlight)) ? tr => { setEditingTrip(tr); setShowForm(true) } : undefined}
+                onCopy={can('trip_create') ? handleCopy : undefined}
+                onDelete={can('trip_delete', spotlight) ? handleDelete : undefined}
+                onArchive={can('trip_archive', spotlight) ? handleArchive : undefined}
+                onClick={tr => navigate(`/trips/${tr.id}`)}
+              />
+            </div>
+          )}
 
           {/* Mobile: Quick Actions */}
           <div className="md:hidden grid grid-cols-3 gap-2 mb-6">
