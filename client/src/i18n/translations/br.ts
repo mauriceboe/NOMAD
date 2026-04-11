@@ -133,6 +133,7 @@ const br: Record<string, string | { name: string; category: string }[]> = {
   'settings.tabs.map': 'Mapa',
   'settings.tabs.notifications': 'Notificações',
   'settings.tabs.integrations': 'Integrações',
+  'settings.tabs.offline': 'Offline',
   'settings.tabs.account': 'Conta',
   'settings.tabs.about': 'Sobre',
   'settings.map': 'Mapa',

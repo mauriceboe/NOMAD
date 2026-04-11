@@ -17,6 +17,7 @@ import SharedTripPage from './pages/SharedTripPage'
 import InAppNotificationsPage from './pages/InAppNotificationsPage.tsx'
 import OAuthAuthorizePage from './pages/OAuthAuthorizePage'
 import { ToastContainer } from './components/shared/Toast'
+import OfflineIndicator from './components/shared/OfflineIndicator'
 import BottomNav from './components/Layout/BottomNav'
 import { TranslationProvider, useTranslation } from './i18n'
 import { authApi } from './api/client'
@@ -110,7 +111,8 @@ export default function App() {
           try {
             if ('caches' in window) {
               const names = await caches.keys()
-              await Promise.all(names.map(n => caches.delete(n)))
+              // Preserve trek-offline-data so offline-cached trip data survives app updates
+              await Promise.all(names.filter(n => n !== 'trek-offline-data').map(n => caches.delete(n)))
             }
             if ('serviceWorker' in navigator) {
               const regs = await navigator.serviceWorker.getRegistrations()
@@ -168,6 +170,7 @@ export default function App() {
   return (
     <TranslationProvider>
       <ToastContainer />
+      <OfflineIndicator />
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<LoginPage />} />

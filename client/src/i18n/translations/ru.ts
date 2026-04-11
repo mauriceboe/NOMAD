@@ -133,6 +133,7 @@ const ru: Record<string, string> = {
   'settings.tabs.map': 'Карта',
   'settings.tabs.notifications': 'Уведомления',
   'settings.tabs.integrations': 'Интеграции',
+  'settings.tabs.offline': 'Оффлайн',
   'settings.tabs.account': 'Аккаунт',
   'settings.tabs.about': 'О приложении',
   'settings.map': 'Карта',

@@ -133,6 +133,7 @@ const nl: Record<string, string> = {
   'settings.tabs.map': 'Kaart',
   'settings.tabs.notifications': 'Meldingen',
   'settings.tabs.integrations': 'Integraties',
+  'settings.tabs.offline': 'Offline',
   'settings.tabs.account': 'Account',
   'settings.tabs.about': 'Over',
   'settings.map': 'Kaart',

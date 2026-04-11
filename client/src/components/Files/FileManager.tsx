@@ -9,7 +9,9 @@ import type { Place, Reservation, TripFile, Day, AssignmentsMap } from '../../ty
 import { useCanDo } from '../../store/permissionsStore'
 import { useTripStore } from '../../store/tripStore'
 
-import { getAuthUrl } from '../../api/authUrl'
+import { fetchImageAsBlob } from '../../api/authUrl'
+import { downloadFile, openFileInApp } from '../../utils/fileOpen'
+import CacheBadge from '../shared/CacheBadge'
 
 function isImage(mimeType) {
   if (!mimeType) return false
@@ -30,16 +32,8 @@ function formatSize(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-async function triggerDownload(url: string, filename: string) {
-  const authUrl = await getAuthUrl(url, 'download')
-  const res = await fetch(authUrl)
-  const blob = await res.blob()
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove() }, 100)
+function triggerDownload(url: string, filename: string) {
+  return downloadFile(url, filename)
 }
 
 function formatDateWithLocale(dateStr, locale) {
@@ -65,7 +59,7 @@ function ImageLightbox({ files, initialIndex, onClose }: ImageLightboxProps) {
 
   useEffect(() => {
     setImgSrc('')
-    if (file) getAuthUrl(file.url, 'download').then(setImgSrc)
+    if (file) fetchImageAsBlob(file.url).then(setImgSrc)
   }, [file?.url])
 
   const goPrev = () => setIndex(i => Math.max(0, i - 1))
@@ -120,7 +114,7 @@ function ImageLightbox({ files, initialIndex, onClose }: ImageLightboxProps) {
         </span>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
           <button
-            onClick={async () => { const u = await getAuthUrl(file.url, 'download'); window.open(u, '_blank', 'noreferrer') }}
+            onClick={() => openFileInApp(file.url, file.original_name)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', display: 'flex', padding: 4 }}
             title={t('files.openTab')}>
             <ExternalLink size={16} />
@@ -159,7 +153,7 @@ function ImageLightbox({ files, initialIndex, onClose }: ImageLightboxProps) {
 
 function ThumbImg({ file, active, onClick }: { file: TripFile & { url: string }; active: boolean; onClick: () => void }) {
   const [src, setSrc] = useState('')
-  useEffect(() => { getAuthUrl(file.url, 'download').then(setSrc) }, [file.url])
+  useEffect(() => { fetchImageAsBlob(file.url).then(setSrc) }, [file.url])
   return (
     <button onClick={onClick} style={{
       width: 48, height: 48, borderRadius: 6, overflow: 'hidden', border: active ? '2px solid #fff' : '2px solid transparent',
@@ -174,7 +168,7 @@ function ThumbImg({ file, active, onClick }: { file: TripFile & { url: string };
 function AuthedImg({ src, style }: { src: string; style?: React.CSSProperties }) {
   const [authSrc, setAuthSrc] = useState('')
   useEffect(() => {
-    getAuthUrl(src, 'download').then(setAuthSrc)
+    fetchImageAsBlob(src).then(setAuthSrc)
   }, [src])
   return authSrc ? <img src={authSrc} alt="" style={style} /> : null
 }
@@ -398,7 +392,7 @@ export default function FileManager({ files = [], onUpload, onDelete, onUpdate, 
   const [previewFileUrl, setPreviewFileUrl] = useState('')
   useEffect(() => {
     if (previewFile) {
-      getAuthUrl(previewFile.url, 'download').then(setPreviewFileUrl)
+      fetchImageAsBlob(previewFile.url).then(setPreviewFileUrl)
     } else {
       setPreviewFileUrl('')
     }
@@ -483,6 +477,7 @@ export default function FileManager({ files = [], onUpload, onDelete, onUpdate, 
             >
               {file.original_name}
             </span>
+            <CacheBadge tripId={tripId} fileId={file.id} />
           </div>
 
           {file.description && (
@@ -750,7 +745,7 @@ export default function FileManager({ files = [], onUpload, onDelete, onUpdate, 
               <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{previewFile.original_name}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                 <button
-                  onClick={async () => { const u = await getAuthUrl(previewFile.url, 'download'); window.open(u, '_blank', 'noreferrer') }}
+                  onClick={() => openFileInApp(previewFile.url, previewFile.original_name)}
                   style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'none', padding: '4px 8px', borderRadius: 6, transition: 'color 0.15s' }}
                   onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'}
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'}>
@@ -778,7 +773,7 @@ export default function FileManager({ files = [], onUpload, onDelete, onUpdate, 
               title={previewFile.original_name}
             >
               <p style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
-                <button onClick={async () => { const u = await getAuthUrl(previewFile.url, 'download'); window.open(u, '_blank', 'noopener noreferrer') }} style={{ color: 'var(--text-primary)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', font: 'inherit' }}>PDF herunterladen</button>
+                <button onClick={() => openFileInApp(previewFile.url, previewFile.original_name)} style={{ color: 'var(--text-primary)', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', font: 'inherit' }}>PDF herunterladen</button>
               </p>
             </object>
           </div>

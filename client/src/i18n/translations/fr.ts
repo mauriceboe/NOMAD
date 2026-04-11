@@ -133,6 +133,7 @@ const fr: Record<string, string> = {
   'settings.tabs.map': 'Carte',
   'settings.tabs.notifications': 'Notifications',
   'settings.tabs.integrations': 'Intégrations',
+  'settings.tabs.offline': 'Hors ligne',
   'settings.tabs.account': 'Compte',
   'settings.tabs.about': 'À propos',
   'settings.map': 'Carte',

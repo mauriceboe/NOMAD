@@ -119,6 +119,7 @@ const pl: Record<string, string | { name: string; category: string }[]> = {
   'settings.tabs.map': 'Mapa',
   'settings.tabs.notifications': 'Powiadomienia',
   'settings.tabs.integrations': 'Integracje',
+  'settings.tabs.offline': 'Offline',
   'settings.tabs.account': 'Konto',
   'settings.tabs.about': 'O aplikacji',
   'settings.map': 'Mapa',

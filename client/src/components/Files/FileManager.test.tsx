@@ -12,6 +12,7 @@ import FileManager from './FileManager';
 // Mock getAuthUrl
 vi.mock('../../api/authUrl', () => ({
   getAuthUrl: vi.fn().mockResolvedValue('http://localhost/signed-url'),
+  fetchImageAsBlob: vi.fn().mockResolvedValue('blob:http://localhost/mock-blob'),
 }));
 
 // Mock filesApi

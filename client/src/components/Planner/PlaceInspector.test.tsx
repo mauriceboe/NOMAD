@@ -17,8 +17,9 @@ vi.mock('../../api/client', async (importOriginal) => {
 });
 
 vi.mock('../../api/authUrl', () => ({
-  getAuthUrl: vi.fn().mockResolvedValue('http://test/file'),
+  fetchImageAsBlob: vi.fn().mockResolvedValue('blob:http://test/file'),
 }));
+vi.mock('../../utils/fileOpen', () => ({ openFileInApp: vi.fn(), downloadFile: vi.fn() }));
 
 vi.mock('../../services/photoService', () => ({
   getCached: vi.fn(() => null),
