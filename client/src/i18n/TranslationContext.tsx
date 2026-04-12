@@ -14,28 +14,22 @@ import ar from './translations/ar'
 import br from './translations/br'
 import cs from './translations/cs'
 import pl from './translations/pl'
+import { SUPPORTED_LANGUAGES, SupportedLanguageCode } from './supportedLanguages'
+
+export { SUPPORTED_LANGUAGES }
 
 type TranslationStrings = Record<string, string | { name: string; category: string }[]>
 
-export const SUPPORTED_LANGUAGES = [
-  { value: 'de', label: 'Deutsch' },
-  { value: 'en', label: 'English' },
-  { value: 'es', label: 'Español' },
-  { value: 'fr', label: 'Français' },
-  { value: 'hu', label: 'Magyar' },
-  { value: 'nl', label: 'Nederlands' },
-  { value: 'br', label: 'Português (Brasil)' },
-  { value: 'cs', label: 'Česky' },
-  { value: 'pl', label: 'Polski' },
-  { value: 'ru', label: 'Русский' },
-  { value: 'zh', label: '简体中文' },
-  { value: 'zh-TW', label: '繁體中文' },
-  { value: 'it', label: 'Italiano' },
-  { value: 'ar', label: 'العربية' },
-] as const
+// Keyed by SupportedLanguageCode so TypeScript enforces all languages have a translation.
+const translations: Record<SupportedLanguageCode, TranslationStrings> = {
+  de, en, es, fr, hu, it, ru, zh, 'zh-TW': zhTw, nl, ar, br, cs, pl,
+}
 
-const translations: Record<string, TranslationStrings> = { de, en, es, fr, hu, it, ru, zh, 'zh-TW': zhTw, nl, ar, br, cs, pl }
-const LOCALES: Record<string, string> = { de: 'de-DE', en: 'en-US', es: 'es-ES', fr: 'fr-FR', hu: 'hu-HU', it: 'it-IT', ru: 'ru-RU', zh: 'zh-CN', 'zh-TW': 'zh-TW', nl: 'nl-NL', ar: 'ar-SA', br: 'pt-BR', cs: 'cs-CZ', pl: 'pl-PL' }
+// Derived from SUPPORTED_LANGUAGES — add new languages there, not here.
+const LOCALES: Record<string, string> = Object.fromEntries(
+  SUPPORTED_LANGUAGES.map(l => [l.value, l.locale])
+)
+
 const RTL_LANGUAGES = new Set(['ar'])
 
 export function getLocaleForLanguage(language: string): string {
@@ -49,6 +43,32 @@ export function getIntlLanguage(language: string): string {
 
 export function isRtlLanguage(language: string): boolean {
   return RTL_LANGUAGES.has(language)
+}
+
+// Detects the user's preferred language from the browser/OS settings and maps
+// it to one of the supported language codes. Returns null if no match is found.
+export function detectBrowserLanguage(): string | null {
+  if (typeof navigator === 'undefined') return null
+  const browserLangs = navigator.languages?.length
+    ? navigator.languages
+    : navigator.language ? [navigator.language] : []
+  const supported = SUPPORTED_LANGUAGES.map(l => l.value)
+
+  for (const lang of browserLangs) {
+    // Exact match (e.g. 'de', 'zh-TW') — case-insensitive
+    const exactMatch = supported.find(s => s.toLowerCase() === lang.toLowerCase())
+    if (exactMatch) return exactMatch
+
+    // Portuguese variants → our code is 'br' (pt-BR)
+    if (lang.toLowerCase().startsWith('pt')) return 'br'
+
+    // Prefix match (e.g. 'de-AT' → 'de', 'zh-CN' → 'zh') — case-insensitive
+    const prefix = lang.split('-')[0].toLowerCase()
+    const prefixMatch = supported.find(s => s.toLowerCase() === prefix)
+    if (prefixMatch) return prefixMatch
+  }
+
+  return null
 }
 
 interface TranslationContextValue {

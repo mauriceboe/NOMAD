@@ -6,7 +6,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 
 import jwt from 'jsonwebtoken';
-import { JWT_SECRET } from './config';
+import { JWT_SECRET, DEFAULT_LANGUAGE } from './config';
 import { logDebug, logWarn, logError } from './services/auditLog';
 import { enforceGlobalMfaPolicy } from './middleware/mfaPolicy';
 import { authenticate } from './middleware/auth';
@@ -193,6 +193,7 @@ export function createApp(): express.Application {
   app.use('/api/trips/:tripId/reservations', reservationsRoutes);
   app.use('/api/trips/:tripId/days/:dayId/notes', dayNotesRoutes);
   app.get('/api/health', (_req: Request, res: Response) => res.json({ status: 'ok' }));
+  app.get('/api/config', (_req: Request, res: Response) => res.json({ defaultLanguage: DEFAULT_LANGUAGE }));
   app.use('/api', assignmentsRoutes);
   app.use('/api/tags', tagsRoutes);
   app.use('/api/categories', categoriesRoutes);

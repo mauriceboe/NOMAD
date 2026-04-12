@@ -4,5 +4,6 @@ export {
   getLocaleForLanguage,
   getIntlLanguage,
   isRtlLanguage,
+  detectBrowserLanguage,
   SUPPORTED_LANGUAGES,
 } from './TranslationContext'

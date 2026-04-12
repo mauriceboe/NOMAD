@@ -91,8 +91,8 @@ describe('SUPPORTED_LANGUAGES', () => {
   it('FE-COMP-I18N-009: contains expected entries with value/label shape', () => {
     expect(Array.isArray(SUPPORTED_LANGUAGES)).toBe(true)
     expect(SUPPORTED_LANGUAGES).toHaveLength(14)
-    expect(SUPPORTED_LANGUAGES).toContainEqual({ value: 'en', label: 'English' })
-    expect(SUPPORTED_LANGUAGES).toContainEqual({ value: 'ar', label: 'العربية' })
+    expect(SUPPORTED_LANGUAGES).toContainEqual(expect.objectContaining({ value: 'en', label: 'English' }))
+    expect(SUPPORTED_LANGUAGES).toContainEqual(expect.objectContaining({ value: 'ar', label: 'العربية' }))
   })
 })
 

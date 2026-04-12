@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { settingsApi } from '../api/client'
 import type { Settings } from '../types'
 import { getApiErrorMessage } from '../types'
+import { SUPPORTED_LANGUAGE_CODES } from '../i18n/supportedLanguages'
 
 interface SettingsState {
   settings: Settings
@@ -10,6 +11,7 @@ interface SettingsState {
   loadSettings: () => Promise<void>
   updateSetting: (key: keyof Settings, value: Settings[keyof Settings]) => Promise<void>
   setLanguageLocal: (lang: string) => void
+  setLanguageTransient: (lang: string) => void
   updateSettings: (settingsObj: Partial<Settings>) => Promise<void>
 }
 
@@ -56,6 +58,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   setLanguageLocal: (lang: string) => {
     localStorage.setItem('app_language', lang)
+    set((state) => ({ settings: { ...state.settings, language: lang } }))
+  },
+
+  // Applies a language for the current session without persisting to localStorage.
+  // Used for automatic detection (browser/server default) — only explicit user
+  // choices via the UI should be persisted.
+  setLanguageTransient: (lang: string) => {
+    if (!SUPPORTED_LANGUAGE_CODES.includes(lang)) return
     set((state) => ({ settings: { ...state.settings, language: lang } }))
   },
 

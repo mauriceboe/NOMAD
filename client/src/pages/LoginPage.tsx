@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useSettingsStore } from '../store/settingsStore'
-import { SUPPORTED_LANGUAGES, useTranslation } from '../i18n'
-import { authApi } from '../api/client'
+import { SUPPORTED_LANGUAGES, useTranslation, detectBrowserLanguage } from '../i18n/TranslationContext'
+import { authApi, configApi } from '../api/client'
 import { getApiErrorMessage } from '../types'
-import { Plane, Eye, EyeOff, Mail, Lock, MapPin, Calendar, Package, User, Globe, Zap, Users, Wallet, Map, CheckSquare, BookMarked, FolderOpen, Route, Shield, KeyRound } from 'lucide-react'
+import { Plane, Eye, EyeOff, Mail, Lock, MapPin, Calendar, Package, User, Globe, Zap, Users, Wallet, Map, CheckSquare, BookMarked, FolderOpen, Route, Shield, KeyRound, ChevronDown } from 'lucide-react'
 
 interface AppConfig {
   has_users: boolean
@@ -36,8 +36,10 @@ export default function LoginPage(): React.ReactElement {
   const [inviteValid, setInviteValid] = useState<boolean>(false)
   const exchangeInitiated = useRef(false)
 
+  const [langDropdownOpen, setLangDropdownOpen] = useState<boolean>(false)
+
   const { login, register, demoLogin, completeMfaLogin, loadUser } = useAuthStore()
-  const { setLanguageLocal } = useSettingsStore()
+  const { setLanguageLocal, setLanguageTransient } = useSettingsStore()
   const navigate = useNavigate()
   const location = useLocation()
   const noRedirect = !!(location.state as { noRedirect?: boolean } | null)?.noRedirect
@@ -115,6 +117,32 @@ export default function LoginPage(): React.ReactElement {
       }
     })
   }, [navigate, t, noRedirect])
+
+  // Language detection chain (runs once on mount, only if user has no saved preference):
+  // 1. localStorage → already in store initial state, skip
+  // 2. Browser/OS language (navigator.languages)
+  // 3. Server default (DEFAULT_LANGUAGE env var)
+  // 4. 'en' → hardcoded fallback already in store
+  useEffect(() => {
+    if (localStorage.getItem('app_language')) return
+
+    const detected = detectBrowserLanguage()
+    if (detected) {
+      setLanguageTransient(detected)
+      return
+    }
+
+    configApi.getPublicConfig()
+      .then(({ defaultLanguage }) => { if (defaultLanguage) setLanguageTransient(defaultLanguage) })
+      .catch((err) => console.warn('Failed to fetch default language config:', err))
+  }, [setLanguageTransient])
+
+  useEffect(() => {
+    if (!langDropdownOpen) return
+    const close = () => setLangDropdownOpen(false)
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [langDropdownOpen])
 
   const handleDemoLogin = async (): Promise<void> => {
     setError('')
@@ -364,29 +392,59 @@ export default function LoginPage(): React.ReactElement {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif", position: 'relative' }}>
 
-      {/* Language toggle */}
-      <button
-        onClick={() => {
-          const languages = SUPPORTED_LANGUAGES.map(({ value }) => value)
-          const currentIndex = languages.findIndex(code => code === language)
-          const nextLanguage = languages[(currentIndex + 1) % languages.length]
-          setLanguageLocal(nextLanguage)
-        }}
-        style={{
-          position: 'absolute', top: 16, right: 16, zIndex: 10,
-          display: 'flex', alignItems: 'center', gap: 6,
-          padding: '6px 12px', borderRadius: 99,
-          background: 'rgba(0,0,0,0.06)', border: 'none',
-          fontSize: 13, fontWeight: 500, color: '#374151',
-          cursor: 'pointer', fontFamily: 'inherit',
-          transition: 'background 0.15s',
-        }}
-        onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'}
-        onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => e.currentTarget.style.background = 'rgba(0,0,0,0.06)'}
-      >
-        <Globe size={14} />
-        {language.toUpperCase()}
-      </button>
+      {/* Language dropdown */}
+      <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10 }}>
+        <button
+          onClick={(e) => { e.stopPropagation(); setLangDropdownOpen(o => !o) }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '6px 12px', borderRadius: 99,
+            background: 'rgba(0,0,0,0.06)', border: 'none',
+            fontSize: 13, fontWeight: 500, color: '#374151',
+            cursor: 'pointer', fontFamily: 'inherit',
+            transition: 'background 0.15s',
+          }}
+          onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'}
+          onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => e.currentTarget.style.background = 'rgba(0,0,0,0.06)'}
+        >
+          <Globe size={14} />
+          {SUPPORTED_LANGUAGES.find(l => l.value === language)?.label ?? language.toUpperCase()}
+          <ChevronDown size={12} style={{ transition: 'transform 0.15s', transform: langDropdownOpen ? 'rotate(180deg)' : 'none' }} />
+        </button>
+
+        {langDropdownOpen && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute', top: '100%', right: 0, marginTop: 4,
+              background: 'white', borderRadius: 12,
+              boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+              border: '1px solid rgba(0,0,0,0.08)',
+              minWidth: 190, maxHeight: 320, overflowY: 'auto',
+            }}
+          >
+            {SUPPORTED_LANGUAGES.map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => { setLanguageLocal(value); setLangDropdownOpen(false) }}
+                style={{
+                  display: 'block', width: '100%', textAlign: 'left',
+                  padding: '9px 16px', border: 'none',
+                  background: value === language ? 'rgba(99,102,241,0.08)' : 'transparent',
+                  color: value === language ? '#4f46e5' : '#374151',
+                  fontWeight: value === language ? 600 : 400,
+                  fontSize: 14, cursor: 'pointer', fontFamily: 'inherit',
+                  transition: 'background 0.1s',
+                }}
+                onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => { if (value !== language) e.currentTarget.style.background = 'rgba(0,0,0,0.04)' }}
+                onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => { if (value !== language) e.currentTarget.style.background = 'transparent' }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Left — branding */}
       <div style={{ display: 'none', width: '55%', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '60px 48px', position: 'relative', overflow: 'hidden' }}

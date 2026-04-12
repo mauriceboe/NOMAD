@@ -98,3 +98,13 @@ if (_encryptionKey) {
 }
 
 export const ENCRYPTION_KEY = _encryptionKey;
+
+// DEFAULT_LANGUAGE sets the language shown on the login page before the user
+// selects one. Only applies when the user has no saved language preference.
+// Supported values: de, en, es, fr, hu, nl, br, cs, pl, ru, zh, zh-TW, it, ar
+const SUPPORTED_LANG_CODES = ['de', 'en', 'es', 'fr', 'hu', 'nl', 'br', 'cs', 'pl', 'ru', 'zh', 'zh-TW', 'it', 'ar'];
+const rawDefaultLang = process.env.DEFAULT_LANGUAGE || 'en';
+if (!SUPPORTED_LANG_CODES.includes(rawDefaultLang)) {
+  console.warn(`DEFAULT_LANGUAGE="${rawDefaultLang}" is not supported. Falling back to "en". Supported: ${SUPPORTED_LANG_CODES.join(', ')}`);
+}
+export const DEFAULT_LANGUAGE = SUPPORTED_LANG_CODES.includes(rawDefaultLang) ? rawDefaultLang : 'en';

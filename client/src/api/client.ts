@@ -378,6 +378,11 @@ export const weatherApi = {
   getDetailed: (lat: number, lng: number, date: string, lang?: string) => apiClient.get('/weather/detailed', { params: { lat, lng, date, lang } }).then(r => r.data),
 }
 
+export const configApi = {
+  getPublicConfig: (): Promise<{ defaultLanguage: string }> =>
+    apiClient.get('/config').then(r => r.data),
+}
+
 export const settingsApi = {
   get: () => apiClient.get('/settings').then(r => r.data),
   set: (key: string, value: unknown) => apiClient.put('/settings', { key, value }).then(r => r.data),
