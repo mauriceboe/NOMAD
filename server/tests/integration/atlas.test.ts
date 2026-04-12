@@ -41,7 +41,7 @@ import { createApp } from '../../src/app';
 import { createTables } from '../../src/db/schema';
 import { runMigrations } from '../../src/db/migrations';
 import { resetTestDb } from '../helpers/test-db';
-import { createUser } from '../helpers/factories';
+import { createUser, createTrip, createPlace } from '../helpers/factories';
 import { authCookie } from '../helpers/auth';
 import { loginAttempts, mfaAttempts } from '../../src/routes/auth';
 
@@ -82,6 +82,80 @@ describe('Atlas stats', () => {
       .set('Cookie', authCookie(user.id));
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.places)).toBe(true);
+  });
+
+  it('ATLAS-002 — US state abbreviations in addresses resolve to US, not foreign countries', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id, {
+      title: 'Atlanta Weekend',
+      start_date: '2025-03-14',
+      end_date: '2025-03-16',
+    });
+    const place = createPlace(testDb, trip.id, {
+      name: 'Downtown Atlanta',
+      lat: 33.749,
+      lng: -84.388,
+    });
+
+    testDb.prepare('UPDATE places SET address = ? WHERE id = ?').run('123 Peachtree St NE, Atlanta, GA', place.id);
+
+    const stats = await request(app)
+      .get('/api/addons/atlas/stats')
+      .set('Cookie', authCookie(user.id));
+
+    expect(stats.status).toBe(200);
+    const codes = (stats.body.countries as any[]).map((country: any) => country.code);
+    expect(codes).toContain('US');
+    expect(codes).not.toContain('GA');
+
+    const us = await request(app)
+      .get('/api/addons/atlas/country/US')
+      .set('Cookie', authCookie(user.id));
+
+    expect(us.status).toBe(200);
+    expect((us.body.places as any[]).map((entry: any) => entry.id)).toContain(place.id);
+
+    const ga = await request(app)
+      .get('/api/addons/atlas/country/GA')
+      .set('Cookie', authCookie(user.id));
+
+    expect(ga.status).toBe(200);
+    expect(ga.body.places).toHaveLength(0);
+  });
+
+  it('ATLAS-002 — stored place region country codes override ambiguous addresses', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id, {
+      title: 'Colorado Stop',
+      start_date: '2025-06-20',
+      end_date: '2025-06-21',
+    });
+    const place = createPlace(testDb, trip.id, {
+      name: 'Downtown Denver',
+      lat: 39.7392,
+      lng: -104.9903,
+    });
+
+    testDb.prepare('UPDATE places SET address = ? WHERE id = ?').run('1701 Wynkoop St, Denver, CO', place.id);
+    testDb.prepare(
+      'INSERT INTO place_regions (place_id, country_code, region_code, region_name) VALUES (?, ?, ?, ?)'
+    ).run(place.id, 'US', 'US-CO', 'Colorado');
+
+    const stats = await request(app)
+      .get('/api/addons/atlas/stats')
+      .set('Cookie', authCookie(user.id));
+
+    expect(stats.status).toBe(200);
+    const codes = (stats.body.countries as any[]).map((country: any) => country.code);
+    expect(codes).toContain('US');
+    expect(codes).not.toContain('CO');
+
+    const us = await request(app)
+      .get('/api/addons/atlas/country/US')
+      .set('Cookie', authCookie(user.id));
+
+    expect(us.status).toBe(200);
+    expect((us.body.places as any[]).map((entry: any) => entry.id)).toContain(place.id);
   });
 });
 
