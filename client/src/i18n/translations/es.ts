@@ -134,6 +134,7 @@ const es: Record<string, string> = {
   'settings.tabs.map': 'Mapa',
   'settings.tabs.notifications': 'Notificaciones',
   'settings.tabs.integrations': 'Integraciones',
+  'settings.tabs.offline': 'Sin conexión',
   'settings.tabs.account': 'Cuenta',
   'settings.tabs.about': 'Acerca de',
   'settings.map': 'Mapa',

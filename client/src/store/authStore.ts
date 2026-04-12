@@ -3,6 +3,8 @@ import { authApi } from '../api/client'
 import { connect, disconnect } from '../api/websocket'
 import type { User } from '../types'
 import { getApiErrorMessage } from '../types'
+import { cacheAuthResponse, getCachedAuth, clearCachedAuth } from '../services/offlineAuth'
+import { useOfflineStore } from './offlineStore'
 
 interface AuthResponse {
   user: User
@@ -136,6 +138,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       caches.delete('api-data').catch(() => {})
       caches.delete('user-uploads').catch(() => {})
     }
+    // Clear offline-specific caches and cached auth
+    clearCachedAuth()
+    useOfflineStore.getState().clearAllOfflineData()
     set({
       user: null,
       isAuthenticated: false,
@@ -155,6 +160,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: true,
         isLoading: false,
       })
+      // Keep offline auth cache fresh when online
+      if (useOfflineStore.getState().offlineModeEnabled) {
+        cacheAuthResponse(data)
+      }
       connect()
     } catch (err: unknown) {
       if (seq !== authSequence) return // stale response — ignore
@@ -168,7 +177,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isLoading: false,
         })
       } else {
-        set({ isLoading: false })
+        // Network error (not a 401) — try offline auth cache if offline mode is enabled
+        const { offlineModeEnabled } = useOfflineStore.getState()
+        const cached = offlineModeEnabled ? getCachedAuth() : null
+        if (cached) {
+          set({
+            user: cached.user,
+            isAuthenticated: true,
+            isLoading: false,
+          })
+        } else {
+          set({ isLoading: false })
+        }
       }
     }
   },

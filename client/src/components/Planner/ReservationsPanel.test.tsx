@@ -9,7 +9,7 @@ import { resetAllStores, seedStore } from '../../../tests/helpers/store';
 import { buildUser, buildTrip, buildReservation, buildDay, buildPlace } from '../../../tests/helpers/factories';
 import ReservationsPanel from './ReservationsPanel';
 
-vi.mock('../../api/authUrl', () => ({ getAuthUrl: vi.fn().mockResolvedValue('http://test/file') }));
+vi.mock('../../utils/fileOpen', () => ({ openFileInApp: vi.fn(), downloadFile: vi.fn() }));
 
 const defaultProps = {
   tripId: 1,

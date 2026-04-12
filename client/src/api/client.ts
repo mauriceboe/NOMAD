@@ -1,5 +1,7 @@
 import axios, { AxiosInstance } from 'axios'
 import { getSocketId } from './websocket'
+import { useOfflineStore } from '../store/offlineStore'
+import { isTripEndpoint, cacheResponse, getCachedData } from '../services/offlineCache'
 
 export const apiClient: AxiosInstance = axios.create({
   baseURL: '/api',
@@ -21,10 +23,27 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Response interceptor - handle 401
+// Response interceptor - handle 401/403 and offline caching
 apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
+  (response) => {
+    // Background-cache GET responses for trip endpoints when offline mode is on
+    const method = response.config.method?.toLowerCase()
+    if (method === 'get' && useOfflineStore.getState().offlineModeEnabled) {
+      const fullUrl = '/api' + (response.config.url ?? '')
+      if (isTripEndpoint(fullUrl)) {
+        cacheResponse(fullUrl, response.data).catch(() => {})
+        // Update cached trip metadata when individual trip data arrives
+        const tripIdMatch = fullUrl.match(/^\/api\/trips\/(\d+)$/)
+        if (tripIdMatch) {
+          const tripId = parseInt(tripIdMatch[1], 10)
+          const tripName: string = (response.data as { trip?: { name?: string } })?.trip?.name ?? `Trip ${tripId}`
+          useOfflineStore.getState().addCachedTrip({ tripId, tripName, cachedAt: new Date().toISOString() })
+        }
+      }
+    }
+    return response
+  },
+  async (error) => {
     if (error.response?.status === 401 && (error.response?.data as { code?: string } | undefined)?.code === 'AUTH_REQUIRED') {
       if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register') && !window.location.pathname.startsWith('/shared/') && !window.location.pathname.startsWith('/public/')) {
         const currentPath = window.location.pathname + window.location.search
@@ -37,6 +56,19 @@ apiClient.interceptors.response.use(
       !window.location.pathname.startsWith('/settings')
     ) {
       window.location.href = '/settings?mfa=required'
+    }
+    // Network error (no response) on a GET to a trip endpoint — serve from offline cache
+    if (!error.response && error.config?.method?.toLowerCase() === 'get') {
+      const { offlineModeEnabled } = useOfflineStore.getState()
+      if (offlineModeEnabled) {
+        const fullUrl = '/api' + (error.config.url ?? '')
+        if (isTripEndpoint(fullUrl)) {
+          const cached = await getCachedData(fullUrl)
+          if (cached !== null) {
+            return { data: cached, status: 200, statusText: 'OK (offline)', headers: {}, config: error.config, request: error.request }
+          }
+        }
+      }
     }
     return Promise.reject(error)
   }

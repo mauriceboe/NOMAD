@@ -4,6 +4,7 @@ import { Settings } from 'lucide-react'
 import { useTranslation } from '../i18n'
 import { authApi } from '../api/client'
 import { useAddonStore } from '../store/addonStore'
+import { usePwaInstalled } from '../hooks/usePwaInstalled'
 import Navbar from '../components/Layout/Navbar'
 import DisplaySettingsTab from '../components/Settings/DisplaySettingsTab'
 import MapSettingsTab from '../components/Settings/MapSettingsTab'
@@ -11,6 +12,7 @@ import NotificationsTab from '../components/Settings/NotificationsTab'
 import IntegrationsTab from '../components/Settings/IntegrationsTab'
 import AccountTab from '../components/Settings/AccountTab'
 import AboutTab from '../components/Settings/AboutTab'
+import OfflineTab from '../components/Settings/OfflineTab'
 
 export default function SettingsPage(): React.ReactElement {
   const { t } = useTranslation()
@@ -20,6 +22,7 @@ export default function SettingsPage(): React.ReactElement {
   const memoriesEnabled = addonEnabled('memories')
   const mcpEnabled = addonEnabled('mcp')
   const hasIntegrations = memoriesEnabled || mcpEnabled
+  const isPwa = usePwaInstalled()
 
   const [appVersion, setAppVersion] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('display')
@@ -40,6 +43,7 @@ export default function SettingsPage(): React.ReactElement {
     { id: 'display', label: t('settings.tabs.display') },
     { id: 'map', label: t('settings.tabs.map') },
     { id: 'notifications', label: t('settings.tabs.notifications') },
+    ...(isPwa ? [{ id: 'offline', label: t('settings.tabs.offline') }] : []),
     ...(hasIntegrations ? [{ id: 'integrations', label: t('settings.tabs.integrations') }] : []),
     { id: 'account', label: t('settings.tabs.account') },
     ...(appVersion ? [{ id: 'about', label: t('settings.tabs.about') }] : []),
@@ -83,6 +87,7 @@ export default function SettingsPage(): React.ReactElement {
           {activeTab === 'display' && <DisplaySettingsTab />}
           {activeTab === 'map' && <MapSettingsTab />}
           {activeTab === 'notifications' && <NotificationsTab />}
+          {activeTab === 'offline' && isPwa && <OfflineTab />}
           {activeTab === 'integrations' && hasIntegrations && <IntegrationsTab />}
           {activeTab === 'account' && <AccountTab />}
           {activeTab === 'about' && appVersion && <AboutTab appVersion={appVersion} />}

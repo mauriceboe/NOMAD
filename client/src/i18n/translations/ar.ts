@@ -138,6 +138,7 @@ const ar: Record<string, string | { name: string; category: string }[]> = {
   'settings.tabs.map': 'الخريطة',
   'settings.tabs.notifications': 'الإشعارات',
   'settings.tabs.integrations': 'التكاملات',
+  'settings.tabs.offline': 'غير متصل',
   'settings.tabs.account': 'الحساب',
   'settings.tabs.about': 'حول',
   'settings.map': 'الخريطة',

@@ -133,6 +133,7 @@ const zhTw: Record<string, string> = {
   'settings.tabs.map': '地圖',
   'settings.tabs.notifications': '通知',
   'settings.tabs.integrations': '整合',
+  'settings.tabs.offline': '離線',
   'settings.tabs.account': '帳戶',
   'settings.tabs.about': '關於',
   'settings.map': '地圖',
