@@ -1,4 +1,4 @@
-const fr: Record<string, string> = {
+﻿const fr: Record<string, string> = {
   // Common
   'common.save': 'Enregistrer',
   'common.cancel': 'Annuler',
@@ -875,14 +875,25 @@ const fr: Record<string, string> = {
   // Places Sidebar
   'places.addPlace': 'Ajouter un lieu/activité',
   'places.importGpx': 'GPX',
+  'places.importKeyholeMarkup': 'KMZ / KML',
   'places.gpxImported': '{count} lieux importés depuis GPX',
+  'places.kmlKmzImported': '{count} lieux importés depuis KMZ/KML',
+  'places.urlResolved': 'Lieu importé depuis l\'URL',
   'places.gpxError': 'L\'import GPX a échoué',
+  'places.kmlKmzImportError': 'L\'import KMZ/KML a échoué',
+  'places.kmlKmzInvalidType': 'Veuillez sélectionner un fichier .kml ou .kmz.',
+  'places.kmlKmzTooLarge': 'Le fichier est trop volumineux. La taille maximale est de {maxMb} MB.',
+  'places.kmlKmzHint': 'Importez des fichiers de carte depuis des outils comme Google My Maps et Google Earth.',
+  'places.kmlKmzSizeHint': 'Taille maximale du fichier : {maxMb} MB',
+  'places.kmlKmzSelectFile': 'Sélectionner un fichier',
+  'places.kmlKmzSelectedFile': 'Fichier sélectionné : {name}',
+  'places.kmlKmzSummaryTitle': 'Résumé d\'import',
+  'places.kmlKmzSummaryValues': 'Placemarks : {total} • Importés : {created} • Ignorés : {skipped}',
   'places.importGoogleList': 'Liste Google',
   'places.googleListHint': 'Collez un lien de liste Google Maps partagée pour importer tous les lieux.',
   'places.googleListImported': '{count} lieux importés depuis "{list}"',
   'places.googleListError': 'Impossible d\'importer la liste Google Maps',
   'places.viewDetails': 'Voir les détails',
-  'places.urlResolved': 'Lieu importé depuis l\'URL',
   'places.assignToDay': 'Ajouter à quel jour ?',
   'places.all': 'Tous',
   'places.unplanned': 'Non planifiés',
@@ -1628,6 +1639,7 @@ const fr: Record<string, string> = {
   'undo.moveDay': 'Lieu déplacé vers un autre jour',
   'undo.lock': 'Verrouillage du lieu modifié',
   'undo.importGpx': 'Import GPX',
+  'undo.importKeyholeMarkup': 'Import KMZ/KML',
   'undo.importGoogleList': 'Import Google Maps',
 
   // Notifications

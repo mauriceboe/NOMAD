@@ -63,6 +63,10 @@ import { invalidatePermissionsCache } from '../../src/services/permissions';
 
 const app: Application = createApp();
 const GPX_FIXTURE = path.join(__dirname, '../fixtures/test.gpx');
+const KML_FIXTURE = path.join(__dirname, '../fixtures/test.kml');
+const KML_NESTED_FIXTURE = path.join(__dirname, '../fixtures/test-nested.kml');
+const KML_MALFORMED_FIXTURE = path.join(__dirname, '../fixtures/test-malformed.kml');
+const KMZ_FIXTURE = path.join(__dirname, '../fixtures/test.kmz');
 
 beforeAll(() => {
   createTables(testDb);
@@ -537,6 +541,125 @@ describe('GPX Import', () => {
       .post(`/api/trips/${trip.id}/places/import/gpx`)
       .set('Cookie', authCookie(user.id));
     expect(res.status).toBe(400);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KML / KMZ Import
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('KML/KMZ Import', () => {
+  it('PLACE-020 — POST /import/kml with valid KML creates places and returns summary', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+
+    testDb.prepare('INSERT INTO categories (name, color, icon, user_id) VALUES (?, ?, ?, ?)')
+      .run('Museums', '#3b82f6', 'Landmark', user.id);
+
+    const res = await request(app)
+      .post(`/api/trips/${trip.id}/places/import/map`)
+      .set('Cookie', authCookie(user.id))
+      .attach('file', KML_FIXTURE);
+
+    expect(res.status).toBe(201);
+    expect(res.body.count).toBe(2);
+    expect(res.body.summary).toBeDefined();
+    expect(res.body.summary.totalPlacemarks).toBe(2);
+    expect(res.body.summary.createdCount).toBe(2);
+
+    const first = res.body.places.find((p: any) => p.name === 'Eiffel Tower View');
+    expect(first).toBeDefined();
+    expect(first.description).toContain('Great spot');
+    expect(first.description).toContain('\n');
+    expect(first.description).not.toContain('<b>');
+    expect(first.category?.name).toBe('Museums');
+  });
+
+  it('PLACE-021 — nested folders, empty placemark, and coordinates-only placemark are handled', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+
+    testDb.prepare('INSERT INTO categories (name, color, icon, user_id) VALUES (?, ?, ?, ?)')
+      .run('Parks', '#22c55e', 'Trees', user.id);
+
+    const res = await request(app)
+      .post(`/api/trips/${trip.id}/places/import/map`)
+      .set('Cookie', authCookie(user.id))
+      .attach('file', KML_NESTED_FIXTURE);
+
+    expect(res.status).toBe(201);
+    expect(res.body.count).toBe(2);
+    expect(res.body.summary.totalPlacemarks).toBe(3);
+    expect(res.body.summary.skippedCount).toBe(1);
+    expect(Array.isArray(res.body.summary.errors)).toBe(true);
+    expect(res.body.summary.errors.join(' ')).toContain('missing Point coordinates');
+
+    const nested = res.body.places.find((p: any) => p.name === 'Nested Place');
+    expect(nested).toBeDefined();
+    expect(nested.category?.name).toBe('Parks');
+
+    const fallback = res.body.places.find((p: any) => String(p.name).startsWith('Placemark'));
+    expect(fallback).toBeDefined();
+  });
+
+  it('PLACE-022 — malformed KML returns 400', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+
+    const res = await request(app)
+      .post(`/api/trips/${trip.id}/places/import/map`)
+      .set('Cookie', authCookie(user.id))
+      .attach('file', KML_MALFORMED_FIXTURE);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeDefined();
+  });
+
+  it('PLACE-023 — non-UTF8 KML continues with warning', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+
+    const prefix = Buffer.from('<?xml version="1.0"?><kml><Document><Placemark><name>Caf');
+    const invalidByte = Buffer.from([0xe9]); // invalid UTF-8 sequence when used standalone
+    const suffix = Buffer.from('</name><Point><coordinates>2.1,48.1,0</coordinates></Point></Placemark></Document></kml>');
+    const nonUtf8Kml = Buffer.concat([prefix, invalidByte, suffix]);
+
+    const res = await request(app)
+      .post(`/api/trips/${trip.id}/places/import/map`)
+      .set('Cookie', authCookie(user.id))
+      .attach('file', nonUtf8Kml, 'non-utf8.kml');
+
+    expect(res.status).toBe(201);
+    expect(res.body.count).toBe(1);
+    expect(Array.isArray(res.body.summary.warnings)).toBe(true);
+    expect(res.body.summary.warnings.join(' ')).toContain('not valid UTF-8');
+  });
+
+  it('PLACE-024 — POST /import/kmz with valid KMZ creates places', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+
+    const res = await request(app)
+      .post(`/api/trips/${trip.id}/places/import/map`)
+      .set('Cookie', authCookie(user.id))
+      .attach('file', KMZ_FIXTURE);
+
+    expect(res.status).toBe(201);
+    expect(res.body.count).toBeGreaterThan(0);
+    expect(res.body.summary).toBeDefined();
+  });
+
+  it('PLACE-025 — invalid KMZ returns 400', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id);
+
+    const res = await request(app)
+      .post(`/api/trips/${trip.id}/places/import/map`)
+      .set('Cookie', authCookie(user.id))
+      .attach('file', Buffer.from('not-a-zip-archive'), 'invalid.kmz');
+
+    expect(res.status).toBe(400);
+    expect(String(res.body.error || '')).toContain('KMZ');
   });
 });
 

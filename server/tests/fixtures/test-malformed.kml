@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml>
+  <Document>
+    <Placemark>
+      <name>Broken Placemark</name>
+      <Point><coordinates>2.1,48.1,0</coordinates></Point>
+  </Document>
+</kml>

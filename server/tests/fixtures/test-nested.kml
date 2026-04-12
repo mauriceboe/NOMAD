@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <Folder>
+      <name>Food</name>
+      <Folder>
+        <name>Parks</name>
+        <Placemark>
+          <name>Nested Place</name>
+          <description>Nested <i>folder</i> placemark<br/>line 2</description>
+          <Point>
+            <coordinates>13.4050,52.5200,15</coordinates>
+          </Point>
+        </Placemark>
+      </Folder>
+      <Placemark>
+        <name>Empty Placemark</name>
+      </Placemark>
+      <Placemark>
+        <Point>
+          <coordinates>13.4010,52.5210,0</coordinates>
+        </Point>
+      </Placemark>
+    </Folder>
+  </Document>
+</kml>

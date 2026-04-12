@@ -1,4 +1,4 @@
-const it: Record<string, string | { name: string; category: string }[]> = {
+﻿const it: Record<string, string | { name: string; category: string }[]> = {
   // Common
   'common.save': 'Salva',
   'common.cancel': 'Annulla',
@@ -876,9 +876,20 @@ const it: Record<string, string | { name: string; category: string }[]> = {
   // Places Sidebar
   'places.addPlace': 'Aggiungi Luogo/Attività',
   'places.importGpx': 'GPX',
+  'places.importKeyholeMarkup': 'KMZ / KML',
   'places.gpxImported': '{count} luoghi importati da GPX',
+  'places.kmlKmzImported': '{count} luoghi importati da KMZ/KML',
   'places.urlResolved': 'Luogo importato dall\'URL',
   'places.gpxError': 'Importazione GPX non riuscita',
+  'places.kmlKmzImportError': 'Importazione KMZ/KML non riuscita',
+  'places.kmlKmzInvalidType': 'Seleziona un file .kml o .kmz.',
+  'places.kmlKmzTooLarge': 'Il file è troppo grande. La dimensione massima di caricamento è {maxMb} MB.',
+  'places.kmlKmzHint': 'Importa file mappa da strumenti come Google My Maps e Google Earth.',
+  'places.kmlKmzSizeHint': 'Dimensione massima file: {maxMb} MB',
+  'places.kmlKmzSelectFile': 'Seleziona file',
+  'places.kmlKmzSelectedFile': 'File selezionato: {name}',
+  'places.kmlKmzSummaryTitle': 'Riepilogo importazione',
+  'places.kmlKmzSummaryValues': 'Placemarks: {total} • Importati: {created} • Saltati: {skipped}',
   'places.importGoogleList': 'Lista Google',
   'places.googleListHint': 'Incolla un link condiviso di una lista Google Maps per importare tutti i luoghi.',
   'places.googleListImported': '{count} luoghi importati da "{list}"',
@@ -1630,6 +1641,7 @@ const it: Record<string, string | { name: string; category: string }[]> = {
   'undo.moveDay': 'Luogo spostato in altro giorno',
   'undo.lock': 'Blocco luogo modificato',
   'undo.importGpx': 'Importazione GPX',
+  'undo.importKeyholeMarkup': 'Importazione KMZ/KML',
   'undo.importGoogleList': 'Importazione Google Maps',
   'undo.addPlace': 'Luogo aggiunto',
   'undo.done': 'Annullato: {action}',

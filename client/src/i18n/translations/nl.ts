@@ -1,4 +1,4 @@
-const nl: Record<string, string> = {
+﻿const nl: Record<string, string> = {
   // Common
   'common.save': 'Opslaan',
   'common.cancel': 'Annuleren',
@@ -875,14 +875,25 @@ const nl: Record<string, string> = {
   // Places Sidebar
   'places.addPlace': 'Plaats/activiteit toevoegen',
   'places.importGpx': 'GPX',
+  'places.importKeyholeMarkup': 'KMZ / KML',
   'places.gpxImported': '{count} plaatsen geïmporteerd uit GPX',
+  'places.kmlKmzImported': '{count} plaatsen geïmporteerd uit KMZ/KML',
+  'places.urlResolved': 'Plaats geïmporteerd van URL',
   'places.gpxError': 'GPX-import mislukt',
+  'places.kmlKmzImportError': 'KMZ/KML-import mislukt',
+  'places.kmlKmzInvalidType': 'Selecteer een .kml- of .kmz-bestand.',
+  'places.kmlKmzTooLarge': 'Bestand is te groot. Maximale uploadgrootte is {maxMb} MB.',
+  'places.kmlKmzHint': 'Importeer kaartbestanden uit tools zoals Google My Maps en Google Earth.',
+  'places.kmlKmzSizeHint': 'Max. bestandsgrootte: {maxMb} MB',
+  'places.kmlKmzSelectFile': 'Bestand selecteren',
+  'places.kmlKmzSelectedFile': 'Geselecteerd bestand: {name}',
+  'places.kmlKmzSummaryTitle': 'Importoverzicht',
+  'places.kmlKmzSummaryValues': 'Placemarks: {total} • Geïmporteerd: {created} • Overgeslagen: {skipped}',
   'places.importGoogleList': 'Google Lijst',
   'places.googleListHint': 'Plak een gedeelde Google Maps lijstlink om alle plaatsen te importeren.',
   'places.googleListImported': '{count} plaatsen geimporteerd uit "{list}"',
   'places.googleListError': 'Google Maps lijst importeren mislukt',
   'places.viewDetails': 'Details bekijken',
-  'places.urlResolved': 'Plaats geïmporteerd van URL',
   'places.assignToDay': 'Aan welke dag toevoegen?',
   'places.all': 'Alle',
   'places.unplanned': 'Ongepland',
@@ -1628,6 +1639,7 @@ const nl: Record<string, string> = {
   'undo.moveDay': 'Locatie naar andere dag verplaatst',
   'undo.lock': 'Vergrendeling locatie gewijzigd',
   'undo.importGpx': 'GPX-import',
+  'undo.importKeyholeMarkup': 'KMZ/KML-import',
   'undo.importGoogleList': 'Google Maps-import',
 
   // Notifications

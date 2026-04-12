@@ -1,4 +1,4 @@
-const hu: Record<string, string | { name: string; category: string }[]> = {
+﻿const hu: Record<string, string | { name: string; category: string }[]> = {
   // Általános
   'common.save': 'Mentés',
   'common.cancel': 'Mégse',
@@ -876,9 +876,20 @@ const hu: Record<string, string | { name: string; category: string }[]> = {
   // Helyek oldalsáv
   'places.addPlace': 'Hely/Tevékenység hozzáadása',
   'places.importGpx': 'GPX',
+  'places.importKeyholeMarkup': 'KMZ / KML',
   'places.gpxImported': '{count} hely importálva GPX-ből',
+  'places.kmlKmzImported': '{count} hely importálva KMZ/KML-ből',
   'places.urlResolved': 'Hely importálva URL-ből',
   'places.gpxError': 'GPX importálás sikertelen',
+  'places.kmlKmzImportError': 'A KMZ/KML importálás sikertelen',
+  'places.kmlKmzInvalidType': 'Válassz egy .kml vagy .kmz fájlt.',
+  'places.kmlKmzTooLarge': 'A fájl túl nagy. A maximális feltöltési méret {maxMb} MB.',
+  'places.kmlKmzHint': 'Térképfájlok importálása olyan eszközökből, mint a Google My Maps és a Google Earth.',
+  'places.kmlKmzSizeHint': 'Maximális fájlméret: {maxMb} MB',
+  'places.kmlKmzSelectFile': 'Fájl kiválasztása',
+  'places.kmlKmzSelectedFile': 'Kiválasztott fájl: {name}',
+  'places.kmlKmzSummaryTitle': 'Import összegzés',
+  'places.kmlKmzSummaryValues': 'Placemarks: {total} • Importálva: {created} • Kihagyva: {skipped}',
   'places.importGoogleList': 'Google Lista',
   'places.googleListHint': 'Illessz be egy megosztott Google Maps lista linket az osszes hely importalasahoz.',
   'places.googleListImported': '{count} hely importalva a(z) "{list}" listabol',
@@ -1629,6 +1640,7 @@ const hu: Record<string, string | { name: string; category: string }[]> = {
   'undo.moveDay': 'Hely áthelyezve másik napra',
   'undo.lock': 'Hely zárolása váltva',
   'undo.importGpx': 'GPX importálás',
+  'undo.importKeyholeMarkup': 'KMZ/KML importálás',
   'undo.importGoogleList': 'Google Maps importálás',
 
   // Notifications

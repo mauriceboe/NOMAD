@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <Folder>
+      <name>Museums</name>
+      <Placemark>
+        <name>Eiffel Tower View</name>
+        <description><![CDATA[Great spot<br>for photos <b>and</b> skyline.]]></description>
+        <Point>
+          <coordinates>2.2945,48.8584,0</coordinates>
+        </Point>
+      </Placemark>
+      <Placemark>
+        <description>Coordinates only placemark</description>
+        <Point>
+          <coordinates>2.3333,48.8600,0</coordinates>
+        </Point>
+      </Placemark>
+    </Folder>
+  </Document>
+</kml>

@@ -1,4 +1,4 @@
-const br: Record<string, string | { name: string; category: string }[]> = {
+﻿const br: Record<string, string | { name: string; category: string }[]> = {
   // Common
   'common.save': 'Salvar',
   'common.cancel': 'Cancelar',
@@ -848,14 +848,25 @@ const br: Record<string, string | { name: string; category: string }[]> = {
   // Places Sidebar
   'places.addPlace': 'Adicionar lugar/atividade',
   'places.importGpx': 'GPX',
+  'places.importKeyholeMarkup': 'KMZ / KML',
   'places.gpxImported': '{count} lugares importados do GPX',
+  'places.kmlKmzImported': '{count} lugares importados de KMZ/KML',
+  'places.urlResolved': 'Lugar importado da URL',
   'places.gpxError': 'Falha ao importar GPX',
+  'places.kmlKmzImportError': 'Falha na importação de KMZ/KML',
+  'places.kmlKmzInvalidType': 'Selecione um arquivo .kml ou .kmz.',
+  'places.kmlKmzTooLarge': 'O arquivo é muito grande. O tamanho máximo de upload é {maxMb} MB.',
+  'places.kmlKmzHint': 'Importe arquivos de mapa de ferramentas como Google My Maps e Google Earth.',
+  'places.kmlKmzSizeHint': 'Tamanho máximo do arquivo: {maxMb} MB',
+  'places.kmlKmzSelectFile': 'Selecionar arquivo',
+  'places.kmlKmzSelectedFile': 'Arquivo selecionado: {name}',
+  'places.kmlKmzSummaryTitle': 'Resumo da importação',
+  'places.kmlKmzSummaryValues': 'Placemarks: {total} • Importados: {created} • Ignorados: {skipped}',
   'places.importGoogleList': 'Lista Google',
   'places.googleListHint': 'Cole um link compartilhado de uma lista do Google Maps para importar todos os lugares.',
   'places.googleListImported': '{count} lugares importados de "{list}"',
   'places.googleListError': 'Falha ao importar lista do Google Maps',
   'places.viewDetails': 'Ver detalhes',
-  'places.urlResolved': 'Lugar importado da URL',
   'places.assignToDay': 'Adicionar a qual dia?',
   'places.all': 'Todos',
   'places.unplanned': 'Não planejados',
@@ -1627,6 +1638,7 @@ const br: Record<string, string | { name: string; category: string }[]> = {
   'undo.moveDay': 'Local movido para outro dia',
   'undo.lock': 'Bloqueio do local alternado',
   'undo.importGpx': 'Importação de GPX',
+  'undo.importKeyholeMarkup': 'Importação de KMZ/KML',
   'undo.importGoogleList': 'Importação do Google Maps',
 
   // Notifications

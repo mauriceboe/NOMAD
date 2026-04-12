@@ -1,4 +1,4 @@
-const pl: Record<string, string | { name: string; category: string }[]> = {
+﻿const pl: Record<string, string | { name: string; category: string }[]> = {
   // Common
   'common.save': 'Zapisz',
   'common.cancel': 'Anuluj',
@@ -842,9 +842,21 @@ const pl: Record<string, string | { name: string; category: string }[]> = {
   // Places Sidebar
   'places.addPlace': 'Dodaj miejsce/atrakcję',
   'places.importGpx': 'Importuj GPX',
+  'places.importKeyholeMarkup': 'KMZ / KML',
   'places.gpxImported': '{count} miejsc zaimportowanych z GPX',
+  'places.kmlKmzImported': 'Zaimportowano {count} miejsc z KMZ/KML',
   'places.urlResolved': 'Miejsce zaimportowane z URL',
   'places.gpxError': 'Nie udało się zaimportować pliku GPX',
+  'places.kmlKmzImportError': 'Import KMZ/KML nie powiódł się',
+  'places.kmlKmzInvalidType': 'Wybierz plik .kml lub .kmz.',
+  'places.kmlKmzTooLarge': 'Plik jest za duży. Maksymalny rozmiar przesyłania to {maxMb} MB.',
+  'places.kmlKmzHint': 'Importuj pliki map z narzędzi takich jak Google My Maps i Google Earth.',
+  'places.kmlKmzSizeHint': 'Maksymalny rozmiar pliku: {maxMb} MB',
+  'places.kmlKmzSelectFile': 'Wybierz plik',
+  'places.kmlKmzSelectedFile': 'Wybrany plik: {name}',
+  'places.kmlKmzSummaryTitle': 'Podsumowanie importu',
+  'places.kmlKmzSummaryValues': 'Placemarks: {total} • Zaimportowano: {created} • Pominięto: {skipped}',
+  'places.importGoogleList': 'Lista Google',
   'places.assignToDay': 'Do którego dnia dodać?',
   'places.all': 'Wszystkie',
   'places.unplanned': 'Niezaplanowane',
@@ -1574,7 +1586,6 @@ const pl: Record<string, string | { name: string; category: string }[]> = {
   'login.setNewPasswordHint': 'Musisz zmienić hasło.',
   'atlas.searchCountry': 'Szukaj kraju...',
   'trip.loadingPhotos': 'Ładowanie zdjęć...',
-  'places.importGoogleList': 'Lista Google',
   'places.googleListHint': 'Wklej link do listy Google Maps.',
   'places.googleListImported': 'Zaimportowano {count} miejsc',
   'places.googleListError': 'Nie udało się zaimportować listy',
@@ -1656,6 +1667,7 @@ const pl: Record<string, string | { name: string; category: string }[]> = {
   'undo.moveDay': 'Miejsce przeniesione',
   'undo.lock': 'Blokada przełączona',
   'undo.importGpx': 'Import GPX',
+  'undo.importKeyholeMarkup': 'Import KMZ/KML',
   'undo.importGoogleList': 'Import Google Maps',
   'undo.addPlace': 'Miejsce dodane',
   'undo.done': 'Cofnięto: {action}',

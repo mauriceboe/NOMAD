@@ -1,4 +1,4 @@
-const zhTw: Record<string, string> = {
+﻿const zhTw: Record<string, string> = {
   // Common
   'common.save': '儲存',
   'common.cancel': '取消',
@@ -900,14 +900,25 @@ const zhTw: Record<string, string> = {
   // Places Sidebar
   'places.addPlace': '新增地點/活動',
   'places.importGpx': 'GPX',
+  'places.importKeyholeMarkup': 'KMZ / KML',
   'places.gpxImported': '已從 GPX 匯入 {count} 個地點',
+  'places.kmlKmzImported': '已從 KMZ/KML 匯入 {count} 個地點',
+  'places.urlResolved': '已從 URL 匯入地點',
   'places.gpxError': 'GPX 匯入失敗',
+  'places.kmlKmzImportError': 'KMZ/KML 匯入失敗',
+  'places.kmlKmzInvalidType': '請選擇 .kml 或 .kmz 檔案。',
+  'places.kmlKmzTooLarge': '檔案過大。最大上傳大小為 {maxMb} MB。',
+  'places.kmlKmzHint': '可從 Google My Maps、Google Earth 等工具匯入地圖檔案。',
+  'places.kmlKmzSizeHint': '最大檔案大小：{maxMb} MB',
+  'places.kmlKmzSelectFile': '選擇檔案',
+  'places.kmlKmzSelectedFile': '已選擇檔案：{name}',
+  'places.kmlKmzSummaryTitle': '匯入摘要',
+  'places.kmlKmzSummaryValues': 'Placemarks：{total} • 已匯入：{created} • 已略過：{skipped}',
   'places.importGoogleList': 'Google 列表',
   'places.googleListHint': '貼上共享的 Google Maps 列表連結以匯入所有地點。',
   'places.googleListImported': '已從"{list}"匯入 {count} 個地點',
   'places.googleListError': 'Google Maps 列表匯入失敗',
   'places.viewDetails': '檢視詳情',
-  'places.urlResolved': '已從 URL 匯入地點',
   'places.assignToDay': '新增到哪一天？',
   'places.all': '全部',
   'places.unplanned': '未規劃',
@@ -1653,6 +1664,7 @@ const zhTw: Record<string, string> = {
   'undo.moveDay': '地點已移至另一天',
   'undo.lock': '地點鎖定已切換',
   'undo.importGpx': 'GPX 匯入',
+  'undo.importKeyholeMarkup': 'KMZ/KML 匯入',
   'undo.importGoogleList': 'Google 地圖匯入',
 
   // Todo

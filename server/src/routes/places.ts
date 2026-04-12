@@ -13,12 +13,13 @@ import {
   updatePlace,
   deletePlace,
   importGpx,
+  importMapFile,
   importGoogleList,
   searchPlaceImage,
 } from '../services/placeService';
 import { onPlaceCreated, onPlaceUpdated, onPlaceDeleted } from '../services/journeyService';
 
-const gpxUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const uploadMulter = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const router = express.Router({ mergeParams: true });
 
@@ -54,7 +55,7 @@ router.post('/', authenticate, requireTripAccess, validateStringLengths({ name: 
 });
 
 // Import places from GPX file with full track geometry (must be before /:id)
-router.post('/import/gpx', authenticate, requireTripAccess, gpxUpload.single('file'), (req: Request, res: Response) => {
+router.post('/import/gpx', authenticate, requireTripAccess, uploadMulter.single('file'), (req: Request, res: Response) => {
   const authReq = req as AuthRequest;
   if (!checkPermission('place_edit', authReq.user.role, authReq.trip!.user_id, authReq.user.id, authReq.trip!.user_id !== authReq.user.id))
     return res.status(403).json({ error: 'No permission' });
@@ -71,6 +72,32 @@ router.post('/import/gpx', authenticate, requireTripAccess, gpxUpload.single('fi
   res.status(201).json({ places: created, count: created.length });
   for (const place of created) {
     broadcast(tripId, 'place:created', { place }, req.headers['x-socket-id'] as string);
+  }
+});
+
+router.post('/import/map', authenticate, requireTripAccess, uploadMulter.single('file'), async (req: Request, res: Response) => {
+  const authReq = req as AuthRequest;
+  if (!checkPermission('place_edit', authReq.user.role, authReq.trip!.user_id, authReq.user.id, authReq.trip!.user_id !== authReq.user.id)) {
+    return res.status(403).json({ error: 'No permission' });
+  }
+
+  const { tripId } = req.params;
+  const file = (req as any).file;
+  if (!file) return res.status(400).json({ error: 'No file uploaded' });
+
+  try {
+    const result = await importMapFile(tripId, file.buffer, file.originalname);
+    if (result.count === 0) {
+      return res.status(400).json({ error: 'No valid Placemarks found in map file', summary: result.summary });
+    }
+
+    res.status(201).json(result);
+    for (const place of result.places) {
+      broadcast(tripId, 'place:created', { place }, req.headers['x-socket-id'] as string);
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to import map file';
+    res.status(400).json({ error: message });
   }
 });
 

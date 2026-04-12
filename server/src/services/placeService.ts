@@ -1,7 +1,18 @@
-import { XMLParser } from 'fast-xml-parser';
+import { XMLParser, XMLValidator } from 'fast-xml-parser';
+import unzipper from 'unzipper';
 import { db, getPlaceWithTags } from '../db/database';
 import { loadTagsByPlaceIds } from './queryHelpers';
 import { Place } from '../types';
+import {
+  buildCategoryNameLookup,
+  createKmlImportSummary,
+  decodeUtf8WithWarning,
+  extractKmlPlacemarkNodes,
+  parsePlacemarkNode,
+  resolveCategoryIdForFolder,
+  stripXmlNamespaces,
+  type KmlImportSummary,
+} from './kmlImport';
 
 interface PlaceWithCategory extends Place {
   category_name: string | null;
@@ -12,6 +23,12 @@ interface PlaceWithCategory extends Place {
 interface UnsplashSearchResponse {
   results?: { id: string; urls?: { regular?: string; thumb?: string }; description?: string; alt_description?: string; user?: { name?: string }; links?: { html?: string } }[];
   errors?: string[];
+}
+
+export interface PlaceImportResult {
+  places: any[];
+  count: number;
+  summary: KmlImportSummary;
 }
 
 // ---------------------------------------------------------------------------
@@ -233,6 +250,12 @@ const gpxParser = new XMLParser({
   isArray: (name) => ['wpt', 'trkpt', 'rtept', 'trk', 'trkseg', 'rte'].includes(name),
 });
 
+const kmlParser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: '@_',
+  isArray: (name) => ['Placemark', 'Folder', 'Document'].includes(name),
+});
+
 export function importGpx(tripId: string, fileBuffer: Buffer) {
   const parsed = gpxParser.parse(fileBuffer.toString('utf-8'));
   const gpx = parsed?.gpx;
@@ -299,6 +322,110 @@ export function importGpx(tripId: string, fileBuffer: Buffer) {
   insertAll();
 
   return created;
+}
+
+export function importKmlPlaces(tripId: string, fileBuffer: Buffer): PlaceImportResult {
+  const decoded = decodeUtf8WithWarning(fileBuffer);
+  const xmlWithoutNamespaces = stripXmlNamespaces(decoded.text);
+
+  const validationResult = XMLValidator.validate(xmlWithoutNamespaces);
+  if (validationResult !== true) {
+    throw new Error('Malformed KML: invalid XML structure');
+  }
+
+  const parsed = kmlParser.parse(xmlWithoutNamespaces);
+  const kmlRoot = parsed?.kml ?? parsed;
+
+  if (!kmlRoot || typeof kmlRoot !== 'object') {
+    throw new Error('Malformed KML: could not parse XML');
+  }
+
+  const placemarkNodes = extractKmlPlacemarkNodes(kmlRoot);
+  const summary = createKmlImportSummary(placemarkNodes.length);
+
+  if (decoded.warning) {
+    summary.warnings.push(decoded.warning);
+  }
+
+  const categories = db.prepare('SELECT id, name FROM categories').all() as { id: number; name: string }[];
+  const categoryLookup = buildCategoryNameLookup(categories);
+  const created: any[] = [];
+
+  const insertStmt = db.prepare(`
+    INSERT INTO places (trip_id, name, description, lat, lng, category_id, transport_mode)
+    VALUES (?, ?, ?, ?, ?, ?, 'walking')
+  `);
+
+  const insertAll = db.transaction(() => {
+    let fallbackIndex = 1;
+    for (const node of placemarkNodes) {
+      const parsedPlacemark = parsePlacemarkNode(node);
+
+      // KML geometry support is intentionally limited to <Placemark><Point> coordinates.
+      if (parsedPlacemark.lat === null || parsedPlacemark.lng === null) {
+        summary.skippedCount += 1;
+        summary.errors.push(`Skipped Placemark ${fallbackIndex}: missing Point coordinates.`);
+        fallbackIndex += 1;
+        continue;
+      }
+
+      const fallbackName = `Placemark ${fallbackIndex}`;
+      const name = parsedPlacemark.name || fallbackName;
+      const categoryId = resolveCategoryIdForFolder(parsedPlacemark.folderName, categoryLookup);
+
+      const result = insertStmt.run(
+        tripId,
+        name,
+        parsedPlacemark.description,
+        parsedPlacemark.lat,
+        parsedPlacemark.lng,
+        categoryId,
+      );
+
+      const place = getPlaceWithTags(Number(result.lastInsertRowid));
+      created.push(place);
+      summary.createdCount += 1;
+      fallbackIndex += 1;
+    }
+  });
+
+  insertAll();
+  summary.skippedCount = summary.totalPlacemarks - summary.createdCount;
+
+  if (summary.totalPlacemarks === 0) {
+    summary.errors.push('No Placemarks found in KML file.');
+  }
+
+  return { places: created, count: created.length, summary };
+}
+
+export async function unpackKmzToKml(kmzBuffer: Buffer): Promise<Buffer> {
+  let zip;
+  try {
+    zip = await unzipper.Open.buffer(kmzBuffer);
+  } catch {
+    throw new Error('Invalid KMZ archive.');
+  }
+
+  const kmlEntries = zip.files.filter((entry) => !entry.path.endsWith('/') && entry.path.toLowerCase().endsWith('.kml'));
+  if (kmlEntries.length === 0) {
+    throw new Error('KMZ archive does not contain a KML file.');
+  }
+
+  const preferredEntry = kmlEntries.find((entry) => entry.path.toLowerCase().endsWith('doc.kml')) || kmlEntries[0];
+  return preferredEntry.buffer();
+}
+
+export async function importKmzPlaces(tripId: string, kmzBuffer: Buffer): Promise<PlaceImportResult> {
+  const kmlBuffer = await unpackKmzToKml(kmzBuffer);
+  return importKmlPlaces(tripId, kmlBuffer);
+}
+
+export async function importMapFile(tripId: string, fileBuffer: Buffer, filename: string): Promise<PlaceImportResult> {
+  const ext = filename.toLowerCase().split('.').pop();
+  if (ext === 'kmz') return importKmzPlaces(tripId, fileBuffer);
+  if (ext === 'kml') return importKmlPlaces(tripId, fileBuffer);
+  throw new Error(`Unsupported map file format: .${ext}. Please upload a .kml or .kmz file.`);
 }
 
 // ---------------------------------------------------------------------------
