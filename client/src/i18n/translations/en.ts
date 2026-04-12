@@ -760,6 +760,8 @@ const en: Record<string, string | { name: string; category: string }[]> = {
   'vacay.companyHolidays': 'Company Holidays',
   'vacay.companyHolidaysHint': 'Allow marking company-wide holiday days',
   'vacay.companyHolidaysNoDeduct': 'Company holidays do not count towards vacation days.',
+  'vacay.weekStart': 'Week starts on',
+  'vacay.weekStartHint': 'Choose whether the calendar week starts on Monday or Sunday',
   'vacay.carryOver': 'Carry Over',
   'vacay.carryOverHint': 'Automatically carry remaining vacation days into the next year',
   'vacay.sharing': 'Sharing',

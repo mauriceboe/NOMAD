@@ -720,6 +720,8 @@ const nl: Record<string, string> = {
   'vacay.companyHolidays': 'Bedrijfsvakanties',
   'vacay.companyHolidaysHint': 'Sta het markeren van bedrijfsbrede vakantiedagen toe',
   'vacay.companyHolidaysNoDeduct': 'Bedrijfsvakanties worden niet afgetrokken van vakantiedagen.',
+  'vacay.weekStart': 'Week begint op',
+  'vacay.weekStartHint': 'Kies of de kalenderweek op maandag of zondag begint',
   'vacay.carryOver': 'Overdracht',
   'vacay.carryOverHint': 'Draag resterende vakantiedagen automatisch over naar het volgende jaar',
   'vacay.sharing': 'Delen',

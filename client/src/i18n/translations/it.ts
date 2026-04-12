@@ -725,6 +725,8 @@ const it: Record<string, string | { name: string; category: string }[]> = {
   'vacay.companyHolidays': 'Ferie aziendali',
   'vacay.companyHolidaysHint': 'Consenti di segnare giorni di ferie aziendali',
   'vacay.companyHolidaysNoDeduct': 'Le ferie aziendali non vengono conteggiate nei giorni di ferie.',
+  'vacay.weekStart': 'La settimana inizia il',
+  'vacay.weekStartHint': 'Scegli se la settimana inizia il lunedì o la domenica',
   'vacay.carryOver': 'Riporto',
   'vacay.carryOverHint': 'Riporta automaticamente i giorni di ferie rimanenti all\'anno successivo',
   'vacay.sharing': 'Condivisione',

@@ -725,6 +725,8 @@ const hu: Record<string, string | { name: string; category: string }[]> = {
   'vacay.companyHolidays': 'Céges szabadnapok',
   'vacay.companyHolidaysHint': 'Céges szintű szabadnapok megjelölésének engedélyezése',
   'vacay.companyHolidaysNoDeduct': 'A céges szabadnapok nem számítanak bele a szabadságkeretbe.',
+  'vacay.weekStart': 'A hét kezdőnapja',
+  'vacay.weekStartHint': 'Válaszd ki, hogy a hét hétfőn vagy vasárnap kezdődjön',
   'vacay.carryOver': 'Szabadság átvitele',
   'vacay.carryOverHint': 'Megmaradt szabadságnapok automatikus átvitele a következő évre',
   'vacay.sharing': 'Megosztás',

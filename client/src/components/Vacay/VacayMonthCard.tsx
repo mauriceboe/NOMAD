@@ -24,22 +24,25 @@ interface VacayMonthCardProps {
   blockWeekends: boolean
   weekendDays?: number[]
   tripDates?: Set<string>
+  weekStart?: number
 }
 
 export default function VacayMonthCard({
   year, month, holidays, companyHolidaySet, companyHolidaysEnabled = true, entryMap,
-  onCellClick, companyMode, blockWeekends, weekendDays = [0, 6], tripDates
+  onCellClick, companyMode, blockWeekends, weekendDays = [0, 6], tripDates, weekStart = 1
 }: VacayMonthCardProps) {
   const { t, locale } = useTranslation()
 
-  const weekdays = WEEKDAY_KEYS.map(k => t(k))
+  const WEEKDAY_KEYS_SUNDAY = ['vacay.sun', 'vacay.mon', 'vacay.tue', 'vacay.wed', 'vacay.thu', 'vacay.fri', 'vacay.sat'] as const
+  const orderedKeys = weekStart === 0 ? WEEKDAY_KEYS_SUNDAY : WEEKDAY_KEYS
+  const weekdays = orderedKeys.map(k => t(k))
   const monthName = useMemo(() => new Intl.DateTimeFormat(locale, { month: 'long' }).format(new Date(year, month, 1)), [locale, year, month])
-  
+
   const weeks = useMemo(() => {
     const firstDay = new Date(year, month, 1)
     const daysInMonth = new Date(year, month + 1, 0).getDate()
-    let startDow = firstDay.getDay() - 1
-    if (startDow < 0) startDow = 6
+    let startDow = firstDay.getDay() - weekStart
+    if (startDow < 0) startDow += 7
     const cells = []
     for (let i = 0; i < startDow; i++) cells.push(null)
     for (let d = 1; d <= daysInMonth; d++) cells.push(d)
@@ -58,11 +61,16 @@ export default function VacayMonthCard({
       </div>
 
       <div className="grid grid-cols-7 border-b" style={{ borderColor: 'var(--border-secondary)' }}>
-        {weekdays.map((wd, i) => (
-          <div key={wd} className="text-center text-[10px] font-medium py-1" style={{ color: i >= 5 ? 'var(--text-faint)' : 'var(--text-muted)' }}>
-            {wd}
-          </div>
-        ))}
+        {weekdays.map((wd, i) => {
+          // Map column index back to JS day (0=Sun..6=Sat) to check if it's a weekend column
+          const jsDay = (i + weekStart) % 7
+          const isWeekendCol = weekendDays.includes(jsDay)
+          return (
+            <div key={`${wd}-${i}`} className="text-center text-[10px] font-medium py-1" style={{ color: isWeekendCol ? 'var(--text-faint)' : 'var(--text-muted)' }}>
+              {wd}
+            </div>
+          )
+        })}
       </div>
 
       <div>

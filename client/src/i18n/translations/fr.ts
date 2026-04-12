@@ -720,6 +720,8 @@ const fr: Record<string, string> = {
   'vacay.companyHolidays': 'Jours fériés d\'entreprise',
   'vacay.companyHolidaysHint': 'Autoriser le marquage des jours fériés d\'entreprise',
   'vacay.companyHolidaysNoDeduct': 'Les jours fériés d\'entreprise ne sont pas déduits des jours de vacances.',
+  'vacay.weekStart': 'La semaine commence le',
+  'vacay.weekStartHint': 'Choisissez si la semaine commence le lundi ou le dimanche',
   'vacay.carryOver': 'Report',
   'vacay.carryOverHint': 'Reporter automatiquement les jours de vacances restants à l\'année suivante',
   'vacay.sharing': 'Partage',

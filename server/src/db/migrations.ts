@@ -1431,6 +1431,10 @@ function runMigrations(db: Database.Database): void {
       `);
       db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_journey_share_journey ON journey_share_tokens(journey_id)');
     },
+    // Migration: Vacay week_start setting (0=Sunday, 1=Monday default)
+    () => {
+      try { db.exec("ALTER TABLE vacay_plans ADD COLUMN week_start INTEGER NOT NULL DEFAULT 1"); } catch {}
+    },
   ];
 
   if (currentVersion < migrations.length) {

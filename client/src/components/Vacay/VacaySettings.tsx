@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { type LucideIcon, CalendarOff, AlertCircle, Building2, Unlink, ArrowRightLeft, Globe, Plus, Trash2 } from 'lucide-react'
+import { type LucideIcon, CalendarOff, AlertCircle, Building2, Unlink, ArrowRightLeft, Globe, Plus, Trash2, CalendarDays } from 'lucide-react'
 import { useVacayStore } from '../../store/vacayStore'
 import { getIntlLanguage, useTranslation } from '../../i18n'
 import { useToast } from '../shared/Toast'
@@ -84,6 +84,37 @@ export default function VacaySettings({ onClose }: VacaySettingsProps) {
           </div>
         </div>
       )}
+
+      {/* Week start */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <CalendarDays size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{t('vacay.weekStart')}</span>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-faint)' }}>{t('vacay.weekStartHint')}</p>
+          </div>
+        </div>
+        <div style={{ paddingLeft: 36, marginTop: 8 }} className="flex gap-1.5">
+          {[
+            { value: 1, label: t('vacay.mon') },
+            { value: 0, label: t('vacay.sun') },
+          ].map(({ value, label }) => {
+            const active = (plan.week_start ?? 1) === value
+            return (
+              <button key={value} onClick={() => updatePlan({ week_start: value })}
+                style={{
+                  padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: 'inherit', border: '1px solid', transition: 'all 0.12s',
+                  background: active ? 'var(--text-primary)' : 'var(--bg-card)',
+                  borderColor: active ? 'var(--text-primary)' : 'var(--border-primary)',
+                  color: active ? 'var(--bg-primary)' : 'var(--text-muted)',
+                }}>
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       {/* Carry-over */}
       <SettingToggle

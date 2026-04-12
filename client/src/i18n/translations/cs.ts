@@ -727,6 +727,8 @@ const cs: Record<string, string | { name: string; category: string }[]> = {
   'vacay.companyHolidays': 'Firemní volno',
   'vacay.companyHolidaysHint': 'Povolit označování dnů celofiremního volna',
   'vacay.companyHolidaysNoDeduct': 'Firemní volno se nezapočítává do nároku na dovolenou.',
+  'vacay.weekStart': 'Týden začíná',
+  'vacay.weekStartHint': 'Zvolte, zda týden začíná v pondělí nebo v neděli',
   'vacay.carryOver': 'Převod dovolené',
   'vacay.carryOverHint': 'Automaticky převádět zbývající dny do dalšího roku',
   'vacay.sharing': 'Sdílení',

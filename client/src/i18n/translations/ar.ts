@@ -728,6 +728,8 @@ const ar: Record<string, string | { name: string; category: string }[]> = {
   'vacay.companyHolidays': 'عطل الشركة',
   'vacay.companyHolidaysHint': 'السماح بوضع علامة على أيام عطلات الشركة',
   'vacay.companyHolidaysNoDeduct': 'لا تُخصم عطل الشركة من أيام الإجازة.',
+  'vacay.weekStart': 'يبدأ الأسبوع في',
+  'vacay.weekStartHint': 'اختر ما إذا كان الأسبوع يبدأ يوم الاثنين أو الأحد',
   'vacay.carryOver': 'الترحيل',
   'vacay.carryOverHint': 'ترحيل أيام الإجازة المتبقية تلقائيًا إلى السنة التالية',
   'vacay.sharing': 'المشاركة',

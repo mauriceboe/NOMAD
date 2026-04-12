@@ -374,14 +374,27 @@ export async function importGoogleList(tripId: string, url: string) {
     return { error: 'No places with coordinates found in list', status: 400 };
   }
 
-  // Insert places into trip
+  // Skip places that already exist in this trip (same name + coordinates within ~10m)
+  const existingPlaces = db.prepare(
+    'SELECT name, lat, lng FROM places WHERE trip_id = ?'
+  ).all(tripId) as { name: string; lat: number; lng: number }[];
+
+  const isDuplicate = (p: { name: string; lat: number; lng: number }) =>
+    existingPlaces.some(e =>
+      e.name === p.name && Math.abs(e.lat - p.lat) < 0.0001 && Math.abs(e.lng - p.lng) < 0.0001
+    );
+
+  const newPlaces = places.filter(p => !isDuplicate(p));
+  const skipped = places.length - newPlaces.length;
+
+  // Insert only new places into trip
   const insertStmt = db.prepare(`
     INSERT INTO places (trip_id, name, lat, lng, notes, transport_mode)
     VALUES (?, ?, ?, ?, ?, 'walking')
   `);
   const created: any[] = [];
   const insertAll = db.transaction(() => {
-    for (const p of places) {
+    for (const p of newPlaces) {
       const result = insertStmt.run(tripId, p.name, p.lat, p.lng, p.notes);
       const place = getPlaceWithTags(Number(result.lastInsertRowid));
       created.push(place);
@@ -389,7 +402,7 @@ export async function importGoogleList(tripId: string, url: string) {
   });
   insertAll();
 
-  return { places: created, listName };
+  return { places: created, listName, skipped };
 }
 
 // ---------------------------------------------------------------------------

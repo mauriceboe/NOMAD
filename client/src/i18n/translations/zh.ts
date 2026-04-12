@@ -720,6 +720,8 @@ const zh: Record<string, string> = {
   'vacay.companyHolidays': '公司假日',
   'vacay.companyHolidaysHint': '允许标记公司统一休假日',
   'vacay.companyHolidaysNoDeduct': '公司假日不计入年假天数。',
+  'vacay.weekStart': '每周开始于',
+  'vacay.weekStartHint': '选择日历周从周一还是周日开始',
   'vacay.carryOver': '结转',
   'vacay.carryOverHint': '自动将剩余年假天数结转到下一年',
   'vacay.sharing': '共享',

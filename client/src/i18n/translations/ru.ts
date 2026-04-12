@@ -720,6 +720,8 @@ const ru: Record<string, string> = {
   'vacay.companyHolidays': 'Корпоративные выходные',
   'vacay.companyHolidaysHint': 'Разрешить отмечать корпоративные выходные дни',
   'vacay.companyHolidaysNoDeduct': 'Корпоративные выходные не вычитаются из дней отпуска.',
+  'vacay.weekStart': 'Неделя начинается с',
+  'vacay.weekStartHint': 'Выберите, начинается ли неделя с понедельника или воскресенья',
   'vacay.carryOver': 'Перенос',
   'vacay.carryOverHint': 'Автоматически переносить оставшиеся дни отпуска на следующий год',
   'vacay.sharing': 'Общий доступ',

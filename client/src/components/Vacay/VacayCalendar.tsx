@@ -70,7 +70,7 @@ export default function VacayCalendar() {
 
   return (
     <div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 pb-14">
         {Array.from({ length: 12 }, (_, i) => (
           <VacayMonthCard
             key={i}
@@ -85,6 +85,7 @@ export default function VacayCalendar() {
             blockWeekends={blockWeekends}
             weekendDays={weekendDays}
             tripDates={tripDates}
+            weekStart={plan?.week_start ?? 1}
           />
         ))}
       </div>

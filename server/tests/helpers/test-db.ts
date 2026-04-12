@@ -67,6 +67,13 @@ const RESET_TABLES = [
   'share_tokens',
   'trip_members',
   'trips',
+  // Journey
+  'journey_share_tokens',
+  'journey_photos',
+  'journey_entries',
+  'journey_contributors',
+  'journey_trips',
+  'journeys',
   // Vacay
   'vacay_entries',
   'vacay_company_holidays',

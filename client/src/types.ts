@@ -337,6 +337,7 @@ export interface VacayPlan {
   block_weekends: boolean
   carry_over_enabled: boolean
   company_holidays_enabled: boolean
+  week_start?: number
   name?: string
   year?: number
   owner_id?: number

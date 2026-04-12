@@ -956,15 +956,19 @@ export default function BudgetPanel({ tripId, tripMembers = [] }: BudgetPanelPro
 
               <PieChart segments={pieSegments} size={180} totalLabel={t('budget.total')} />
 
-              <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {pieSegments.map(seg => {
+              <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 0 }}>
+                {pieSegments.map((seg, i) => {
                   const pct = grandTotal > 0 ? ((seg.value / grandTotal) * 100).toFixed(1) : '0.0'
                   return (
-                    <div key={seg.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 10, height: 10, borderRadius: 3, background: seg.color, flexShrink: 0 }} />
-                      <span style={{ flex: 1, fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>{seg.name}</span>
-                      <span style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmt(seg.value, currency)}</span>
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap', minWidth: 38, textAlign: 'right' }}>{pct}%</span>
+                    <div key={seg.name} style={{ padding: '8px 0', borderTop: i > 0 ? '1px solid var(--border-secondary)' : 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: 3, background: seg.color, flexShrink: 0 }} />
+                        <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 600 }}>{seg.name}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, paddingLeft: 18 }}>
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>{fmt(seg.value, currency)}</span>
+                        <span style={{ fontSize: 10, color: 'var(--text-faint)', fontWeight: 600, background: 'var(--bg-secondary)', padding: '1px 6px', borderRadius: 99 }}>{pct}%</span>
+                      </div>
                     </div>
                   )
                 })}

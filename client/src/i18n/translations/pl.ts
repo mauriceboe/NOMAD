@@ -693,6 +693,8 @@ const pl: Record<string, string | { name: string; category: string }[]> = {
   'vacay.companyHolidays': 'Urlopy firmowe',
   'vacay.companyHolidaysHint': 'Pozwala oznaczać dni wolne od pracy w kalendarzu',
   'vacay.companyHolidaysNoDeduct': 'Urlopy firmowe nie są odejmowane od puli dni urlopowych.',
+  'vacay.weekStart': 'Tydzień zaczyna się w',
+  'vacay.weekStartHint': 'Wybierz czy tydzień zaczyna się w poniedziałek czy niedzielę',
   'vacay.carryOver': 'Przeniesienie na kolejny rok',
   'vacay.carryOverHint': 'Automatycznie przenosi pozostałe dni urlopowe na kolejny rok',
   'vacay.sharing': 'Udostępnianie',

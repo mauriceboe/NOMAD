@@ -728,6 +728,8 @@ const de: Record<string, string | { name: string; category: string }[]> = {
   'vacay.companyHolidays': 'Betriebsferien',
   'vacay.companyHolidaysHint': 'Erlaubt das Markieren von unternehmensweiten Feiertagen',
   'vacay.companyHolidaysNoDeduct': 'Betriebsferien werden nicht vom Urlaubskontingent abgezogen.',
+  'vacay.weekStart': 'Woche beginnt am',
+  'vacay.weekStartHint': 'Wähle ob die Kalenderwoche am Montag oder Sonntag beginnt',
   'vacay.carryOver': 'Urlaubsmitnahme',
   'vacay.carryOverHint': 'Resturlaub automatisch ins Folgejahr übertragen',
   'vacay.sharing': 'Teilen',

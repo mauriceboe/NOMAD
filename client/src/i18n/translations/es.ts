@@ -697,6 +697,8 @@ const es: Record<string, string> = {
   'vacay.companyHolidays': 'Festivos de empresa',
   'vacay.companyHolidaysHint': 'Permitir marcar días festivos comunes de la empresa',
   'vacay.companyHolidaysNoDeduct': 'Los festivos de empresa no descuentan días de vacaciones.',
+  'vacay.weekStart': 'La semana comienza el',
+  'vacay.weekStartHint': 'Elige si la semana comienza el lunes o el domingo',
   'vacay.carryOver': 'Arrastrar saldo',
   'vacay.carryOverHint': 'Trasladar automáticamente los días restantes al año siguiente',
   'vacay.sharing': 'Compartir',
