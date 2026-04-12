@@ -86,7 +86,7 @@
 ### Customization & Admin
 - **Dashboard Views** — Toggle between card grid and compact list view on the My Trips page
 - **Dark Mode** — Full light and dark theme with dynamic status bar color matching
-- **Multilingual** — English, German, Spanish, French, Russian, Chinese (Simplified), Dutch, Arabic (with RTL support)
+- **Multilingual** — English, German, Spanish, French, Russian, Chinese (Simplified), Dutch, Indonesian, Arabic (with RTL support)
 - **Admin Panel** — User management, invite links, packing templates, global categories, addon management, API keys, backups, and GitHub release history
 - **Auto-Backups** — Scheduled backups with configurable interval and retention
 - **Customizable** — Temperature units, time format (12h/24h), map tile sources, default coordinates

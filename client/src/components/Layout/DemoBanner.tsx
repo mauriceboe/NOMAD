@@ -214,6 +214,38 @@ const texts: Record<string, DemoTexts> = {
     selfHostLink: 'استضفه بنفسك',
     close: 'فهمت',
   },
+  id: {
+    titleBefore: 'Selamat datang di ',
+    titleAfter: '',
+    title: 'Selamat datang di Demo TREK',
+    description: 'Anda dapat melihat, mengedit, dan membuat perjalanan. Semua perubahan akan diatur ulang secara otomatis setiap jam.',
+    resetIn: 'Atur ulang berikutnya dalam',
+    minutes: 'menit',
+    uploadNote: 'Unggah file (foto, dokumen, sampul) dinonaktifkan dalam mode demo.',
+    fullVersionTitle: 'Selain itu dalam versi lengkap:',
+    features: [
+      'Unggah file (foto, dokumen, sampul)',
+      'Manajemen kunci API (Google Maps, Cuaca)',
+      'Manajemen pengguna & izin',
+      'Pencadangan otomatis',
+      'Manajemen Addon (aktifkan/nonaktifkan)',
+      'OIDC / SSO single sign-on',
+    ],
+    addonsTitle: 'Addon Modular (dapat dinonaktifkan di versi lengkap)',
+    addons: [
+      ['Vacay', 'Perencana liburan dengan kalender, hari libur & penggabungan pengguna'],
+      ['Atlas', 'Peta dunia dengan negara yang dikunjungi & statistik perjalanan'],
+      ['Pengepakan', 'Daftar periksa per perjalanan'],
+      ['Anggaran', 'Pelacakan pengeluaran dengan pemisahan tagihan'],
+      ['Dokumen', 'Lampirkan file ke perjalanan'],
+      ['Widget', 'Konverter mata uang & zona waktu'],
+    ],
+    whatIs: 'Apa itu TREK?',
+    whatIsDesc: 'Perencana perjalanan yang di-host sendiri dengan kolaborasi real-time, peta interaktif, login OIDC, dan mode gelap.',
+    selfHost: 'Buka sumber — ',
+    selfHostLink: 'host mandiri',
+    close: 'Mengerti',
+  },
 }
 
 const featureIcons = [Upload, Key, Users, Database, Puzzle, Shield]

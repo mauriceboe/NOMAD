@@ -88,6 +88,7 @@ const I18N: Record<string, EmailStrings> = {
   zh: { footer: '您收到此邮件是因为您在 TREK 中启用了通知。', manage: '管理偏好设置', madeWith: 'Made with', openTrek: '打开 TREK' },
   'zh-TW': { footer: '您收到這封郵件是因為您在 TREK 中啟用了通知。', manage: '管理偏好設定', madeWith: 'Made with', openTrek: '開啟 TREK' },
   ar: { footer: 'تلقيت هذا لأنك قمت بتفعيل الإشعارات في TREK.', manage: 'إدارة التفضيلات', madeWith: 'Made with', openTrek: 'فتح TREK' },
+  id: { footer: 'Anda menerima ini karena Anda telah mengaktifkan notifikasi di TREK.', manage: 'Kelola preferensi di Pengaturan', madeWith: 'Dibuat dengan', openTrek: 'Buka TREK' },
 };
 
 // Translated notification texts per event type
@@ -248,6 +249,16 @@ const EVENT_TEXTS: Record<string, Record<NotifEventType, EventTextFn>> = {
     packing_tagged: p => ({ title: `Pakowanie: ${p.category}`, body: `${p.actor} przypisał Cię do kategorii "${p.category}" w "${p.trip}".` }),
     version_available: p => ({ title: 'Nowa wersja TREK dostępna', body: `TREK ${p.version} jest teraz dostępny. Odwiedź panel administracyjny, aby zaktualizować.` }),
     synology_session_cleared: () => ({ title: 'Sesja Synology wyczyszczona', body: 'Twoje konto lub URL Synology uległo zmianie. Zostałeś wylogowany z Synology Photos.' }),
+  },
+  id: {
+    trip_invite: p => ({ title: `Undangan perjalanan: "${p.trip}"`, body: `${p.actor} mengundang ${p.invitee || 'seorang anggota'} ke perjalanan "${p.trip}".` }),
+    booking_change: p => ({ title: `Pemesanan baru: ${p.booking}`, body: `${p.actor} menambahkan "${p.booking}" (${p.type}) baru ke "${p.trip}".` }),
+    trip_reminder: p => ({ title: `Pengingat perjalanan: ${p.trip}`, body: `Perjalanan Anda "${p.trip}" akan segera tiba!` }),
+    vacay_invite: p => ({ title: 'Undangan Penggabungan Vacay', body: `${p.actor} mengundang Anda untuk menggabungkan rencana liburan. Buka TREK untuk menerima atau menolak.` }),
+    photos_shared: p => ({ title: `${p.count} foto dibagikan`, body: `${p.actor} membagikan ${p.count} foto di "${p.trip}".` }),
+    collab_message: p => ({ title: `Pesan baru di "${p.trip}"`, body: `${p.actor}: ${p.preview}` }),
+    packing_tagged: p => ({ title: `Pengepakan: ${p.category}`, body: `${p.actor} menugaskan Anda ke kategori "${p.category}" di "${p.trip}".` }),
+    version_available: p => ({ title: 'Versi TREK baru tersedia', body: `TREK ${p.version} sekarang tersedia. Kunjungi panel admin untuk memperbarui.` }),
   },
 };
 
