@@ -189,8 +189,15 @@ export default function AtlasPage(): React.ReactElement {
     const opts: { code: string; label: string }[] = []
     const seen = new Set<string>()
     for (const f of (geoData as any).features || []) {
-      const a2 = f?.properties?.ISO_A2
-      if (!a2 || a2 === '-99' || typeof a2 !== 'string' || a2.length !== 2) continue
+      let a2 = f?.properties?.ISO_A2
+      if (!a2 || a2 === '-99' || typeof a2 !== 'string' || a2.length !== 2) {
+        const a3 = f?.properties?.ADM0_A3 || f?.properties?.ISO_A3 || f?.properties?.['ISO3166-1-Alpha-3'] || null
+        if (a3 && a3 !== '-99') {
+          const a3ToA2Entry = Object.entries(A2_TO_A3).find(([, v]) => v === a3)
+          a2 = a3ToA2Entry ? a3ToA2Entry[0] : null
+        }
+      }
+      if (!a2 || typeof a2 !== 'string' || a2.length !== 2) continue
       if (seen.has(a2)) continue
       seen.add(a2)
       const label = String(resolveName(a2) || f?.properties?.NAME || f?.properties?.ADMIN || a2)

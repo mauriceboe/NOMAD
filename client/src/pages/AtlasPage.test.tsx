@@ -127,6 +127,23 @@ const geoJsonWithFR = {
   ],
 };
 
+const geoJsonWithFranceA3Fallback = {
+  type: 'FeatureCollection',
+  features: [
+    {
+      type: 'Feature',
+      properties: {
+        ISO_A2: '-99',
+        ADM0_A3: 'FRA',
+        ISO_A3: 'FRA',
+        NAME: 'France',
+        ADMIN: 'France',
+      },
+      geometry: null,
+    },
+  ],
+};
+
 // ── Atlas API response fixture ────────────────────────────────────────────────
 const atlasStatsResponse = {
   countries: [{ code: 'FR', tripCount: 2, placeCount: 5, firstVisit: '2023-01-01', lastVisit: '2024-06-01' }],
@@ -1320,6 +1337,33 @@ describe('AtlasPage', () => {
 
       // XK is not in A2_TO_A3_BASE, so the geoJSON loop covers the `A2_TO_A3[a2] = a3` line
       expect(screen.getAllByText(/countries/i).length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('FE-PAGE-ATLAS-041: country search falls back from A3 when ISO_A2 is invalid', () => {
+    it('returns France in search results when GeoJSON provides ADM0_A3 but ISO_A2 is -99', async () => {
+      vi.spyOn(global, 'fetch').mockImplementation((url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('geojson') || urlStr.includes('githubusercontent')) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve(geoJsonWithFranceA3Fallback) } as Response);
+        }
+        return Promise.reject(new Error(`Unmocked fetch: ${urlStr}`));
+      });
+
+      const user = userEvent.setup();
+      render(<AtlasPage />);
+
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText(/search a country/i)).toBeInTheDocument();
+      });
+
+      const searchInput = screen.getByPlaceholderText(/search a country/i);
+      await user.type(searchInput, 'france');
+
+      await waitFor(() => {
+        const franceButton = screen.getAllByRole('button').find((button) => button.textContent?.includes('France'));
+        expect(franceButton).toBeTruthy();
+      });
     });
   });
 
