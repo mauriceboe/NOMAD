@@ -889,10 +889,15 @@ const nl: Record<string, string> = {
   'places.importGpx': 'GPX',
   'places.gpxImported': '{count} plaatsen geïmporteerd uit GPX',
   'places.gpxError': 'GPX-import mislukt',
+  'places.importList': 'Lijst importeren',
   'places.importGoogleList': 'Google Lijst',
+  'places.importNaverList': 'Naver Lijst',
   'places.googleListHint': 'Plak een gedeelde Google Maps lijstlink om alle plaatsen te importeren.',
   'places.googleListImported': '{count} plaatsen geimporteerd uit "{list}"',
   'places.googleListError': 'Google Maps lijst importeren mislukt',
+  'places.naverListHint': 'Plak een gedeelde Naver Maps lijstlink om alle plaatsen te importeren.',
+  'places.naverListImported': '{count} plaatsen geimporteerd uit "{list}"',
+  'places.naverListError': 'Naver Maps lijst importeren mislukt',
   'places.viewDetails': 'Details bekijken',
   'places.urlResolved': 'Plaats geïmporteerd van URL',
   'places.assignToDay': 'Aan welke dag toevoegen?',
@@ -1662,6 +1667,7 @@ const nl: Record<string, string> = {
   'undo.lock': 'Vergrendeling locatie gewijzigd',
   'undo.importGpx': 'GPX-import',
   'undo.importGoogleList': 'Google Maps-import',
+  'undo.importNaverList': 'Naver Maps-import',
 
   // Notifications
   'notifications.title': 'Meldingen',

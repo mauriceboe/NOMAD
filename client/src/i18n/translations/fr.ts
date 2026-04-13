@@ -889,10 +889,15 @@ const fr: Record<string, string> = {
   'places.importGpx': 'GPX',
   'places.gpxImported': '{count} lieux importés depuis GPX',
   'places.gpxError': 'L\'import GPX a échoué',
+  'places.importList': 'Import de liste',
   'places.importGoogleList': 'Liste Google',
+  'places.importNaverList': 'Liste Naver',
   'places.googleListHint': 'Collez un lien de liste Google Maps partagée pour importer tous les lieux.',
   'places.googleListImported': '{count} lieux importés depuis "{list}"',
   'places.googleListError': 'Impossible d\'importer la liste Google Maps',
+  'places.naverListHint': 'Collez un lien de liste Naver Maps partagée pour importer tous les lieux.',
+  'places.naverListImported': '{count} lieux importés depuis "{list}"',
+  'places.naverListError': 'Impossible d\'importer la liste Naver Maps',
   'places.viewDetails': 'Voir les détails',
   'places.urlResolved': 'Lieu importé depuis l\'URL',
   'places.assignToDay': 'Ajouter à quel jour ?',
@@ -1662,6 +1667,7 @@ const fr: Record<string, string> = {
   'undo.lock': 'Verrouillage du lieu modifié',
   'undo.importGpx': 'Import GPX',
   'undo.importGoogleList': 'Import Google Maps',
+  'undo.importNaverList': 'Import Naver Maps',
 
   // Notifications
   'notifications.title': 'Notifications',

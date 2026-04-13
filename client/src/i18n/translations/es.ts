@@ -865,10 +865,14 @@ const es: Record<string, string> = {
   'places.importGpx': 'GPX',
   'places.gpxImported': '{count} lugares importados desde GPX',
   'places.gpxError': 'Error al importar GPX',
+  'places.importList': 'Importar lista',
   'places.importGoogleList': 'Lista Google',
   'places.googleListHint': 'Pega un enlace compartido de una lista de Google Maps para importar todos los lugares.',
   'places.googleListImported': '{count} lugares importados de "{list}"',
   'places.googleListError': 'Error al importar la lista de Google Maps',
+  'places.naverListHint': 'Pega un enlace compartido de una lista de Naver Maps para importar todos los lugares.',
+  'places.naverListImported': '{count} lugares importados de "{list}"',
+  'places.naverListError': 'Error al importar la lista de Naver Maps',
   'places.viewDetails': 'Ver detalles',
   'places.urlResolved': 'Lugar importado desde URL',
   'places.assignToDay': '¿A qué día añadirlo?',
@@ -1668,6 +1672,7 @@ const es: Record<string, string> = {
   'undo.lock': 'Bloqueo de lugar activado/desactivado',
   'undo.importGpx': 'Importación GPX',
   'undo.importGoogleList': 'Importación de Google Maps',
+  'undo.importNaverList': 'Importación de Naver Maps',
 
   // Notifications
   'notifications.title': 'Notificaciones',

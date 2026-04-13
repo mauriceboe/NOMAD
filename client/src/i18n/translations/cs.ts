@@ -891,10 +891,15 @@ const cs: Record<string, string | { name: string; category: string }[]> = {
   'places.gpxImported': '{count} míst importováno z GPX',
   'places.urlResolved': 'Místo importováno z URL',
   'places.gpxError': 'Import GPX se nezdařil',
+  'places.importList': 'Import seznamu',
   'places.importGoogleList': 'Google Seznam',
+  'places.importNaverList': 'Naver Seznam',
   'places.googleListHint': 'Vložte sdílený odkaz na seznam Google Maps pro import všech míst.',
   'places.googleListImported': '{count} míst importováno ze seznamu "{list}"',
   'places.googleListError': 'Import seznamu Google Maps se nezdařil',
+  'places.naverListHint': 'Vložte sdílený odkaz na seznam Naver Maps pro import všech míst.',
+  'places.naverListImported': '{count} míst importováno ze seznamu "{list}"',
+  'places.naverListError': 'Import seznamu Naver Maps se nezdařil',
   'places.viewDetails': 'Zobrazit detaily',
   'places.assignToDay': 'Přidat do kterého dne?',
   'places.all': 'Vše',
@@ -1661,6 +1666,7 @@ const cs: Record<string, string | { name: string; category: string }[]> = {
   'undo.lock': 'Zámek místa přepnut',
   'undo.importGpx': 'Import GPX',
   'undo.importGoogleList': 'Import z Google Maps',
+  'undo.importNaverList': 'Import z Naver Maps',
 
   // Notifications
   'notifications.title': 'Oznámení',

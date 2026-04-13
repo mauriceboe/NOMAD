@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { useState, useRef, useMemo, useCallback } from 'react'
+import { useState, useRef, useMemo, useCallback, useEffect } from 'react'
 import DOM from 'react-dom'
 import { Search, Plus, X, CalendarDays, Pencil, Trash2, ExternalLink, Navigation, Upload, ChevronDown, Check, MapPin, Eye } from 'lucide-react'
 import PlaceAvatar from '../shared/PlaceAvatar'
@@ -12,6 +12,7 @@ import { useContextMenu, ContextMenu } from '../shared/ContextMenu'
 import { placesApi } from '../../api/client'
 import { useTripStore } from '../../store/tripStore'
 import { useCanDo } from '../../store/permissionsStore'
+import { useAddonStore } from '../../store/addonStore'
 import type { Place, Category, Day, AssignmentsMap } from '../../types'
 
 interface PlacesSidebarProps {
@@ -45,6 +46,7 @@ const PlacesSidebar = React.memo(function PlacesSidebar({
   const loadTrip = useTripStore((s) => s.loadTrip)
   const can = useCanDo()
   const canEditPlaces = can('place_edit', trip)
+  const isNaverListImportEnabled = useAddonStore((s) => s.isEnabled('naver_list_import'))
 
   const handleGpxImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -68,22 +70,34 @@ const PlacesSidebar = React.memo(function PlacesSidebar({
     }
   }
 
-  const [googleListOpen, setGoogleListOpen] = useState(false)
-  const [googleListUrl, setGoogleListUrl] = useState('')
-  const [googleListLoading, setGoogleListLoading] = useState(false)
+  const [listImportOpen, setListImportOpen] = useState(false)
+  const [listImportUrl, setListImportUrl] = useState('')
+  const [listImportLoading, setListImportLoading] = useState(false)
+  const [listImportProvider, setListImportProvider] = useState<'google' | 'naver'>('google')
+  const availableListImportProviders: Array<'google' | 'naver'> = isNaverListImportEnabled ? ['google', 'naver'] : ['google']
+  const hasMultipleListImportProviders = availableListImportProviders.length > 1
 
-  const handleGoogleListImport = async () => {
-    if (!googleListUrl.trim()) return
-    setGoogleListLoading(true)
+  useEffect(() => {
+    if (!isNaverListImportEnabled && listImportProvider === 'naver') {
+      setListImportProvider('google')
+    }
+  }, [isNaverListImportEnabled, listImportProvider])
+
+  const handleListImport = async () => {
+    if (!listImportUrl.trim()) return
+    setListImportLoading(true)
     try {
-      const result = await placesApi.importGoogleList(tripId, googleListUrl.trim())
+      const provider = listImportProvider === 'naver' && isNaverListImportEnabled ? 'naver' : 'google'
+      const result = provider === 'google'
+        ? await placesApi.importGoogleList(tripId, listImportUrl.trim())
+        : await placesApi.importNaverList(tripId, listImportUrl.trim())
       await loadTrip(tripId)
-      toast.success(t('places.googleListImported', { count: result.count, list: result.listName }))
-      setGoogleListOpen(false)
-      setGoogleListUrl('')
+      toast.success(t(provider === 'google' ? 'places.googleListImported' : 'places.naverListImported', { count: result.count, list: result.listName }))
+      setListImportOpen(false)
+      setListImportUrl('')
       if (result.places?.length > 0) {
         const importedIds: number[] = result.places.map((p: { id: number }) => p.id)
-        pushUndo?.(t('undo.importGoogleList'), async () => {
+        pushUndo?.(t(provider === 'google' ? 'undo.importGoogleList' : 'undo.importNaverList'), async () => {
           for (const id of importedIds) {
             try { await placesApi.delete(tripId, id) } catch {}
           }
@@ -91,9 +105,10 @@ const PlacesSidebar = React.memo(function PlacesSidebar({
         })
       }
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || t('places.googleListError'))
+      const provider = listImportProvider === 'naver' && isNaverListImportEnabled ? 'naver' : 'google'
+      toast.error(err?.response?.data?.error || t(provider === 'google' ? 'places.googleListError' : 'places.naverListError'))
     } finally {
-      setGoogleListLoading(false)
+      setListImportLoading(false)
     }
   }
 
@@ -161,7 +176,7 @@ const PlacesSidebar = React.memo(function PlacesSidebar({
             <Upload size={11} strokeWidth={2} /> {t('places.importGpx')}
           </button>
           <button
-            onClick={() => setGoogleListOpen(true)}
+            onClick={() => setListImportOpen(true)}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
               flex: 1, padding: '5px 12px', borderRadius: 8,
@@ -170,7 +185,7 @@ const PlacesSidebar = React.memo(function PlacesSidebar({
               cursor: 'pointer', fontFamily: 'inherit',
             }}
           >
-            <MapPin size={11} strokeWidth={2} /> {t('places.importGoogleList')}
+            <MapPin size={11} strokeWidth={2} /> {t(hasMultipleListImportProviders ? 'places.importList' : 'places.importGoogleList')}
           </button>
         </div>
         </>}
@@ -448,9 +463,9 @@ const PlacesSidebar = React.memo(function PlacesSidebar({
         </div>,
         document.body
       )}
-      {googleListOpen && ReactDOM.createPortal(
+      {listImportOpen && ReactDOM.createPortal(
         <div
-          onClick={() => { setGoogleListOpen(false); setGoogleListUrl('') }}
+          onClick={() => { setListImportOpen(false); setListImportUrl('') }}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
         >
           <div
@@ -458,17 +473,35 @@ const PlacesSidebar = React.memo(function PlacesSidebar({
             style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 440, padding: 24, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}
           >
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
-              {t('places.importGoogleList')}
+              {t('places.importList')}
             </div>
+            {hasMultipleListImportProviders && (
+              <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                {availableListImportProviders.map(provider => (
+                  <button
+                    key={provider}
+                    onClick={() => setListImportProvider(provider)}
+                    style={{
+                      padding: '6px 10px', borderRadius: 20, border: 'none', cursor: 'pointer',
+                      fontSize: 11, fontWeight: 600, fontFamily: 'inherit',
+                      background: listImportProvider === provider ? 'var(--accent)' : 'var(--bg-tertiary)',
+                      color: listImportProvider === provider ? 'var(--accent-text)' : 'var(--text-muted)',
+                    }}
+                  >
+                    {provider === 'google' ? t('places.importGoogleList') : t('places.importNaverList')}
+                  </button>
+                ))}
+              </div>
+            )}
             <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 16 }}>
-              {t('places.googleListHint')}
+              {t(listImportProvider === 'google' ? 'places.googleListHint' : 'places.naverListHint')}
             </div>
             <input
               type="text"
-              value={googleListUrl}
-              onChange={e => setGoogleListUrl(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !googleListLoading) handleGoogleListImport() }}
-              placeholder="https://maps.app.goo.gl/..."
+              value={listImportUrl}
+              onChange={e => setListImportUrl(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !listImportLoading) handleListImport() }}
+              placeholder={listImportProvider === 'google' ? 'https://maps.app.goo.gl/...' : 'https://naver.me/...'}
               autoFocus
               style={{
                 width: '100%', padding: '10px 14px', borderRadius: 10,
@@ -479,7 +512,7 @@ const PlacesSidebar = React.memo(function PlacesSidebar({
             />
             <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
               <button
-                onClick={() => { setGoogleListOpen(false); setGoogleListUrl('') }}
+                onClick={() => { setListImportOpen(false); setListImportUrl('') }}
                 style={{
                   padding: '8px 16px', borderRadius: 10, border: '1px solid var(--border-primary)',
                   background: 'none', color: 'var(--text-primary)', fontSize: 13, fontWeight: 500,
@@ -489,17 +522,17 @@ const PlacesSidebar = React.memo(function PlacesSidebar({
                 {t('common.cancel')}
               </button>
               <button
-                onClick={handleGoogleListImport}
-                disabled={!googleListUrl.trim() || googleListLoading}
+                onClick={handleListImport}
+                disabled={!listImportUrl.trim() || listImportLoading}
                 style={{
                   padding: '8px 16px', borderRadius: 10, border: 'none',
-                  background: !googleListUrl.trim() || googleListLoading ? 'var(--bg-tertiary)' : 'var(--accent)',
-                  color: !googleListUrl.trim() || googleListLoading ? 'var(--text-faint)' : 'var(--accent-text)',
-                  fontSize: 13, fontWeight: 500, cursor: !googleListUrl.trim() || googleListLoading ? 'default' : 'pointer',
+                  background: !listImportUrl.trim() || listImportLoading ? 'var(--bg-tertiary)' : 'var(--accent)',
+                  color: !listImportUrl.trim() || listImportLoading ? 'var(--text-faint)' : 'var(--accent-text)',
+                  fontSize: 13, fontWeight: 500, cursor: !listImportUrl.trim() || listImportLoading ? 'default' : 'pointer',
                   fontFamily: 'inherit',
                 }}
               >
-                {googleListLoading ? t('common.loading') : t('common.import')}
+                {listImportLoading ? t('common.loading') : t('common.import')}
               </button>
             </div>
           </div>

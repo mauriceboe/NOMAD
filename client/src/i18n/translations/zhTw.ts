@@ -916,10 +916,15 @@ const zhTw: Record<string, string> = {
   'places.importGpx': 'GPX',
   'places.gpxImported': '已從 GPX 匯入 {count} 個地點',
   'places.gpxError': 'GPX 匯入失敗',
+  'places.importList': '列表匯入',
   'places.importGoogleList': 'Google 列表',
+  'places.importNaverList': 'Naver 列表',
   'places.googleListHint': '貼上共享的 Google Maps 列表連結以匯入所有地點。',
   'places.googleListImported': '已從"{list}"匯入 {count} 個地點',
   'places.googleListError': 'Google Maps 列表匯入失敗',
+  'places.naverListHint': '貼上共享的 Naver Maps 列表連結以匯入所有地點。',
+  'places.naverListImported': '已從"{list}"匯入 {count} 個地點',
+  'places.naverListError': 'Naver Maps 列表匯入失敗',
   'places.viewDetails': '檢視詳情',
   'places.urlResolved': '已從 URL 匯入地點',
   'places.assignToDay': '新增到哪一天？',
@@ -1685,6 +1690,7 @@ const zhTw: Record<string, string> = {
   'undo.lock': '地點鎖定已切換',
   'undo.importGpx': 'GPX 匯入',
   'undo.importGoogleList': 'Google 地圖匯入',
+  'undo.importNaverList': 'Naver 地圖匯入',
 
   // Todo
   'todo.subtab.packing': '行李清單',

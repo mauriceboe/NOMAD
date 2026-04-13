@@ -889,10 +889,15 @@ const zh: Record<string, string> = {
   'places.importGpx': 'GPX',
   'places.gpxImported': '已从 GPX 导入 {count} 个地点',
   'places.gpxError': 'GPX 导入失败',
+  'places.importList': '列表导入',
   'places.importGoogleList': 'Google 列表',
+  'places.importNaverList': 'Naver 列表',
   'places.googleListHint': '粘贴共享的 Google Maps 列表链接以导入所有地点。',
   'places.googleListImported': '已从"{list}"导入 {count} 个地点',
   'places.googleListError': 'Google Maps 列表导入失败',
+  'places.naverListHint': '粘贴共享的 Naver Maps 列表链接以导入所有地点。',
+  'places.naverListImported': '已从"{list}"导入 {count} 个地点',
+  'places.naverListError': 'Naver Maps 列表导入失败',
   'places.viewDetails': '查看详情',
   'places.urlResolved': '已从 URL 导入地点',
   'places.assignToDay': '添加到哪一天？',
@@ -1659,6 +1664,7 @@ const zh: Record<string, string> = {
   'undo.lock': '地点锁定已切换',
   'undo.importGpx': 'GPX 导入',
   'undo.importGoogleList': 'Google 地图导入',
+  'undo.importNaverList': 'Naver 地图导入',
 
   // Notifications
   'notifications.title': '通知',

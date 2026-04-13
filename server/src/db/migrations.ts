@@ -868,21 +868,65 @@ function runMigrations(db: Database.Database): void {
     // Migration: Budget category ordering
     () => {
       db.exec(`
-        CREATE TABLE IF NOT EXISTS budget_category_order (
-          trip_id INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+        CREATE TABLE IF NOT EXISTS budget_category_order
+        (
+          trip_id
+          INTEGER
+          NOT
+          NULL
+          REFERENCES
+          trips
+        (
+          id
+        ) ON DELETE CASCADE,
           category TEXT NOT NULL,
           sort_order INTEGER NOT NULL DEFAULT 0,
-          PRIMARY KEY (trip_id, category)
-        );
+          PRIMARY KEY
+        (
+          trip_id,
+          category
+        )
+          );
       `);
       // Seed existing categories with alphabetical order
-      const rows = db.prepare('SELECT DISTINCT trip_id, category FROM budget_items ORDER BY trip_id, category').all() as { trip_id: number; category: string }[];
+      const rows = db.prepare('SELECT DISTINCT trip_id, category FROM budget_items ORDER BY trip_id, category').all() as {
+        trip_id: number;
+        category: string
+      }[];
       const ins = db.prepare('INSERT OR IGNORE INTO budget_category_order (trip_id, category, sort_order) VALUES (?, ?, ?)');
       let lastTripId = -1;
       let idx = 0;
       for (const r of rows) {
-        if (r.trip_id !== lastTripId) { lastTripId = r.trip_id; idx = 0; }
+        if (r.trip_id !== lastTripId) {
+          lastTripId = r.trip_id;
+          idx = 0;
+        }
         ins.run(r.trip_id, r.category, idx++);
+      }
+    },
+    // Migration: Naver list import addon (default off)
+    () => {
+      try {
+        db.prepare(`
+          INSERT INTO addons (id, name, description, type, icon, enabled, sort_order)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            name = excluded.name,
+            description = excluded.description,
+            type = excluded.type,
+            icon = excluded.icon,
+            sort_order = excluded.sort_order
+        `).run(
+          'naver_list_import',
+          'Naver List Import',
+          'Import places from shared Naver Maps lists',
+          'trip',
+          'Link2',
+          0,
+          13,
+        );
+      } catch (err: any) {
+        console.warn('[migrations] Non-fatal migration step failed:', err);
       }
     },
     // Migration: OAuth 2.1 clients, consents, and tokens for MCP

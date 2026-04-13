@@ -892,10 +892,15 @@ const ar: Record<string, string | { name: string; category: string }[]> = {
   'places.importGpx': 'GPX',
   'places.gpxImported': 'تم استيراد {count} مكان من GPX',
   'places.gpxError': 'فشل استيراد GPX',
+  'places.importList': 'استيراد قائمة',
   'places.importGoogleList': 'قائمة Google',
+  'places.importNaverList': 'قائمة Naver',
   'places.googleListHint': 'الصق رابط قائمة Google Maps المشتركة لاستيراد جميع الأماكن.',
   'places.googleListImported': 'تم استيراد {count} أماكن من "{list}"',
   'places.googleListError': 'فشل استيراد قائمة Google Maps',
+  'places.naverListHint': 'الصق رابط قائمة Naver Maps مشتركة لاستيراد جميع الأماكن.',
+  'places.naverListImported': 'تم استيراد {count} مكان من "{list}"',
+  'places.naverListError': 'فشل استيراد قائمة Naver Maps',
   'places.viewDetails': 'عرض التفاصيل',
   'places.urlResolved': 'تم استيراد المكان من الرابط',
   'places.assignToDay': 'إلى أي يوم تريد الإضافة؟',
@@ -1670,6 +1675,7 @@ const ar: Record<string, string | { name: string; category: string }[]> = {
   'undo.lock': 'تم تبديل قفل المكان',
   'undo.importGpx': 'استيراد GPX',
   'undo.importGoogleList': 'استيراد خرائط Google',
+  'undo.importNaverList': 'استيراد خرائط Naver',
 
   // Notifications
   'notifications.title': 'الإشعارات',

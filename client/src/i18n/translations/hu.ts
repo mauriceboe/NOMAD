@@ -891,10 +891,15 @@ const hu: Record<string, string | { name: string; category: string }[]> = {
   'places.gpxImported': '{count} hely importálva GPX-ből',
   'places.urlResolved': 'Hely importálva URL-ből',
   'places.gpxError': 'GPX importálás sikertelen',
+  'places.importList': 'Lista importálás',
   'places.importGoogleList': 'Google Lista',
+  'places.importNaverList': 'Naver Lista',
   'places.googleListHint': 'Illessz be egy megosztott Google Maps lista linket az osszes hely importalasahoz.',
   'places.googleListImported': '{count} hely importalva a(z) "{list}" listabol',
   'places.googleListError': 'Google Maps lista importalasa sikertelen',
+  'places.naverListHint': 'Illessz be egy megosztott Naver Maps lista linket az összes hely importálásához.',
+  'places.naverListImported': '{count} hely importálva a(z) "{list}" listából',
+  'places.naverListError': 'Naver Maps lista importálása sikertelen',
   'places.viewDetails': 'Részletek megtekintése',
   'places.assignToDay': 'Melyik naphoz adod?',
   'places.all': 'Összes',
@@ -1660,6 +1665,7 @@ const hu: Record<string, string | { name: string; category: string }[]> = {
   'undo.lock': 'Hely zárolása váltva',
   'undo.importGpx': 'GPX importálás',
   'undo.importGoogleList': 'Google Maps importálás',
+  'undo.importNaverList': 'Naver Maps importálás',
 
   // Notifications
   'notifications.title': 'Értesítések',
