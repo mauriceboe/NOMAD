@@ -1486,8 +1486,12 @@ function ProviderPicker({ provider, userId, entries, trips, existingAssetIds, on
         const assets = data.assets || []
         setPhotos(prev => append ? [...prev, ...assets] : assets)
         setHasMore(!!data.hasMore)
+      } else {
+        setHasMore(false)
       }
-    } catch (e: any) { if (e.name !== 'AbortError') {} }
+    } catch (e: any) {
+      if (e.name !== 'AbortError') setHasMore(false)
+    }
     if (!signal.aborted) { setLoading(false); setLoadingMore(false) }
   }
 
@@ -1500,6 +1504,7 @@ function ProviderPicker({ provider, userId, entries, trips, existingAssetIds, on
     const signal = cancelPending()
     setLoading(true)
     setPhotos([])
+    setHasMore(false)
     try {
       const res = await fetch(`/api/integrations/memories/${provider}/albums/${albumId}/photos`, { credentials: 'include', signal })
       if (res.ok) setPhotos((await res.json()).assets || [])
@@ -1773,7 +1778,7 @@ function ProviderPicker({ provider, userId, entries, trips, existingAssetIds, on
                 )
               })}
               {/* Infinite scroll trigger */}
-              {hasMore && <ScrollTrigger onVisible={loadMorePhotos} loading={loadingMore} />}
+              {hasMore && !selectedAlbum && <ScrollTrigger onVisible={loadMorePhotos} loading={loadingMore} />}
             </div>
           )}
         </div>
