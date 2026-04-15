@@ -334,6 +334,7 @@ function createTables(db: Database.Database): void {
       start_day_id INTEGER NOT NULL REFERENCES days(id) ON DELETE CASCADE,
       end_day_id INTEGER NOT NULL REFERENCES days(id) ON DELETE CASCADE,
       check_in TEXT,
+      check_in_end TEXT,
       check_out TEXT,
       confirmation TEXT,
       notes TEXT,

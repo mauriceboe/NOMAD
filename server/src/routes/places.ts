@@ -5,7 +5,6 @@ import { requireTripAccess } from '../middleware/tripAccess';
 import { broadcast } from '../websocket';
 import { validateStringLengths } from '../middleware/validate';
 import { checkPermission } from '../services/permissions';
-import { isAddonEnabled } from '../services/adminService';
 import { AuthRequest } from '../types';
 import {
   listPlaces,
@@ -135,10 +134,6 @@ router.post('/import/naver-list', authenticate, requireTripAccess, async (req: R
   const authReq = req as AuthRequest;
   if (!checkPermission('place_edit', authReq.user.role, authReq.trip!.user_id, authReq.user.id, authReq.trip!.user_id !== authReq.user.id))
     return res.status(403).json({ error: 'No permission' });
-  if (!isAddonEnabled('naver_list_import')) {
-    return res.status(403).json({ error: 'Naver list import addon is disabled' });
-  }
-
   const { tripId } = req.params;
   const { url } = req.body;
   if (!url || typeof url !== 'string') return res.status(400).json({ error: 'URL is required' });

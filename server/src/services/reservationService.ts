@@ -123,9 +123,9 @@ export function createReservation(tripId: string | number, data: CreateReservati
   // Sync check-in/out to accommodation if linked
   if (accommodation_id && metadata) {
     const meta = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
-    if (meta.check_in_time || meta.check_out_time) {
-      db.prepare('UPDATE day_accommodations SET check_in = COALESCE(?, check_in), check_out = COALESCE(?, check_out) WHERE id = ?')
-        .run(meta.check_in_time || null, meta.check_out_time || null, accommodation_id);
+    if (meta.check_in_time || meta.check_in_end_time || meta.check_out_time) {
+      db.prepare('UPDATE day_accommodations SET check_in = COALESCE(?, check_in), check_in_end = COALESCE(?, check_in_end), check_out = COALESCE(?, check_out) WHERE id = ?')
+        .run(meta.check_in_time || null, meta.check_in_end_time || null, meta.check_out_time || null, accommodation_id);
     }
     if (confirmation_number) {
       db.prepare('UPDATE day_accommodations SET confirmation = COALESCE(?, confirmation) WHERE id = ?')
@@ -257,9 +257,9 @@ export function updateReservation(id: string | number, tripId: string | number, 
   const resolvedMeta = metadata !== undefined ? metadata : (current.metadata ? JSON.parse(current.metadata as string) : null);
   if (resolvedAccId && resolvedMeta) {
     const meta = typeof resolvedMeta === 'string' ? JSON.parse(resolvedMeta) : resolvedMeta;
-    if (meta.check_in_time || meta.check_out_time) {
-      db.prepare('UPDATE day_accommodations SET check_in = COALESCE(?, check_in), check_out = COALESCE(?, check_out) WHERE id = ?')
-        .run(meta.check_in_time || null, meta.check_out_time || null, resolvedAccId);
+    if (meta.check_in_time || meta.check_in_end_time || meta.check_out_time) {
+      db.prepare('UPDATE day_accommodations SET check_in = COALESCE(?, check_in), check_in_end = COALESCE(?, check_in_end), check_out = COALESCE(?, check_out) WHERE id = ?')
+        .run(meta.check_in_time || null, meta.check_in_end_time || null, meta.check_out_time || null, resolvedAccId);
     }
     const resolvedConf = confirmation_number !== undefined ? confirmation_number : current.confirmation_number;
     if (resolvedConf) {

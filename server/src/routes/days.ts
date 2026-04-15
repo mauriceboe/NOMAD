@@ -73,7 +73,7 @@ accommodationsRouter.post('/', authenticate, requireTripAccess, (req: Request, r
     return res.status(403).json({ error: 'No permission' });
 
   const { tripId } = req.params;
-  const { place_id, start_day_id, end_day_id, check_in, check_out, confirmation, notes } = req.body;
+  const { place_id, start_day_id, end_day_id, check_in, check_in_end, check_out, confirmation, notes } = req.body;
 
   if (!place_id || !start_day_id || !end_day_id) {
     return res.status(400).json({ error: 'place_id, start_day_id, and end_day_id are required' });
@@ -82,7 +82,7 @@ accommodationsRouter.post('/', authenticate, requireTripAccess, (req: Request, r
   const errors = dayService.validateAccommodationRefs(tripId, place_id, start_day_id, end_day_id);
   if (errors.length > 0) return res.status(404).json({ error: errors[0].message });
 
-  const accommodation = dayService.createAccommodation(tripId, { place_id, start_day_id, end_day_id, check_in, check_out, confirmation, notes });
+  const accommodation = dayService.createAccommodation(tripId, { place_id, start_day_id, end_day_id, check_in, check_in_end, check_out, confirmation, notes });
   res.status(201).json({ accommodation });
   broadcast(tripId, 'accommodation:created', { accommodation }, req.headers['x-socket-id'] as string);
   broadcast(tripId, 'reservation:created', {}, req.headers['x-socket-id'] as string);
@@ -98,12 +98,12 @@ accommodationsRouter.put('/:id', authenticate, requireTripAccess, (req: Request,
   const existing = dayService.getAccommodation(id, tripId);
   if (!existing) return res.status(404).json({ error: 'Accommodation not found' });
 
-  const { place_id, start_day_id, end_day_id, check_in, check_out, confirmation, notes } = req.body;
+  const { place_id, start_day_id, end_day_id, check_in, check_in_end, check_out, confirmation, notes } = req.body;
 
   const errors = dayService.validateAccommodationRefs(tripId, place_id, start_day_id, end_day_id);
   if (errors.length > 0) return res.status(404).json({ error: errors[0].message });
 
-  const accommodation = dayService.updateAccommodation(id, existing, { place_id, start_day_id, end_day_id, check_in, check_out, confirmation, notes });
+  const accommodation = dayService.updateAccommodation(id, existing, { place_id, start_day_id, end_day_id, check_in, check_in_end, check_out, confirmation, notes });
   res.json({ accommodation });
   broadcast(tripId, 'accommodation:updated', { accommodation }, req.headers['x-socket-id'] as string);
 });

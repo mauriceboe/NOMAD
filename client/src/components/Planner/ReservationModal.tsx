@@ -89,7 +89,7 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
     meta_airline: '', meta_flight_number: '', meta_departure_airport: '', meta_arrival_airport: '',
     meta_departure_timezone: '', meta_arrival_timezone: '',
     meta_train_number: '', meta_platform: '', meta_seat: '',
-    meta_check_in_time: '', meta_check_out_time: '',
+    meta_check_in_time: '', meta_check_in_end_time: '', meta_check_out_time: '',
     hotel_place_id: '', hotel_start_day: '', hotel_end_day: '',
   })
   const [isSaving, setIsSaving] = useState(false)
@@ -140,6 +140,7 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
         meta_platform: meta.platform || '',
         meta_seat: meta.seat || '',
         meta_check_in_time: meta.check_in_time || '',
+        meta_check_in_end_time: meta.check_in_end_time || '',
         meta_check_out_time: meta.check_out_time || '',
         hotel_place_id: (() => { const acc = accommodations.find(a => a.id == reservation.accommodation_id); return acc?.place_id || '' })(),
         hotel_start_day: (() => { const acc = accommodations.find(a => a.id == reservation.accommodation_id); return acc?.start_day_id || '' })(),
@@ -156,7 +157,7 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
         meta_airline: '', meta_flight_number: '', meta_departure_airport: '', meta_arrival_airport: '',
         meta_departure_timezone: '', meta_arrival_timezone: '',
         meta_train_number: '', meta_platform: '', meta_seat: '',
-        meta_check_in_time: '', meta_check_out_time: '',
+        meta_check_in_time: '', meta_check_in_end_time: '', meta_check_out_time: '',
       })
       setPendingFiles([])
     }
@@ -207,6 +208,7 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
         if (form.meta_arrival_timezone) metadata.arrival_timezone = form.meta_arrival_timezone
       } else if (form.type === 'hotel') {
         if (form.meta_check_in_time) metadata.check_in_time = form.meta_check_in_time
+        if (form.meta_check_in_end_time) metadata.check_in_end_time = form.meta_check_in_end_time
         if (form.meta_check_out_time) metadata.check_out_time = form.meta_check_out_time
       } else if (form.type === 'train') {
         if (form.meta_train_number) metadata.train_number = form.meta_train_number
@@ -245,6 +247,7 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
           start_day_id: form.hotel_start_day,
           end_day_id: form.hotel_end_day,
           check_in: form.meta_check_in_time || null,
+          check_in_end: form.meta_check_in_end_time || null,
           check_out: form.meta_check_out_time || null,
           confirmation: form.confirmation_number || null,
         }
@@ -526,10 +529,14 @@ export function ReservationModal({ isOpen, onClose, onSave, reservation, days, p
               </div>
             </div>
             {/* Check-in/out times + Status */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div>
                 <label style={labelStyle}>{t('reservations.meta.checkIn')}</label>
                 <CustomTimePicker value={form.meta_check_in_time} onChange={v => set('meta_check_in_time', v)} />
+              </div>
+              <div>
+                <label style={labelStyle}>{t('reservations.meta.checkInUntil')}</label>
+                <CustomTimePicker value={form.meta_check_in_end_time} onChange={v => set('meta_check_in_end_time', v)} />
               </div>
               <div>
                 <label style={labelStyle}>{t('reservations.meta.checkOut')}</label>

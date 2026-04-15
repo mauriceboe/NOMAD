@@ -100,6 +100,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
   }, [undo, lastActionLabel, toast])
 
   const [enabledAddons, setEnabledAddons] = useState<Record<string, boolean>>({ packing: true, budget: true, documents: true, collab: false })
+  const [collabFeatures, setCollabFeatures] = useState<{ chat: boolean; notes: boolean; polls: boolean; whatsnext: boolean }>({ chat: true, notes: true, polls: true, whatsnext: true })
   const [tripAccommodations, setTripAccommodations] = useState<Accommodation[]>([])
   const [allowedFileTypes, setAllowedFileTypes] = useState<string | null>(null)
   const [tripMembers, setTripMembers] = useState<TripMember[]>([])
@@ -116,6 +117,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
       const map = {}
       data.addons.forEach(a => { map[a.id] = true })
       setEnabledAddons({ packing: !!map.packing, budget: !!map.budget, documents: !!map.documents, collab: !!map.collab })
+      if (data.collabFeatures) setCollabFeatures(data.collabFeatures)
     }).catch(() => {})
     authApi.getAppConfig().then(config => {
       if (config.allowed_file_types) setAllowedFileTypes(config.allowed_file_types)
@@ -246,7 +248,11 @@ export default function TripPlannerPage(): React.ReactElement | null {
 
     return places.filter(p => {
       if (!p.lat || !p.lng) return false
-      if (mapCategoryFilter.size > 0 && !mapCategoryFilter.has(String(p.category_id))) return false
+      if (mapCategoryFilter.size > 0) {
+        if (p.category_id == null) {
+          if (!mapCategoryFilter.has('uncategorized')) return false
+        } else if (!mapCategoryFilter.has(String(p.category_id))) return false
+      }
       if (hiddenPlaceIds.has(p.id)) return false
       if (plannedIds && plannedIds.has(p.id)) return false
       return true
@@ -906,7 +912,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
         )}
 
         {activeTab === 'buchungen' && (
-          <div style={{ height: '100%', maxWidth: 1200, margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', overflowY: 'auto', overscrollBehavior: 'contain', paddingBottom: 'var(--bottom-nav-h)' }}>
+          <div style={{ height: '100%', maxWidth: 1800, margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', overflowY: 'auto', overscrollBehavior: 'contain', paddingBottom: 'var(--bottom-nav-h)' }}>
             <ReservationsPanel
               tripId={tripId}
               reservations={reservations}
@@ -952,7 +958,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
 
         {activeTab === 'collab' && (
           <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-            <CollabPanel tripId={tripId} tripMembers={tripMembers} />
+            <CollabPanel tripId={tripId} tripMembers={tripMembers} collabFeatures={collabFeatures} />
           </div>
         )}
       </div>

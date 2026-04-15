@@ -50,6 +50,16 @@ function buildAssignmentLookup(days, assignments) {
   return map
 }
 
+/* ── Shared field label style ── */
+const fieldLabelStyle: React.CSSProperties = {
+  fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em',
+  color: 'var(--text-faint)', marginBottom: 5,
+}
+const fieldValueStyle: React.CSSProperties = {
+  fontSize: 13, fontWeight: 500, color: 'var(--text-primary)',
+  padding: '8px 10px', background: 'var(--bg-tertiary)', borderRadius: 10,
+}
+
 interface ReservationCardProps {
   r: Reservation
   tripId: number
@@ -84,184 +94,214 @@ function ReservationCard({ r, tripId, onEdit, onDelete, files = [], onNavigateTo
     try { await onDelete(r.id) } catch { toast.error(t('reservations.toast.deleteError')) }
   }
 
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
   const fmtDate = (str) => {
     const dateOnly = str.includes('T') ? str.split('T')[0] : str
-    return new Date(dateOnly + 'T00:00:00Z').toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+    return new Date(dateOnly + 'T00:00:00Z').toLocaleDateString(locale, { ...(isMobile ? {} : { weekday: 'short' }), day: 'numeric', month: 'short', timeZone: 'UTC' })
   }
   const fmtTime = (str) => {
     const d = new Date(str)
     return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: timeFormat === '12h' })
   }
 
+  const hasDate = !!r.reservation_time
+  const hasTime = r.reservation_time?.includes('T')
+  const hasCode = !!r.confirmation_number
+  const dateCols = [hasDate, hasTime, hasCode].filter(Boolean).length
+
   return (
-    <div style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid ${confirmed ? 'rgba(22,163,74,0.2)' : 'rgba(217,119,6,0.2)'}` }}>
-      {/* Header bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: confirmed ? 'rgba(22,163,74,0.06)' : 'rgba(217,119,6,0.06)' }}>
-        <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: confirmed ? '#16a34a' : '#d97706' }} />
-        {canEdit ? (
-          <button onClick={handleToggle} style={{ fontSize: 10, fontWeight: 700, color: confirmed ? '#16a34a' : '#d97706', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
-            {confirmed ? t('reservations.confirmed') : t('reservations.pending')}
-          </button>
-        ) : (
-          <span style={{ fontSize: 10, fontWeight: 700, color: confirmed ? '#16a34a' : '#d97706', padding: 0 }}>
+    <div style={{
+      borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column',
+      border: `1px solid ${confirmed ? 'rgba(22,163,74,0.25)' : 'rgba(217,119,6,0.25)'}`,
+      background: 'var(--bg-card)',
+      transition: 'box-shadow 0.15s ease',
+    }}
+      onMouseEnter={e => e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)'}
+      onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+    >
+      {/* Header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+        padding: '12px 14px',
+        background: confirmed ? 'rgba(22,163,74,0.06)' : 'rgba(217,119,6,0.06)',
+      }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 12, fontWeight: 600, color: confirmed ? '#16a34a' : '#d97706',
+          }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: confirmed ? '#16a34a' : '#d97706' }} />
             {confirmed ? t('reservations.confirmed') : t('reservations.pending')}
           </span>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            fontSize: 12, color: 'var(--text-muted)',
+            padding: '3px 8px', borderRadius: 6,
+            background: 'var(--bg-secondary)',
+          }}>
+            <TypeIcon size={12} style={{ color: typeInfo.color }} />
+            {t(typeInfo.labelKey)}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <span style={{
+            fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginRight: 6,
+            maxWidth: 140, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>{r.title}</span>
+          {canEdit && (
+            <button onClick={() => onEdit(r)} title={t('common.edit')} style={{
+              appearance: 'none', border: 'none', background: 'transparent',
+              width: 26, height: 26, borderRadius: 6, display: 'grid', placeItems: 'center',
+              cursor: 'pointer', color: 'var(--text-faint)', flexShrink: 0,
+            }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.05)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-faint)' }}>
+              <Pencil size={13} />
+            </button>
+          )}
+          {canEdit && (
+            <button onClick={() => setShowDeleteConfirm(true)} title={t('common.delete')} style={{
+              appearance: 'none', border: 'none', background: 'transparent',
+              width: 26, height: 26, borderRadius: 6, display: 'grid', placeItems: 'center',
+              cursor: 'pointer', color: 'var(--text-faint)', flexShrink: 0,
+            }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#ef4444' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-faint)' }}>
+              <Trash2 size={13} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Body */}
+      <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+        {/* Date / Time row */}
+        {hasDate && (
+          <div style={{ display: 'grid', gap: 10, gridTemplateColumns: hasTime ? '1fr 1fr' : '1fr' }}>
+            <div>
+              <div style={fieldLabelStyle}>{t('reservations.date')}</div>
+              <div style={{ ...fieldValueStyle, textAlign: 'center' }}>
+                {fmtDate(r.reservation_time)}
+                {r.reservation_end_time && (r.reservation_end_time.includes('T') ? r.reservation_end_time.split('T')[0] : r.reservation_end_time) !== r.reservation_time.split('T')[0] && (
+                  <> – {fmtDate(r.reservation_end_time)}</>
+                )}
+              </div>
+            </div>
+            {hasTime && (
+              <div>
+                <div style={fieldLabelStyle}>{t('reservations.time')}</div>
+                <div style={{ ...fieldValueStyle, textAlign: 'center' }}>
+                  {fmtTime(r.reservation_time)}{r.reservation_end_time ? ` – ${r.reservation_end_time.includes('T') ? fmtTime(r.reservation_end_time) : fmtTime(r.reservation_time.split('T')[0] + 'T' + r.reservation_end_time)}` : ''}
+                </div>
+              </div>
+            )}
+          </div>
         )}
-        <div style={{ width: 1, height: 10, background: 'var(--border-faint)' }} />
-        <TypeIcon size={11} style={{ color: typeInfo.color, flexShrink: 0 }} />
-        <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{t(typeInfo.labelKey)}</span>
-        <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
-        {canEdit && (
-          <button onClick={() => onEdit(r)} title={t('common.edit')} style={{ padding: 3, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', display: 'flex', flexShrink: 0 }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-faint)'}>
-            <Pencil size={11} />
-          </button>
+        {/* Booking code */}
+        {hasCode && (
+          <div>
+            <div style={fieldLabelStyle}>{t('reservations.confirmationCode')}</div>
+            <div
+              onMouseEnter={() => blurCodes && setCodeRevealed(true)}
+              onMouseLeave={() => blurCodes && setCodeRevealed(false)}
+              onClick={() => blurCodes && setCodeRevealed(v => !v)}
+              style={{
+                ...fieldValueStyle, textAlign: 'center',
+                fontFamily: '"SF Mono", "JetBrains Mono", Menlo, monospace', fontSize: 12.5,
+                filter: blurCodes && !codeRevealed ? 'blur(5px)' : 'none',
+                cursor: blurCodes ? 'pointer' : 'default',
+                transition: 'filter 0.2s',
+              }}
+            >
+              {r.confirmation_number}
+            </div>
+          </div>
         )}
-        {canEdit && (
-          <button onClick={() => setShowDeleteConfirm(true)} title={t('common.delete')} style={{ padding: 3, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', display: 'flex', flexShrink: 0 }}
-            onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-faint)'}>
-            <Trash2 size={11} />
-          </button>
+
+        {/* Type-specific metadata */}
+        {(() => {
+          const meta = typeof r.metadata === 'string' ? JSON.parse(r.metadata || '{}') : (r.metadata || {})
+          if (!meta || Object.keys(meta).length === 0) return null
+          const cells: { label: string; value: string }[] = []
+          if (meta.airline) cells.push({ label: t('reservations.meta.airline'), value: meta.airline })
+          if (meta.flight_number) cells.push({ label: t('reservations.meta.flightNumber'), value: meta.flight_number })
+          if (meta.departure_airport) cells.push({ label: t('reservations.meta.from'), value: meta.departure_airport })
+          if (meta.arrival_airport) cells.push({ label: t('reservations.meta.to'), value: meta.arrival_airport })
+          if (meta.train_number) cells.push({ label: t('reservations.meta.trainNumber'), value: meta.train_number })
+          if (meta.platform) cells.push({ label: t('reservations.meta.platform'), value: meta.platform })
+          if (meta.seat) cells.push({ label: t('reservations.meta.seat'), value: meta.seat })
+          if (meta.check_in_time) cells.push({ label: t('reservations.meta.checkIn'), value: fmtTime('2000-01-01T' + meta.check_in_time) + (meta.check_in_end_time ? ` – ${fmtTime('2000-01-01T' + meta.check_in_end_time)}` : '') })
+          if (meta.check_out_time) cells.push({ label: t('reservations.meta.checkOut'), value: fmtTime('2000-01-01T' + meta.check_out_time) })
+          if (cells.length === 0) return null
+          return (
+            <div style={{ display: 'grid', gap: 10, gridTemplateColumns: cells.length > 1 ? `repeat(${Math.min(cells.length, 3)}, 1fr)` : '1fr' }}>
+              {cells.map((c, i) => (
+                <div key={i}>
+                  <div style={fieldLabelStyle}>{c.label}</div>
+                  <div style={{ ...fieldValueStyle, textAlign: 'center' }}>{c.value}</div>
+                </div>
+              ))}
+            </div>
+          )
+        })()}
+
+        {/* Location / Accommodation / Assignment */}
+        {r.location && (
+          <div>
+            <div style={fieldLabelStyle}>{t('reservations.locationAddress')}</div>
+            <div style={{ ...fieldValueStyle, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 400 }}>
+              <MapPin size={13} style={{ color: 'var(--text-faint)', flexShrink: 0 }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.location}</span>
+            </div>
+          </div>
+        )}
+        {r.accommodation_name && (
+          <div>
+            <div style={fieldLabelStyle}>{t('reservations.meta.linkAccommodation')}</div>
+            <div style={{ ...fieldValueStyle, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 400 }}>
+              <Hotel size={13} style={{ color: 'var(--text-faint)', flexShrink: 0 }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.accommodation_name}</span>
+            </div>
+          </div>
+        )}
+        {linked && (
+          <div>
+            <div style={fieldLabelStyle}>{t('reservations.linkAssignment')}</div>
+            <div style={{ ...fieldValueStyle, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 400 }}>
+              <Link2 size={13} style={{ color: 'var(--text-faint)', flexShrink: 0 }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {linked.dayTitle || t('dayplan.dayN', { n: linked.dayNumber })} — {linked.placeName}
+                {linked.startTime ? ` · ${linked.startTime}${linked.endTime ? ' – ' + linked.endTime : ''}` : ''}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Notes */}
+        {r.notes && (
+          <div>
+            <div style={fieldLabelStyle}>{t('reservations.notes')}</div>
+            <div style={{ ...fieldValueStyle, fontWeight: 400, lineHeight: 1.5 }}>{r.notes}</div>
+          </div>
+        )}
+
+        {/* Files */}
+        {attachedFiles.length > 0 && (
+          <div>
+            <div style={fieldLabelStyle}>{t('files.title')}</div>
+            <div style={{ ...fieldValueStyle, display: 'flex', flexDirection: 'column', gap: 4, padding: '6px 10px' }}>
+              {attachedFiles.map(f => (
+                <a key={f.id} href="#" onClick={(e) => { e.preventDefault(); openFile(f.url).catch(() => {}) }} style={{ display: 'flex', alignItems: 'center', gap: 5, textDecoration: 'none', cursor: 'pointer' }}>
+                  <FileText size={11} style={{ color: 'var(--text-faint)', flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.original_name}</span>
+                </a>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Details */}
-      {(r.reservation_time || r.confirmation_number || r.location || linked || r.metadata) && (
-        <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {/* Row 1: Date, Time, Code */}
-          {(r.reservation_time || r.confirmation_number) && (
-            <div style={{ display: 'flex', gap: 0, borderRadius: 8, overflow: 'hidden', background: 'var(--bg-secondary)', boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
-              {r.reservation_time && (
-                <div style={{ flex: 1, padding: '5px 10px', textAlign: 'center', borderRight: '1px solid var(--border-faint)' }}>
-                  <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{t('reservations.date')}</div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)', marginTop: 1 }}>
-                    {fmtDate(r.reservation_time)}
-                    {r.reservation_end_time && (r.reservation_end_time.includes('T') ? r.reservation_end_time.split('T')[0] : r.reservation_end_time) !== r.reservation_time.split('T')[0] && (
-                      <> – {fmtDate(r.reservation_end_time)}</>
-                    )}
-                  </div>
-                </div>
-              )}
-              {r.reservation_time?.includes('T') && (
-                <div style={{ flex: 1, padding: '5px 10px', textAlign: 'center', borderRight: '1px solid var(--border-faint)' }}>
-                  <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{t('reservations.time')}</div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)', marginTop: 1 }}>
-                    {fmtTime(r.reservation_time)}{r.reservation_end_time ? ` – ${r.reservation_end_time.includes('T') ? fmtTime(r.reservation_end_time) : fmtTime(r.reservation_time.split('T')[0] + 'T' + r.reservation_end_time)}` : ''}
-                  </div>
-                </div>
-              )}
-              {r.confirmation_number && (
-                <div style={{ flex: 1, padding: '5px 10px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{t('reservations.confirmationCode')}</div>
-                  <div
-                    onMouseEnter={() => blurCodes && setCodeRevealed(true)}
-                    onMouseLeave={() => blurCodes && setCodeRevealed(false)}
-                    onClick={() => blurCodes && setCodeRevealed(v => !v)}
-                    style={{
-                      fontSize: 11, fontWeight: 600, color: 'var(--text-primary)', marginTop: 1,
-                      filter: blurCodes && !codeRevealed ? 'blur(5px)' : 'none',
-                      cursor: blurCodes ? 'pointer' : 'default',
-                      transition: 'filter 0.2s',
-                    }}
-                  >
-                    {r.confirmation_number}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          {/* Row 1b: Type-specific metadata */}
-          {(() => {
-            const meta = typeof r.metadata === 'string' ? JSON.parse(r.metadata || '{}') : (r.metadata || {})
-            if (!meta || Object.keys(meta).length === 0) return null
-            const cells: { label: string; value: string }[] = []
-            if (meta.airline) cells.push({ label: t('reservations.meta.airline'), value: meta.airline })
-            if (meta.flight_number) cells.push({ label: t('reservations.meta.flightNumber'), value: meta.flight_number })
-            if (meta.departure_airport) cells.push({ label: t('reservations.meta.from'), value: meta.departure_airport })
-            if (meta.arrival_airport) cells.push({ label: t('reservations.meta.to'), value: meta.arrival_airport })
-            if (meta.train_number) cells.push({ label: t('reservations.meta.trainNumber'), value: meta.train_number })
-            if (meta.platform) cells.push({ label: t('reservations.meta.platform'), value: meta.platform })
-            if (meta.seat) cells.push({ label: t('reservations.meta.seat'), value: meta.seat })
-            if (meta.check_in_time) cells.push({ label: t('reservations.meta.checkIn'), value: fmtTime('2000-01-01T' + meta.check_in_time) })
-            if (meta.check_out_time) cells.push({ label: t('reservations.meta.checkOut'), value: fmtTime('2000-01-01T' + meta.check_out_time) })
-            if (cells.length === 0) return null
-            return (
-              <div style={{ display: 'flex', gap: 0, borderRadius: 8, overflow: 'hidden', background: 'var(--bg-secondary)', boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
-                {cells.map((c, i) => (
-                  <div key={i} style={{ flex: 1, padding: '5px 10px', textAlign: 'center', borderRight: i < cells.length - 1 ? '1px solid var(--border-faint)' : 'none' }}>
-                    <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{c.label}</div>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)', marginTop: 1 }}>{c.value}</div>
-                  </div>
-                ))}
-              </div>
-            )
-          })()}
-          {/* Row 2: Location + Assignment */}
-          {(r.location || linked || r.accommodation_name) && (
-            <div className={`grid grid-cols-1 ${r.location && linked ? 'sm:grid-cols-2' : ''} gap-2`} style={{ paddingTop: 6, borderTop: '1px solid var(--border-faint)' }}>
-              {r.location && (
-                <div>
-                  <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 3 }}>{t('reservations.locationAddress')}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 7, background: 'var(--bg-secondary)', fontSize: 11, color: 'var(--text-muted)' }}>
-                    <MapPin size={10} style={{ color: 'var(--text-faint)', flexShrink: 0 }} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.location}</span>
-                  </div>
-                </div>
-              )}
-              {r.accommodation_name && (
-                <div>
-                  <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 3 }}>{t('reservations.meta.linkAccommodation')}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 7, background: 'var(--bg-secondary)', fontSize: 11, color: 'var(--text-muted)' }}>
-                    <Hotel size={10} style={{ color: 'var(--text-faint)', flexShrink: 0 }} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.accommodation_name}</span>
-                  </div>
-                </div>
-              )}
-              {linked && (
-                <div>
-                  <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 3 }}>{t('reservations.linkAssignment')}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 7, background: 'var(--bg-secondary)', fontSize: 11, color: 'var(--text-muted)' }}>
-                    <Link2 size={10} style={{ color: 'var(--text-faint)', flexShrink: 0 }} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {linked.dayTitle || t('dayplan.dayN', { n: linked.dayNumber })} — {linked.placeName}
-                      {linked.startTime ? ` · ${linked.startTime}${linked.endTime ? ' – ' + linked.endTime : ''}` : ''}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Notes */}
-      {r.notes && (
-        <div style={{ padding: '0 12px 8px' }}>
-          <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 3 }}>{t('reservations.notes')}</div>
-          <div style={{ padding: '5px 8px', borderRadius: 7, background: 'var(--bg-secondary)', fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            {r.notes}
-          </div>
-        </div>
-      )}
-
-      {/* Files */}
-      {attachedFiles.length > 0 && (
-        <div style={{ padding: '0 12px 8px' }}>
-          <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 3 }}>{t('files.title')}</div>
-          <div style={{ padding: '4px 8px', borderRadius: 7, background: 'var(--bg-secondary)', display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {attachedFiles.map(f => (
-              <a key={f.id} href="#" onClick={(e) => { e.preventDefault(); openFile(f.url).catch(() => {}) }} style={{ display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', cursor: 'pointer' }}>
-                <FileText size={9} style={{ color: 'var(--text-faint)', flexShrink: 0 }} />
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.original_name}</span>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-      {/* Delete confirmation popup */}
+      {/* Delete confirmation */}
       {showDeleteConfirm && ReactDOM.createPortal(
         <div style={{
           position: 'fixed', inset: 0, zIndex: 1000,
@@ -316,20 +356,25 @@ interface SectionProps {
 function Section({ title, count, children, defaultOpen = true, accent }: SectionProps) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div style={{ marginBottom: 28 }}>
       <button onClick={() => setOpen(o => !o)} style={{
         display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-        background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', marginBottom: 8, fontFamily: 'inherit',
+        background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', marginBottom: 12, fontFamily: 'inherit',
+        userSelect: 'none',
       }}>
         {open ? <ChevronDown size={14} style={{ color: 'var(--text-faint)' }} /> : <ChevronRight size={14} style={{ color: 'var(--text-faint)' }} />}
-        <span style={{ fontWeight: 700, fontSize: 12, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{title}</span>
+        <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{title}</span>
         <span style={{
-          fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 99,
-          background: accent === 'green' ? 'rgba(22,163,74,0.1)' : 'var(--bg-tertiary)',
-          color: accent === 'green' ? '#16a34a' : 'var(--text-faint)',
+          fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 99,
+          background: 'var(--bg-tertiary)', color: 'var(--text-faint)',
+          minWidth: 20, textAlign: 'center',
         }}>{count}</span>
       </button>
-      {open && <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>}
+      {open && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(max(33.33% - 14px, 340px), 1fr))', gap: 14, alignItems: 'stretch' }}>
+          {children}
+        </div>
+      )}
     </div>
   )
 }
@@ -353,55 +398,152 @@ export default function ReservationsPanel({ tripId, reservations, days, assignme
   const canEdit = can('reservation_edit', trip)
   const [showHint, setShowHint] = useState(() => !localStorage.getItem('hideReservationHint'))
 
+  const storageKey = `trek-reservation-filters-${tripId}`
+  const [typeFilters, setTypeFilters] = useState<Set<string>>(() => {
+    try {
+      const saved = sessionStorage.getItem(storageKey)
+      return saved ? new Set(JSON.parse(saved)) : new Set()
+    } catch { return new Set() }
+  })
+
+  const toggleTypeFilter = (type: string) => {
+    setTypeFilters(prev => {
+      const next = new Set(prev)
+      if (next.has(type)) next.delete(type); else next.add(type)
+      sessionStorage.setItem(storageKey, JSON.stringify([...next]))
+      return next
+    })
+  }
+
   const assignmentLookup = useMemo(() => buildAssignmentLookup(days, assignments), [days, assignments])
 
-  const allPending = reservations.filter(r => r.status !== 'confirmed')
-  const allConfirmed = reservations.filter(r => r.status === 'confirmed')
-  const total = reservations.length
+  const filtered = useMemo(() =>
+    typeFilters.size === 0 ? reservations : reservations.filter(r => typeFilters.has(r.type)),
+  [reservations, typeFilters])
+
+  const allPending = filtered.filter(r => r.status !== 'confirmed')
+  const allConfirmed = filtered.filter(r => r.status === 'confirmed')
+  const total = filtered.length
+
+  const usedTypes = useMemo(() => new Set(reservations.map(r => r.type)), [reservations])
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const r of reservations) counts[r.type] = (counts[r.type] || 0) + 1
+    return counts
+  }, [reservations])
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif" }}>
-      {/* Header */}
-      <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border-faint)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>{t('reservations.title')}</h2>
-          <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-faint)' }}>
-            {total === 0 ? t('reservations.empty') : t('reservations.summary', { confirmed: allConfirmed.length, pending: allPending.length })}
-          </p>
+      {/* Unified toolbar */}
+      <div style={{ padding: '24px 28px 0' }} className="max-md:!px-4 max-md:!pt-4">
+        <div style={{
+          background: 'var(--bg-tertiary)', borderRadius: 18,
+          padding: '14px 16px 14px 22px',
+          display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+        }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.01em', flexShrink: 0 }}>
+            {t('reservations.title')}
+          </h2>
+
+          {reservations.length > 0 && (
+            <>
+              <div className="hidden md:block" style={{ width: 1, height: 22, background: 'var(--border-faint)', flexShrink: 0 }} />
+              <div className="hidden md:inline-flex" style={{ gap: 4, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
+                <button
+                  onClick={() => { setTypeFilters(new Set()); sessionStorage.removeItem(storageKey) }}
+                  style={{
+                    appearance: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '6px 12px', borderRadius: 99, fontSize: 13, whiteSpace: 'nowrap',
+                    background: typeFilters.size === 0 ? 'var(--bg-card)' : 'transparent',
+                    color: typeFilters.size === 0 ? 'var(--text-primary)' : 'var(--text-muted)',
+                    fontWeight: typeFilters.size === 0 ? 500 : 400,
+                    boxShadow: typeFilters.size === 0 ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {t('common.all')}
+                  <span style={{
+                    fontSize: 10, fontWeight: 600,
+                    background: typeFilters.size === 0 ? 'var(--bg-tertiary)' : 'rgba(0,0,0,0.06)',
+                    color: 'var(--text-faint)',
+                    padding: '1px 6px', borderRadius: 99, minWidth: 16, textAlign: 'center',
+                  }}>{reservations.length}</span>
+                </button>
+                {TYPE_OPTIONS.filter(opt => usedTypes.has(opt.value)).map(opt => {
+                  const active = typeFilters.has(opt.value)
+                  const Icon = opt.Icon
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => toggleTypeFilter(opt.value)}
+                      style={{
+                        appearance: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '6px 12px', borderRadius: 99, fontSize: 13, whiteSpace: 'nowrap',
+                        background: active ? 'var(--bg-card)' : 'transparent',
+                        color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+                        fontWeight: active ? 500 : 400,
+                        boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <Icon size={13} style={{ color: active ? opt.color : 'var(--text-faint)' }} />
+                      {t(opt.labelKey)}
+                      <span style={{
+                        fontSize: 10, fontWeight: 600,
+                        background: active ? 'var(--bg-tertiary)' : 'rgba(0,0,0,0.06)',
+                        color: 'var(--text-faint)',
+                        padding: '1px 6px', borderRadius: 99, minWidth: 16, textAlign: 'center',
+                      }}>{typeCounts[opt.value] || 0}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
+
+          {canEdit && (
+            <button onClick={onAdd} style={{
+              appearance: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '9px 14px', borderRadius: 10, fontSize: 13, fontWeight: 500,
+              background: 'var(--accent)', color: 'var(--accent-text)', flexShrink: 0,
+              marginLeft: 'auto',
+              transition: 'opacity 0.15s ease',
+            }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+            >
+              <Plus size={14} strokeWidth={2.5} />
+              <span className="hidden sm:inline">{t('reservations.addManual')}</span>
+            </button>
+          )}
         </div>
-        {canEdit && (
-          <button onClick={onAdd} style={{
-            display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 99,
-            border: 'none', background: 'var(--accent)', color: 'var(--accent-text)',
-            fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-          }}>
-            <Plus size={13} /> <span className="hidden sm:inline">{t('reservations.addManual')}</span>
-          </button>
-        )}
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
-        {total === 0 ? (
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px 80px' }} className="max-md:!px-4 max-md:!pt-4">
+        {total === 0 && reservations.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
             <BookMarked size={36} style={{ color: 'var(--text-faint)', display: 'block', margin: '0 auto 12px' }} />
             <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 4px' }}>{t('reservations.empty')}</p>
             <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: 0 }}>{t('reservations.emptyHint')}</p>
           </div>
+        ) : total === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+            <p style={{ fontSize: 13, color: 'var(--text-faint)' }}>{t('places.noneFound')}</p>
+          </div>
         ) : (
           <>
             {allPending.length > 0 && (
               <Section title={t('reservations.pending')} count={allPending.length} accent="gray">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  {allPending.map(r => <ReservationCard key={r.id} r={r} tripId={tripId} onEdit={onEdit} onDelete={onDelete} files={files} onNavigateToFiles={onNavigateToFiles} assignmentLookup={assignmentLookup} canEdit={canEdit} />)}
-                </div>
+                {allPending.map(r => <ReservationCard key={r.id} r={r} tripId={tripId} onEdit={onEdit} onDelete={onDelete} files={files} onNavigateToFiles={onNavigateToFiles} assignmentLookup={assignmentLookup} canEdit={canEdit} />)}
               </Section>
             )}
             {allConfirmed.length > 0 && (
               <Section title={t('reservations.confirmed')} count={allConfirmed.length} accent="green">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  {allConfirmed.map(r => <ReservationCard key={r.id} r={r} tripId={tripId} onEdit={onEdit} onDelete={onDelete} files={files} onNavigateToFiles={onNavigateToFiles} assignmentLookup={assignmentLookup} canEdit={canEdit} />)}
-                </div>
+                {allConfirmed.map(r => <ReservationCard key={r.id} r={r} tripId={tripId} onEdit={onEdit} onDelete={onDelete} files={files} onNavigateToFiles={onNavigateToFiles} assignmentLookup={assignmentLookup} canEdit={canEdit} />)}
               </Section>
             )}
           </>

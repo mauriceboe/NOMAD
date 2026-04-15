@@ -134,7 +134,8 @@ describe('ReservationModal', () => {
   it('FE-PLANNER-RESMODAL-008: hotel type shows check-in/check-out time fields', async () => {
     render(<ReservationModal {...defaultProps} />);
     await userEvent.click(screen.getByRole('button', { name: /Accommodation/i }));
-    expect(screen.getByText(/Check-in/i)).toBeInTheDocument();
+    const checkInLabels = screen.getAllByText(/Check-in/i);
+    expect(checkInLabels.length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Check-out/i)).toBeInTheDocument();
   });
 

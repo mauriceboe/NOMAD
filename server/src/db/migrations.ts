@@ -1605,6 +1605,16 @@ function runMigrations(db: Database.Database): void {
         CREATE INDEX IF NOT EXISTS idx_idempotency_keys_created ON idempotency_keys(created_at);
       `);
     },
+
+    // Migration 101: Enable naver_list_import by default
+    () => {
+      db.prepare("UPDATE addons SET enabled = 1 WHERE id = 'naver_list_import'").run();
+    },
+
+    // Migration 102: Add check_in_end column for check-in time ranges
+    () => {
+      try { db.exec('ALTER TABLE day_accommodations ADD COLUMN check_in_end TEXT'); } catch (err: any) { if (!err.message?.includes('duplicate column name')) throw err; }
+    },
   ];
 
   if (currentVersion < migrations.length) {

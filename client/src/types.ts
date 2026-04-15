@@ -241,6 +241,7 @@ export interface Accommodation {
   name: string
   address: string | null
   check_in: string | null
+  check_in_end: string | null
   check_out: string | null
   confirmation_number: string | null
   notes: string | null

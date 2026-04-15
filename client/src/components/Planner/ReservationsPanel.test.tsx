@@ -91,12 +91,12 @@ describe('ReservationsPanel', () => {
     expect(els.length).toBeGreaterThan(0);
   });
 
-  it('FE-COMP-RES-010: shows summary text with confirmed and pending counts', () => {
-    const r1 = buildReservation({ title: 'Flight', type: 'flight', status: 'confirmed' });
-    const r2 = buildReservation({ title: 'Hotel', type: 'hotel', status: 'pending' });
+  it('FE-COMP-RES-010: shows reservations title and cards', () => {
+    const r1 = buildReservation({ title: 'My Flight Booking', type: 'flight', status: 'confirmed' });
+    const r2 = buildReservation({ title: 'Grand Hotel', type: 'hotel', status: 'pending' });
     render(<ReservationsPanel {...defaultProps} reservations={[r1, r2]} />);
-    // reservations.summary = "{confirmed} confirmed, {pending} pending"
-    expect(screen.getByText(/1 confirmed, 1 pending/i)).toBeInTheDocument();
+    expect(screen.getByText('My Flight Booking')).toBeInTheDocument();
+    expect(screen.getByText('Grand Hotel')).toBeInTheDocument();
   });
 
   it('FE-COMP-RES-011: hotel reservation renders', () => {
@@ -288,27 +288,14 @@ describe('ReservationsPanel', () => {
 
   // ── Status toggle (canEdit=true) ────────────────────────────────────────────
 
-  it('FE-PLANNER-RESP-030: status label is a button when canEdit=true', () => {
-    // Default: permissions empty → canEdit=true
+  it('FE-PLANNER-RESP-030: status label is always a span (not clickable)', () => {
     const res = buildReservation({ title: 'My Booking', status: 'pending' });
     render(<ReservationsPanel {...defaultProps} reservations={[res]} />);
-    // Status badge in card header is a button
     const pendingEls = screen.getAllByText('Pending');
+    const statusSpan = pendingEls.find(el => el.tagName === 'SPAN');
+    expect(statusSpan).toBeDefined();
     const statusBtn = pendingEls.find(el => el.tagName === 'BUTTON');
-    expect(statusBtn).toBeDefined();
-  });
-
-  it('FE-PLANNER-RESP-031: clicking status button calls toggleReservationStatus', async () => {
-    const user = userEvent.setup();
-    const toggleReservationStatus = vi.fn().mockResolvedValue(undefined);
-    // Seed the store with a mock toggleReservationStatus function
-    useTripStore.setState({ toggleReservationStatus } as any);
-    const res = buildReservation({ id: 42, title: 'Toggle Me', status: 'pending' });
-    render(<ReservationsPanel {...defaultProps} tripId={1} reservations={[res]} />);
-    const pendingEls = screen.getAllByText('Pending');
-    const statusBtn = pendingEls.find(el => el.tagName === 'BUTTON');
-    await user.click(statusBtn!);
-    await waitFor(() => expect(toggleReservationStatus).toHaveBeenCalledWith(1, 42));
+    expect(statusBtn).toBeUndefined();
   });
 
   // ── Status (canEdit=false) ──────────────────────────────────────────────────

@@ -170,6 +170,7 @@ export interface DayAccommodation {
   start_day_id: number;
   end_day_id: number;
   check_in: string | null;
+  check_in_end: string | null;
   check_out: string | null;
   confirmation: string | null;
   notes: string | null;
@@ -220,17 +221,18 @@ interface CreateAccommodationData {
   start_day_id: number;
   end_day_id: number;
   check_in?: string;
+  check_in_end?: string;
   check_out?: string;
   confirmation?: string;
   notes?: string;
 }
 
 export function createAccommodation(tripId: string | number, data: CreateAccommodationData) {
-  const { place_id, start_day_id, end_day_id, check_in, check_out, confirmation, notes } = data;
+  const { place_id, start_day_id, end_day_id, check_in, check_in_end, check_out, confirmation, notes } = data;
 
   const result = db.prepare(
-    'INSERT INTO day_accommodations (trip_id, place_id, start_day_id, end_day_id, check_in, check_out, confirmation, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  ).run(tripId, place_id, start_day_id, end_day_id, check_in || null, check_out || null, confirmation || null, notes || null);
+    'INSERT INTO day_accommodations (trip_id, place_id, start_day_id, end_day_id, check_in, check_in_end, check_out, confirmation, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(tripId, place_id, start_day_id, end_day_id, check_in || null, check_in_end || null, check_out || null, confirmation || null, notes || null);
 
   const accommodationId = result.lastInsertRowid;
 
@@ -239,6 +241,7 @@ export function createAccommodation(tripId: string | number, data: CreateAccommo
   const startDayDate = (db.prepare('SELECT date FROM days WHERE id = ?').get(start_day_id) as { date: string } | undefined)?.date || null;
   const meta: Record<string, string> = {};
   if (check_in) meta.check_in_time = check_in;
+  if (check_in_end) meta.check_in_end_time = check_in_end;
   if (check_out) meta.check_out_time = check_out;
   db.prepare(`
     INSERT INTO reservations (trip_id, day_id, title, reservation_time, location, confirmation_number, notes, status, type, accommodation_id, metadata)
@@ -258,25 +261,27 @@ export function getAccommodation(id: string | number, tripId: string | number) {
 
 export function updateAccommodation(id: string | number, existing: DayAccommodation, fields: {
   place_id?: number; start_day_id?: number; end_day_id?: number;
-  check_in?: string; check_out?: string; confirmation?: string; notes?: string;
+  check_in?: string; check_in_end?: string; check_out?: string; confirmation?: string; notes?: string;
 }) {
   const newPlaceId = fields.place_id !== undefined ? fields.place_id : existing.place_id;
   const newStartDayId = fields.start_day_id !== undefined ? fields.start_day_id : existing.start_day_id;
   const newEndDayId = fields.end_day_id !== undefined ? fields.end_day_id : existing.end_day_id;
   const newCheckIn = fields.check_in !== undefined ? fields.check_in : existing.check_in;
+  const newCheckInEnd = fields.check_in_end !== undefined ? fields.check_in_end : existing.check_in_end;
   const newCheckOut = fields.check_out !== undefined ? fields.check_out : existing.check_out;
   const newConfirmation = fields.confirmation !== undefined ? fields.confirmation : existing.confirmation;
   const newNotes = fields.notes !== undefined ? fields.notes : existing.notes;
 
   db.prepare(
-    'UPDATE day_accommodations SET place_id = ?, start_day_id = ?, end_day_id = ?, check_in = ?, check_out = ?, confirmation = ?, notes = ? WHERE id = ?'
-  ).run(newPlaceId, newStartDayId, newEndDayId, newCheckIn, newCheckOut, newConfirmation, newNotes, id);
+    'UPDATE day_accommodations SET place_id = ?, start_day_id = ?, end_day_id = ?, check_in = ?, check_in_end = ?, check_out = ?, confirmation = ?, notes = ? WHERE id = ?'
+  ).run(newPlaceId, newStartDayId, newEndDayId, newCheckIn, newCheckInEnd, newCheckOut, newConfirmation, newNotes, id);
 
   // Sync check-in/out/confirmation to linked reservation
   const linkedRes = db.prepare('SELECT id, metadata FROM reservations WHERE accommodation_id = ?').get(Number(id)) as { id: number; metadata: string | null } | undefined;
   if (linkedRes) {
     const meta = linkedRes.metadata ? JSON.parse(linkedRes.metadata) : {};
     if (newCheckIn) meta.check_in_time = newCheckIn;
+    if (newCheckInEnd) meta.check_in_end_time = newCheckInEnd;
     if (newCheckOut) meta.check_out_time = newCheckOut;
     db.prepare('UPDATE reservations SET metadata = ?, confirmation_number = COALESCE(?, confirmation_number) WHERE id = ?')
       .run(JSON.stringify(meta), newConfirmation || null, linkedRes.id);

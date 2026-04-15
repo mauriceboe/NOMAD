@@ -473,14 +473,14 @@ describe('Google Maps list import', () => {
   it('FE-PLANNER-SIDEBAR-040: "Google List" button opens the URL dialog', async () => {
     const user = userEvent.setup();
     render(<PlacesSidebar {...defaultProps} />);
-    await user.click(screen.getByText(/Google List/i));
+    await user.click(screen.getByText(/List Import/i));
     expect(await screen.findByPlaceholderText(/maps\.app\.goo\.gl/i)).toBeInTheDocument();
   });
 
   it('FE-PLANNER-SIDEBAR-041: import button disabled when URL input is empty', async () => {
     const user = userEvent.setup();
     render(<PlacesSidebar {...defaultProps} />);
-    await user.click(screen.getByText(/Google List/i));
+    await user.click(screen.getByText(/List Import/i));
     await screen.findByPlaceholderText(/maps\.app\.goo\.gl/i);
     const importBtn = screen.getByRole('button', { name: /^Import$/i });
     expect(importBtn).toBeDisabled();
@@ -498,7 +498,7 @@ describe('Google Maps list import', () => {
     (window as any).__addToast = addToast;
     const user = userEvent.setup();
     render(<PlacesSidebar {...defaultProps} pushUndo={vi.fn()} />);
-    await user.click(screen.getByText(/Google List/i));
+    await user.click(screen.getByText(/List Import/i));
     const urlInput = await screen.findByPlaceholderText(/maps\.app\.goo\.gl/i);
     await user.type(urlInput, 'https://maps.app.goo.gl/abc123');
     await user.click(screen.getByRole('button', { name: /^Import$/i }));
@@ -527,7 +527,7 @@ describe('Google Maps list import', () => {
     (window as any).__addToast = addToast;
     const user = userEvent.setup();
     render(<PlacesSidebar {...defaultProps} pushUndo={vi.fn()} />);
-    await user.click(screen.getByText(/Google List/i));
+    await user.click(screen.getByText(/List Import/i));
     const urlInput = await screen.findByPlaceholderText(/maps\.app\.goo\.gl/i);
     await user.type(urlInput, 'https://maps.app.goo.gl/xyz{Enter}');
     await waitFor(() => {
