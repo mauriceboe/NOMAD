@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiClient, { adminApi, authApi, notificationsApi } from '../api/client'
 import DevNotificationsPanel from '../components/Admin/DevNotificationsPanel'
+import DefaultUserSettingsTab from '../components/Admin/DefaultUserSettingsTab'
 import { useAuthStore } from '../store/authStore'
 import { useSettingsStore } from '../store/settingsStore'
 import { useAddonStore } from '../store/addonStore'
@@ -169,6 +170,7 @@ export default function AdminPage(): React.ReactElement {
   const TABS = [
     { id: 'users', label: t('admin.tabs.users') },
     { id: 'config', label: t('admin.tabs.config') },
+    { id: 'defaults', label: t('admin.tabs.defaults') },
     { id: 'addons', label: t('admin.tabs.addons') },
     { id: 'settings', label: t('admin.tabs.settings') },
     { id: 'notifications', label: t('admin.tabs.notifications') },
@@ -1492,6 +1494,8 @@ export default function AdminPage(): React.ReactElement {
           {activeTab === 'mcp-tokens' && <AdminMcpTokensPanel />}
 
           {activeTab === 'github' && <GitHubPanel isPrerelease={updateInfo?.is_prerelease ?? false} />}
+
+          {activeTab === 'defaults' && <DefaultUserSettingsTab />}
 
           {activeTab === 'dev-notifications' && <DevNotificationsPanel />}
         </div>

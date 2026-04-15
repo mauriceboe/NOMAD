@@ -3,6 +3,7 @@ import { authenticate, adminOnly } from '../middleware/auth';
 import { AuthRequest } from '../types';
 import { writeAudit, getClientIp, logInfo } from '../services/auditLog';
 import * as svc from '../services/adminService';
+import { getAdminUserDefaults, setAdminUserDefaults } from '../services/settingsService';
 import { invalidateMcpSessions } from '../mcp';
 import { getPreferencesMatrix, setAdminPreferences } from '../services/notificationPreferencesService';
 
@@ -344,6 +345,31 @@ router.post('/rotate-jwt-secret', (req: Request, res: Response) => {
     ip: getClientIp(req),
   });
   res.json({ success: true });
+});
+
+// ── Default User Settings ──────────────────────────────────────────────────────
+
+router.get('/default-user-settings', (_req: Request, res: Response) => {
+  res.json(getAdminUserDefaults());
+});
+
+router.put('/default-user-settings', (req: Request, res: Response) => {
+  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+    return res.status(400).json({ error: 'Object body required' });
+  }
+  try {
+    setAdminUserDefaults(req.body);
+    const authReq = req as AuthRequest;
+    writeAudit({
+      userId: authReq.user.id,
+      action: 'admin.default_user_settings_update',
+      ip: getClientIp(req),
+      details: req.body,
+    });
+    res.json(getAdminUserDefaults());
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 // ── Dev-only: test notification endpoints ──────────────────────────────────────
