@@ -94,9 +94,10 @@ function ReservationCard({ r, tripId, onEdit, onDelete, files = [], onNavigateTo
     try { await onDelete(r.id) } catch { toast.error(t('reservations.toast.deleteError')) }
   }
 
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
   const fmtDate = (str) => {
     const dateOnly = str.includes('T') ? str.split('T')[0] : str
-    return new Date(dateOnly + 'T00:00:00Z').toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+    return new Date(dateOnly + 'T00:00:00Z').toLocaleDateString(locale, { ...(isMobile ? {} : { weekday: 'short' }), day: 'numeric', month: 'short', timeZone: 'UTC' })
   }
   const fmtTime = (str) => {
     const d = new Date(str)
@@ -174,20 +175,18 @@ function ReservationCard({ r, tripId, onEdit, onDelete, files = [], onNavigateTo
 
       {/* Body */}
       <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
-        {/* Date / Time / Code row */}
-        {(hasDate || hasCode) && (
-          <div style={{ display: 'grid', gap: 10, gridTemplateColumns: dateCols > 1 ? `repeat(${dateCols}, 1fr)` : '1fr' }}>
-            {hasDate && (
-              <div>
-                <div style={fieldLabelStyle}>{t('reservations.date')}</div>
-                <div style={{ ...fieldValueStyle, textAlign: 'center' }}>
-                  {fmtDate(r.reservation_time)}
-                  {r.reservation_end_time && (r.reservation_end_time.includes('T') ? r.reservation_end_time.split('T')[0] : r.reservation_end_time) !== r.reservation_time.split('T')[0] && (
-                    <> – {fmtDate(r.reservation_end_time)}</>
-                  )}
-                </div>
+        {/* Date / Time row */}
+        {hasDate && (
+          <div style={{ display: 'grid', gap: 10, gridTemplateColumns: hasTime ? '1fr 1fr' : '1fr' }}>
+            <div>
+              <div style={fieldLabelStyle}>{t('reservations.date')}</div>
+              <div style={{ ...fieldValueStyle, textAlign: 'center' }}>
+                {fmtDate(r.reservation_time)}
+                {r.reservation_end_time && (r.reservation_end_time.includes('T') ? r.reservation_end_time.split('T')[0] : r.reservation_end_time) !== r.reservation_time.split('T')[0] && (
+                  <> – {fmtDate(r.reservation_end_time)}</>
+                )}
               </div>
-            )}
+            </div>
             {hasTime && (
               <div>
                 <div style={fieldLabelStyle}>{t('reservations.time')}</div>
@@ -196,25 +195,26 @@ function ReservationCard({ r, tripId, onEdit, onDelete, files = [], onNavigateTo
                 </div>
               </div>
             )}
-            {hasCode && (
-              <div>
-                <div style={fieldLabelStyle}>{t('reservations.confirmationCode')}</div>
-                <div
-                  onMouseEnter={() => blurCodes && setCodeRevealed(true)}
-                  onMouseLeave={() => blurCodes && setCodeRevealed(false)}
-                  onClick={() => blurCodes && setCodeRevealed(v => !v)}
-                  style={{
-                    ...fieldValueStyle, textAlign: 'center',
-                    fontFamily: '"SF Mono", "JetBrains Mono", Menlo, monospace', fontSize: 12.5,
-                    filter: blurCodes && !codeRevealed ? 'blur(5px)' : 'none',
-                    cursor: blurCodes ? 'pointer' : 'default',
-                    transition: 'filter 0.2s',
-                  }}
-                >
-                  {r.confirmation_number}
-                </div>
-              </div>
-            )}
+          </div>
+        )}
+        {/* Booking code */}
+        {hasCode && (
+          <div>
+            <div style={fieldLabelStyle}>{t('reservations.confirmationCode')}</div>
+            <div
+              onMouseEnter={() => blurCodes && setCodeRevealed(true)}
+              onMouseLeave={() => blurCodes && setCodeRevealed(false)}
+              onClick={() => blurCodes && setCodeRevealed(v => !v)}
+              style={{
+                ...fieldValueStyle, textAlign: 'center',
+                fontFamily: '"SF Mono", "JetBrains Mono", Menlo, monospace', fontSize: 12.5,
+                filter: blurCodes && !codeRevealed ? 'blur(5px)' : 'none',
+                cursor: blurCodes ? 'pointer' : 'default',
+                transition: 'filter 0.2s',
+              }}
+            >
+              {r.confirmation_number}
+            </div>
           </div>
         )}
 
@@ -435,7 +435,7 @@ export default function ReservationsPanel({ tripId, reservations, days, assignme
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif" }}>
       {/* Unified toolbar */}
-      <div style={{ padding: '24px 28px 0' }}>
+      <div style={{ padding: '24px 28px 0' }} className="max-md:!px-4 max-md:!pt-4">
         <div style={{
           background: 'var(--bg-tertiary)', borderRadius: 18,
           padding: '14px 16px 14px 22px',
@@ -447,8 +447,8 @@ export default function ReservationsPanel({ tripId, reservations, days, assignme
 
           {reservations.length > 0 && (
             <>
-              <div style={{ width: 1, height: 22, background: 'var(--border-faint)', flexShrink: 0 }} />
-              <div style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
+              <div className="hidden md:block" style={{ width: 1, height: 22, background: 'var(--border-faint)', flexShrink: 0 }} />
+              <div className="hidden md:inline-flex" style={{ gap: 4, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
                 <button
                   onClick={() => { setTypeFilters(new Set()); sessionStorage.removeItem(storageKey) }}
                   style={{
@@ -509,6 +509,7 @@ export default function ReservationsPanel({ tripId, reservations, days, assignme
               display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: '9px 14px', borderRadius: 10, fontSize: 13, fontWeight: 500,
               background: 'var(--accent)', color: 'var(--accent-text)', flexShrink: 0,
+              marginLeft: 'auto',
               transition: 'opacity 0.15s ease',
             }}
               onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
@@ -522,7 +523,7 @@ export default function ReservationsPanel({ tripId, reservations, days, assignme
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px 80px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px 80px' }} className="max-md:!px-4 max-md:!pt-4">
         {total === 0 && reservations.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px' }}>
             <BookMarked size={36} style={{ color: 'var(--text-faint)', display: 'block', margin: '0 auto 12px' }} />
