@@ -42,6 +42,8 @@ export function handleServiceResult<T>(res: Response, result: ServiceResult<T>):
 export type Selection = {
     provider: string;
     asset_ids: string[];
+    cache_keys?: (string | null)[];
+    passphrase?: string | null;
 };
 
 export type StatusResult = {
@@ -64,7 +66,9 @@ export type AlbumsList = {
 
 export type Asset = {
     id: string;
+    cacheKey?: string | null;
     takenAt: string;
+    passphrase?: string | null;
 };
 
 export type AssetsList = {
@@ -96,6 +100,7 @@ export type AssetInfo = {
     fileName?: string | null;
 }
 
+export type AssetSize = 'thumbnail' | 'preview' | 'fullsize' | 'original';
 
 //for loading routes to settings page, and validating which services user has connected
 type PhotoProviderConfig = {
@@ -131,11 +136,11 @@ export function canAccessUserPhoto(requestingUserId: number, ownerUserId: number
             FROM journey_photos jp
             JOIN trek_photos tkp ON tkp.id = jp.photo_id
             JOIN journey_entries je ON je.id = jp.entry_id
-            WHERE tkp.asset_id = ?
+                        WHERE (tkp.asset_id = ? OR tkp.cache_key = ?)
               AND tkp.provider = ?
               AND tkp.owner_id = ?
             LIMIT 1
-        `).get(assetId, provider, ownerUserId) as { entry_id: number; journey_id: number } | undefined;
+                `).get(assetId, assetId, provider, ownerUserId) as { entry_id: number; journey_id: number } | undefined;
         if (!journeyPhoto) return false;
 
         const access = db.prepare(`
@@ -153,12 +158,12 @@ export function canAccessUserPhoto(requestingUserId: number, ownerUserId: number
     FROM trip_photos tp
     JOIN trek_photos tkp ON tkp.id = tp.photo_id
     WHERE tp.user_id = ?
-      AND tkp.asset_id = ?
+            AND (tkp.asset_id = ? OR tkp.cache_key = ?)
       AND tkp.provider = ?
       AND tp.trip_id = ?
       AND tp.shared = 1
     LIMIT 1
-    `).get(ownerUserId, assetId, provider, tripId);
+        `).get(ownerUserId, assetId, assetId, provider, tripId);
 
     if (!sharedAsset) {
         return false;
@@ -238,12 +243,13 @@ export async function pipeAsset(url: string, response: Response, headers?: Recor
     try {
         const resp = await safeFetch(url, { headers, signal: signal as any });
 
+        response.set('Cache-Control', 'public, max-age=86400');
         response.status(resp.status);
         if (resp.headers.get('content-type')) response.set('Content-Type', resp.headers.get('content-type') as string);
         if (resp.headers.get('cache-control')) response.set('Cache-Control', resp.headers.get('cache-control') as string);
         if (resp.headers.get('content-length')) response.set('Content-Length', resp.headers.get('content-length') as string);
         if (resp.headers.get('content-disposition')) response.set('Content-Disposition', resp.headers.get('content-disposition') as string);
-
+        
         if (!resp.body) {
             response.end();
         } else {

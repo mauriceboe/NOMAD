@@ -345,6 +345,8 @@ export interface TrekPhoto {
   id: number;
   provider: string;
   asset_id?: string | null;
+  cache_key?: string | null;
+  passphrase?: string | null;
   owner_id?: number | null;
   file_path?: string | null;
   thumbnail_path?: string | null;

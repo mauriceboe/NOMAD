@@ -77,8 +77,8 @@ export function validateShareTokenForAsset(token: string, assetId: string): { ow
     SELECT tkp.owner_id FROM journey_photos jp
     JOIN trek_photos tkp ON tkp.id = jp.photo_id
     JOIN journey_entries je ON jp.entry_id = je.id
-    WHERE tkp.asset_id = ? AND je.journey_id = ?
-  `).get(assetId, row.journey_id) as any;
+    WHERE (tkp.asset_id = ? OR tkp.cache_key = ?) AND je.journey_id = ?
+  `).get(assetId, assetId, row.journey_id) as any;
   if (!photo) {
     const journey = db.prepare('SELECT user_id FROM journeys WHERE id = ?').get(row.journey_id) as any;
     return journey ? { ownerId: journey.user_id } : null;
@@ -102,7 +102,7 @@ export function getPublicJourney(token: string) {
 
   const photos = db.prepare(`
     SELECT jp.id, jp.entry_id, jp.photo_id, jp.caption, jp.sort_order, jp.shared, jp.created_at,
-           tkp.provider, tkp.asset_id, tkp.owner_id, tkp.file_path, tkp.thumbnail_path, tkp.width, tkp.height
+        tkp.provider, tkp.asset_id, tkp.owner_id, tkp.file_path, tkp.thumbnail_path, tkp.width, tkp.height
     FROM journey_photos jp
     JOIN trek_photos tkp ON tkp.id = jp.photo_id
     JOIN journey_entries je ON jp.entry_id = je.id

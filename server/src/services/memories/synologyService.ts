@@ -17,7 +17,8 @@ import {
     AssetsList,
     StatusResult,
     SyncAlbumResult,
-    AssetInfo
+    AssetInfo,
+    AssetSize
 } from './helpersService';
 import { send as sendNotification } from '../notificationService';
 
@@ -267,7 +268,7 @@ function _normalizeSynologyPhotoInfo(item: SynologyPhotoItem): AssetInfo {
     const gps = item.additional?.gps || {};
 
     return {
-        id: String(item.additional?.thumbnail?.cache_key || ''),
+        id: String(item.additional?.thumbnail?.cache_key.split('_')[0] || ''),
         takenAt: item.time ? new Date(item.time * 1000).toISOString() : null,
         city: address.city || null,
         country: address.country || null,
@@ -298,13 +299,6 @@ function _clearSynologySession(userId: number): void {
     db.prepare('UPDATE users SET synology_sid = NULL, synology_did = NULL WHERE id = ?').run(userId);
 }
 
-function _splitPackedSynologyId(rawId: string): { id: string; cacheKey: string; assetId: string } | null {
-    // cache_key format from Synology is "{unit_id}_{timestamp}", e.g. "40808_1633659236".
-    // The first segment must be a non-empty integer (the unit ID used for API calls).
-    if (!/^\d+_.+$/.test(rawId)) return null;
-    const id = rawId.split('_')[0];
-    return { id, cacheKey: rawId, assetId: rawId };
-}
 
 async function _getSynologySession(userId: number): Promise<ServiceResult<string>> {
     const cached = _readSynologyUser(userId, ['synology_sid', 'synology_did']);
@@ -469,10 +463,11 @@ export async function getSynologyAlbumPhotos(userId: number, albumId: string): P
         const result = await _requestSynologyApi<{ list: SynologyPhotoItem[] }>(userId, {
             api: 'SYNO.Foto.Browse.Item',
             method: 'list',
-            version: 1,
-            album_id: Number(albumId),
+            version: 1, //could be increased to lvl 4
+            album_id: Number(albumId) ? Number(albumId) : null, //when its shared album it only require passphrase
             offset,
             limit: pageSize,
+            passphrase: Number(albumId) ? null : albumId, //when album id is not number its actually a passphrase
             additional: ['thumbnail'],
         });
         if (!result.success) return result as ServiceResult<AssetsList>;
@@ -483,8 +478,10 @@ export async function getSynologyAlbumPhotos(userId: number, albumId: string): P
     }
 
     const assets = allItems.map(item => ({
-        id: String(item.additional?.thumbnail?.cache_key || item.id || ''),
+        id: String(item.additional?.thumbnail?.cache_key?.split('_')[0] || ''),
+        cacheKey: String(item.additional?.thumbnail?.cache_key || ''),
         takenAt: item.time ? new Date(item.time * 1000).toISOString() : '',
+        passphrase: Number(albumId) ? null : albumId,
     })).filter(a => a.id);
 
     return success({ assets, total: assets.length, hasMore: false });
@@ -519,7 +516,9 @@ export async function syncSynologyAlbumLink(userId: number, tripId: string, link
 
     const selection: Selection = {
         provider: SYNOLOGY_PROVIDER,
-        asset_ids: allItems.map(item => String(item.additional?.thumbnail?.cache_key || '')).filter(id => id),
+        asset_ids: allItems.map(item => String(item.additional?.thumbnail?.cache_key?.split('_')[0] || '')).filter(id => id),
+        cache_keys: allItems.map(item => String(item.additional?.thumbnail?.cache_key || '')),
+        passphrase: Number(response.data) ? null : response.data,
     };
 
 
@@ -557,7 +556,13 @@ export async function searchSynologyPhotos(userId: number, from?: string, to?: s
     if (!result.success) return result as ServiceResult<AssetsList>;
 
     const allItems = result.data.list || [];
-    const assets = allItems.map(item => _normalizeSynologyPhotoInfo(item));
+    const assets = allItems.map(item => {
+        const info = _normalizeSynologyPhotoInfo(item);
+        return {
+            ...info,
+            cacheKey: String(item.additional?.thumbnail?.cache_key || ''),
+        };
+    }).filter(a => a.id) as any;
 
     return success({
         assets,
@@ -566,14 +571,12 @@ export async function searchSynologyPhotos(userId: number, from?: string, to?: s
     });
 }
 
-export async function getSynologyAssetInfo(userId: number, photoId: string, targetUserId?: number): Promise<ServiceResult<AssetInfo>> {
-    const parsedId = _splitPackedSynologyId(photoId);
-    if (!parsedId) return fail('Invalid photo ID format', 400);
+export async function getSynologyAssetInfo(photoId: string, targetUserId?: number): Promise<ServiceResult<AssetInfo>> {
     const result = await _requestSynologyApi<{ list: SynologyPhotoItem[] }>(targetUserId, {
         api: 'SYNO.Foto.Browse.Item',
         method: 'get',
         version: 5,
-        id: `[${Number(parsedId.id) + 1}]`, //for some reason synology wants id moved by one to get image info
+        id: `[${Number(photoId) + 1}]`, //for some reason synology wants id moved by one to get image info
         additional: ['resolution', 'exif', 'gps', 'address', 'orientation', 'description'],
     });
 
@@ -589,16 +592,12 @@ export async function getSynologyAssetInfo(userId: number, photoId: string, targ
 
 export async function streamSynologyAsset(
     response: Response,
-    userId: number,
     targetUserId: number,
     photoId: string,
-    kind: 'thumbnail' | 'original',
+    cacheKey: string,
+    kind: AssetSize,
+    passphrase?: string,
 ): Promise<void> {
-    const parsedId = _splitPackedSynologyId(photoId);
-    if (!parsedId) {
-        handleServiceResult(response, fail('Invalid photo ID format', 400));
-        return;
-    }
 
     const synology_credentials = _getSynologyCredentials(targetUserId);
     if (!synology_credentials.success) {
@@ -617,25 +616,45 @@ export async function streamSynologyAsset(
     }
 
     
-    //size: 'sm' 240px| 'm' 320px| 'xl' 1280px| 'preview' ?
-    const params = kind === 'thumbnail'
+    //size: 'sm' 240px| 'm' 320px| 'xl' 1280px| 'preview' broken??
+    let size = 'sm';
+    switch (kind) {
+        case 'original':
+            size = 'xl';
+            break;
+        case 'fullsize':
+            size = 'xl';
+            break;
+        case 'preview':
+            size = 'm';
+            break;
+        case 'thumbnail':
+            size = 'sm';
+            break;
+        default:
+            size = 'sm';
+    }
+
+    const params = size !== 'original'
         ? new URLSearchParams({
             api: 'SYNO.Foto.Thumbnail',
             method: 'get',
             version: '2',
             mode: 'download',
-            id: parsedId.id,
+            id: photoId,
             type: 'unit',
-            size: 'sm',
-            cache_key: parsedId.cacheKey,
+            size: size,
+            passphrase: passphrase || '',
+            cache_key: cacheKey,
             _sid: sid.data,
         })
         : new URLSearchParams({
             api: 'SYNO.Foto.Download',
             method: 'download',
             version: '2',
-            cache_key: parsedId.cacheKey,
-            unit_id: `[${parsedId.id}]`,
+            passphrase: passphrase || '',
+            cache_key: cacheKey,
+            unit_id: `[${photoId}]`,
             _sid: sid.data,
         });
 

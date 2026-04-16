@@ -2,8 +2,10 @@ import express, { Request, Response } from 'express';
 import { getPublicJourney, validateShareTokenForAsset, validateShareTokenForPhoto } from '../services/journeyShareService';
 import { streamPhoto } from '../services/memories/photoResolverService';
 import { streamImmichAsset } from '../services/memories/immichService';
+import { db } from '../db/database';
 import path from 'node:path';
 import fs from 'node:fs';
+import { AssetSize } from '../services/memories/helpersService';
 
 const router = express.Router();
 
@@ -46,7 +48,10 @@ router.get('/:token/photo/:provider/:assetId/:ownerId/:kind', async (req: Reques
   } else {
     try {
       const { streamSynologyAsset } = await import('../services/memories/synologyService');
-      await streamSynologyAsset(res, effectiveOwnerId, effectiveOwnerId, assetId, kind === 'thumbnail' ? 'thumbnail' : 'original');
+      const stored = db.prepare(
+        'SELECT cache_key, passphrase FROM trek_photos WHERE provider = ? AND (asset_id = ? OR cache_key = ?) AND owner_id = ? LIMIT 1'
+      ).get('synologyphotos', assetId, assetId, effectiveOwnerId) as { cache_key?: string | null; passphrase?: string | null } | undefined;
+      await streamSynologyAsset(res, effectiveOwnerId, assetId, stored?.cache_key, kind as AssetSize, stored?.passphrase || undefined);
     } catch {
       res.status(404).json({ error: 'Provider not supported' });
     }

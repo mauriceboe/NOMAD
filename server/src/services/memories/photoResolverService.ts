@@ -14,15 +14,28 @@ export function getOrCreateTrekPhoto(
   provider: string,
   assetId: string,
   ownerId: number,
+  passphrase?: string | null,
+  cacheKey?: string | null,
 ): number {
+  // For synology, cache_key should be stored separately (format: "uid_timestamp")
+  const normalizedAssetId = assetId;
+  const normalizedCacheKey = cacheKey || null;
   const existing = db.prepare(
-    'SELECT id FROM trek_photos WHERE provider = ? AND asset_id = ? AND owner_id = ?'
-  ).get(provider, assetId, ownerId) as { id: number } | undefined;
-  if (existing) return existing.id;
+    'SELECT id, passphrase FROM trek_photos WHERE provider = ? AND asset_id = ? AND owner_id = ?'
+  ).get(provider, normalizedAssetId, ownerId) as { id: number; passphrase?: string | null } | undefined;
+  if (existing) {
+    if (passphrase && !existing.passphrase) {
+      db.prepare('UPDATE trek_photos SET passphrase = ? WHERE id = ?').run(passphrase, existing.id);
+    }
+    if (normalizedCacheKey && !existing.id) {
+      db.prepare('UPDATE trek_photos SET cache_key = ? WHERE id = ?').run(normalizedCacheKey, existing.id);
+    }
+    return existing.id;
+  }
 
   const res = db.prepare(
-    'INSERT INTO trek_photos (provider, asset_id, owner_id) VALUES (?, ?, ?)'
-  ).run(provider, assetId, ownerId);
+    'INSERT INTO trek_photos (provider, asset_id, cache_key, passphrase, owner_id) VALUES (?, ?, ?, ?, ?)'
+  ).run(provider, normalizedAssetId, normalizedCacheKey, passphrase || null, ownerId);
   return Number(res.lastInsertRowid);
 }
 
@@ -77,7 +90,7 @@ export async function streamPhoto(
       return;
     }
     case 'synologyphotos': {
-      await streamSynologyAsset(res, userId, photo.owner_id!, photo.asset_id!, kind);
+      await streamSynologyAsset(res, photo.owner_id, photo.asset_id, photo.cache_key, kind, photo.passphrase || undefined);
       return;
     }
     default:
@@ -112,7 +125,7 @@ export async function getPhotoInfo(
       return success(result.data as AssetInfo);
     }
     case 'synologyphotos': {
-      return getSynologyAssetInfo(userId, photo.asset_id!, photo.owner_id!);
+      return getSynologyAssetInfo(photo.asset_id!, photo.owner_id!);
     }
     default:
       return fail(`Unknown provider: ${photo.provider}`, 400);
@@ -126,10 +139,11 @@ export function setTrekPhotoProvider(
   provider: string,
   assetId: string,
   ownerId: number,
+  passphrase?: string | null,
 ): void {
   db.prepare(
-    'UPDATE trek_photos SET provider = ?, asset_id = ?, owner_id = ? WHERE id = ?'
-  ).run(provider, assetId, ownerId, trekPhotoId);
+    'UPDATE trek_photos SET provider = ?, asset_id = ?, passphrase = ?, owner_id = ? WHERE id = ?'
+  ).run(provider, assetId, passphrase || null, ownerId, trekPhotoId);
 }
 
 // ── Delete local file for a trek_photo ──────────────────────────────────

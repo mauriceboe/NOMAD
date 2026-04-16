@@ -13,7 +13,7 @@ import {
     getSynologyAssetInfo,
     streamSynologyAsset,
 } from '../../services/memories/synologyService';
-import { canAccessUserPhoto, handleServiceResult, fail, success } from '../../services/memories/helpersService';
+import { canAccessUserPhoto, handleServiceResult, fail, success, AssetSize } from '../../services/memories/helpersService';
 
 const router = express.Router();
 
@@ -120,26 +120,21 @@ router.get('/assets/:tripId/:photoId/:ownerId/info', authenticate, async (req: R
         handleServiceResult(res, fail('You don\'t have access to this photo', 403));
     }
     else {
-        handleServiceResult(res, await getSynologyAssetInfo(authReq.user.id, photoId, Number(ownerId)));
+        handleServiceResult(res, await getSynologyAssetInfo(photoId, Number(ownerId)));
     }
 });
 
 router.get('/assets/:tripId/:photoId/:ownerId/:kind', authenticate, async (req: Request, res: Response) => {
     const authReq = req as AuthRequest;
     const { tripId, photoId, ownerId, kind } = req.params;
-    const VALID_SIZES = ['sm', 'm', 'xl'] as const;
-    const rawSize = String(req.query.size ?? 'sm');
-    const size = VALID_SIZES.includes(rawSize as any) ? rawSize : 'sm';
-
-    if (kind !== 'thumbnail' && kind !== 'original') {
-        return handleServiceResult(res, fail('Invalid asset kind', 400));
-    }
+    const passphrase = String(req.query.passphrase ?? '');
+    const cacheKey = String(req.query.cache_key ?? '');
 
     if (!canAccessUserPhoto(authReq.user.id, Number(ownerId), tripId, photoId, 'synologyphotos')) {
         handleServiceResult(res, fail('You don\'t have access to this photo', 403));
     }
     else{
-        await streamSynologyAsset(res, authReq.user.id, Number(ownerId), photoId, kind as 'thumbnail' | 'original', String(size));
+        await streamSynologyAsset(res, Number(ownerId), photoId, cacheKey, kind as AssetSize, passphrase);
     }
 
 });

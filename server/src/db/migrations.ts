@@ -1629,6 +1629,23 @@ function runMigrations(db: Database.Database): void {
         )
       `);
     },
+    // Migration 104: Synology trek_photos passphrase/cache_key compatibility
+    () => {
+      try { db.exec('ALTER TABLE trek_photos ADD COLUMN cache_key TEXT'); } catch {}
+      try { db.exec('ALTER TABLE trek_photos ADD COLUMN passphrase TEXT'); } catch {}
+      try {
+        db.exec(`
+          UPDATE trek_photos
+          SET cache_key = asset_id,
+              asset_id = CASE
+                WHEN provider = 'synologyphotos' AND asset_id LIKE '%_%' THEN substr(asset_id, 1, instr(asset_id, '_') - 1)
+                ELSE asset_id
+              END
+          WHERE provider = 'synologyphotos'
+            AND asset_id IS NOT NULL
+        `);
+      } catch {}
+    },
   ];
 
   if (currentVersion < migrations.length) {

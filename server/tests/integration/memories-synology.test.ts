@@ -403,10 +403,10 @@ describe('Synology asset access', () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     setSynologyCredentials(testDb, user.id, 'https://synology.example.com', 'admin', 'pass');
-    addTripPhoto(testDb, trip.id, user.id, '101_cachekey', 'synologyphotos', { shared: false });
+    addTripPhoto(testDb, trip.id, user.id, '101', 'synologyphotos', { shared: false });
 
     const res = await request(app)
-      .get(`${SYNO}/assets/${trip.id}/101_cachekey/${user.id}/info`)
+      .get(`${SYNO}/assets/${trip.id}/101/${user.id}/info`)
       .set('Cookie', authCookie(user.id));
 
     expect(res.status).toBe(200);
@@ -418,10 +418,10 @@ describe('Synology asset access', () => {
     const { user: member } = createUser(testDb);
     const trip = createTrip(testDb, owner.id);
     addTripMember(testDb, trip.id, member.id);
-    addTripPhoto(testDb, trip.id, owner.id, '101_cachekey', 'synologyphotos', { shared: false });
+    addTripPhoto(testDb, trip.id, owner.id, '101', 'synologyphotos', { shared: false });
 
     const res = await request(app)
-      .get(`${SYNO}/assets/${trip.id}/101_cachekey/${owner.id}/info`)
+      .get(`${SYNO}/assets/${trip.id}/101/${owner.id}/info`)
       .set('Cookie', authCookie(member.id));
 
     expect(res.status).toBe(403);
@@ -511,7 +511,7 @@ describe('Synology asset access', () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id);
     setSynologyCredentials(testDb, user.id, 'https://synology.example.com', 'admin', 'pass');
-    addTripPhoto(testDb, trip.id, user.id, '101_cachekey', 'synologyphotos', { shared: false });
+    addTripPhoto(testDb, trip.id, user.id, '101', 'synologyphotos', { shared: false });
 
     // Auth call succeeds, Browse.Item call throws a network error
     vi.mocked(safeFetch)
@@ -524,7 +524,7 @@ describe('Synology asset access', () => {
       .mockRejectedValueOnce(new Error('network failure'));
 
     const res = await request(app)
-      .get(`${SYNO}/assets/${trip.id}/101_cachekey/${user.id}/info`)
+      .get(`${SYNO}/assets/${trip.id}/101/${user.id}/info`)
       .set('Cookie', authCookie(user.id));
 
     expect(res.status).toBe(500);

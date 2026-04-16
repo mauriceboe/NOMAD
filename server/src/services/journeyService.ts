@@ -10,7 +10,7 @@ function ts(): number {
 // Joined SELECT for journey_photos + trek_photos — returns fields matching JourneyPhoto interface
 const JP_SELECT = `
   jp.id, jp.entry_id, jp.photo_id, jp.caption, jp.sort_order, jp.shared, jp.created_at,
-  tkp.provider, tkp.asset_id, tkp.owner_id, tkp.file_path, tkp.thumbnail_path, tkp.width, tkp.height
+  tkp.provider, tkp.asset_id, tkp.owner_id, tkp.cache_key, tkp.file_path, tkp.thumbnail_path, tkp.width, tkp.height
 `;
 const JP_JOIN = 'journey_photos jp JOIN trek_photos tkp ON tkp.id = jp.photo_id';
 
@@ -628,12 +628,12 @@ export function addPhoto(entryId: number, userId: number, filePath: string, thum
   return db.prepare(`SELECT ${JP_SELECT} FROM ${JP_JOIN} WHERE jp.id = ?`).get(Number(res.lastInsertRowid)) as JourneyPhoto;
 }
 
-export function addProviderPhoto(entryId: number, userId: number, provider: string, assetId: string, caption?: string): JourneyPhoto | null {
+export function addProviderPhoto(entryId: number, userId: number, provider: string, assetId: string, caption?: string, passphrase?: string | null, cacheId?: string | null): JourneyPhoto | null {
   const entry = db.prepare('SELECT * FROM journey_entries WHERE id = ?').get(entryId) as JourneyEntry | undefined;
   if (!entry) return null;
   if (!canEdit(entry.journey_id, userId)) return null;
 
-  const trekPhotoId = getOrCreateTrekPhoto(provider, assetId, userId);
+  const trekPhotoId = getOrCreateTrekPhoto(provider, assetId, userId, passphrase, cacheId);
 
   // skip if already added
   const exists = db.prepare('SELECT 1 FROM journey_photos WHERE entry_id = ? AND photo_id = ?').get(entryId, trekPhotoId);
@@ -677,11 +677,11 @@ export function linkPhotoToEntry(entryId: number, photoId: number, userId: numbe
   return db.prepare(`SELECT ${JP_SELECT} FROM ${JP_JOIN} WHERE jp.id = ?`).get(photoId) as JourneyPhoto;
 }
 
-export function setPhotoProvider(photoId: number, provider: string, assetId: string, ownerId: number) {
+export function setPhotoProvider(photoId: number, provider: string, assetId: string, ownerId: number, passphrase?: string | null, cacheId?: string | null) {
   // Get the trek_photo_id from the journey_photo, then update the central registry
   const jp = db.prepare('SELECT photo_id FROM journey_photos WHERE id = ?').get(photoId) as { photo_id: number } | undefined;
   if (!jp) return;
-  setTrekPhotoProvider(jp.photo_id, provider, assetId, ownerId);
+  setTrekPhotoProvider(jp.photo_id, provider, assetId, ownerId, passphrase, cacheId);
 }
 
 export function updatePhoto(photoId: number, userId: number, data: { caption?: string; sort_order?: number }): JourneyPhoto | null {
