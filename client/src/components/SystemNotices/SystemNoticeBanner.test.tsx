@@ -72,17 +72,18 @@ describe('BannerRenderer', () => {
     expect(screen.getByText('Second notice')).toBeTruthy();
   });
 
-  it('FE-SN-BANNER-004: third banner is not rendered (only last 2 shown)', async () => {
-    const n1 = makeBanner({ id: 'banner-1', titleKey: 'Oldest notice' });
+  it('FE-SN-BANNER-004: third banner is not rendered (only top 2 shown)', async () => {
+    // Server returns notices highest-priority first; BannerRenderer takes slice(0,2)
+    const n1 = makeBanner({ id: 'banner-1', titleKey: 'Highest notice' });
     const n2 = makeBanner({ id: 'banner-2', titleKey: 'Second notice' });
-    const n3 = makeBanner({ id: 'banner-3', titleKey: 'Newest notice' });
+    const n3 = makeBanner({ id: 'banner-3', titleKey: 'Lowest notice' });
     await act(async () => {
       render(<BannerRenderer notices={[n1, n2, n3]} />);
     });
 
-    expect(screen.queryByText('Oldest notice')).toBeNull();
+    expect(screen.getByText('Highest notice')).toBeTruthy();
     expect(screen.getByText('Second notice')).toBeTruthy();
-    expect(screen.getByText('Newest notice')).toBeTruthy();
+    expect(screen.queryByText('Lowest notice')).toBeNull();
   });
 
   it('FE-SN-BANNER-005: critical banner has aria-live="assertive"', async () => {
