@@ -661,6 +661,6 @@ export async function streamSynologyAsset(
     if (passphrase) params.append('passphrase', passphrase);
 
     const url = _buildSynologyEndpoint(synology_credentials.data.synology_url, params.toString());
-    await pipeAsset(url, response)
+    await pipeAsset(url, response, undefined, undefined, 'public, max-age=86400')
 }
 

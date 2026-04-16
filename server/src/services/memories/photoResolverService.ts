@@ -69,15 +69,18 @@ export async function streamPhoto(
     return;
   }
 
+  if (photo.file_path) {
+    const localPath = path.join(__dirname, '../../../uploads', photo.file_path);
+    if (fs.existsSync(localPath)) {
+      res.set('Cache-Control', 'public, max-age=86400');
+      res.sendFile(localPath);
+      return;
+    }
+  }
+
   switch (photo.provider) {
     case 'local': {
-      const filePath = path.join(__dirname, '../../../uploads', photo.file_path!);
-      if (!fs.existsSync(filePath)) {
-        res.status(404).json({ error: 'File not found' });
-        return;
-      }
-      res.set('Cache-Control', 'public, max-age=86400');
-      res.sendFile(filePath);
+      res.status(404).json({ error: 'File not found' });
       return;
     }
     case 'immich': {

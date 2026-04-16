@@ -253,13 +253,19 @@ export function updateSyncTimeForAlbumLink(linkId: string): void {
     db.prepare('UPDATE trip_album_links SET last_synced_at = CURRENT_TIMESTAMP WHERE id = ?').run(linkId);
 }
 
-export async function pipeAsset(url: string, response: Response, headers?: Record<string, string>, signal?: AbortSignal): Promise<void> {
+export async function pipeAsset(url: string, response: Response, headers?: Record<string, string>, signal?: AbortSignal, defaultCacheControl?: string): Promise<void> {
     try {
         const resp = await safeFetch(url, { headers, signal: signal as any });
 
         response.status(resp.status);
         if (resp.headers.get('content-type')) response.set('Content-Type', resp.headers.get('content-type') as string);
-        if (resp.headers.get('cache-control')) response.set('Cache-Control', resp.headers.get('cache-control') as string);
+        if (!resp.ok) {
+            response.set('Cache-Control', 'no-store, max-age=0');
+        } else if (resp.headers.get('cache-control')) {
+            response.set('Cache-Control', resp.headers.get('cache-control') as string);
+        } else if (defaultCacheControl) {
+            response.set('Cache-Control', defaultCacheControl);
+        }
         if (resp.headers.get('content-length')) response.set('Content-Length', resp.headers.get('content-length') as string);
         if (resp.headers.get('content-disposition')) response.set('Content-Disposition', resp.headers.get('content-disposition') as string);
 
