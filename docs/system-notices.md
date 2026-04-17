@@ -69,10 +69,10 @@ There are **no database rows for notice definitions**. The registry is code-only
    ├── reads user_notice_dismissals
    ├── filters SYSTEM_NOTICES:
    │     – not dismissed
-   │     – not expired (expiresAt)
+   │     – within [minVersion, maxVersion) range for the running app version
    │     – all conditions pass (AND logic)
    ├── sorts by priority → severity → publishedAt (desc)
-   └── strips server-only fields (conditions, publishedAt, expiresAt, priority)
+   └── strips server-only fields (conditions, publishedAt, minVersion, maxVersion, priority)
         │
         ▼
 6. Client receives SystemNoticeDTO[]
@@ -138,7 +138,7 @@ export const SYSTEM_NOTICES: SystemNotice[] = [
 
 **Never remove or renumber an entry. Never reuse an ID.**
 
-Dismissals are stored in the database keyed by `id`. Removing an entry means dismissed users would see it again if you ever add a notice with the same ID. If a notice is no longer needed, add `expiresAt` to stop it from being shown — do not delete the entry.
+Dismissals are stored in the database keyed by `id`. Removing an entry means dismissed users would see it again if you ever add a notice with the same ID. If a notice is no longer needed, set `maxVersion` to the upper version on which it should appear (e.g. `4.0.0` means show notice until `4.0.0` is reached) — do not delete the entry.
 
 ---
 
@@ -162,12 +162,15 @@ Dismissals are stored in the database keyed by `id`. Removing an entry means dis
 | Field | Type | Description |
 |---|---|---|
 | `priority` | `number` | Higher number = shown first. Primary sort key. Default: `0`. |
-| `expiresAt` | `string` | ISO 8601 date. Notice is automatically hidden after this date. Preferred over deleting entries. |
+| `minVersion` | `string` | Lowest app version (inclusive, semver) that should show this notice. Omit for no lower bound. |
+| `maxVersion` | `string` | Upper bound (exclusive, semver) — notice is hidden once this version ships. `maxVersion: '4.0.0'` means shown on `< 4.0.0`. Omit for no upper bound. |
 | `icon` | `string` | Lucide icon name (e.g. `'Sparkles'`, `'ImageOff'`). Shown in the modal's severity icon circle. Falls back to the severity default icon if absent or unrecognised. |
 | `bodyParams` | `Record<string, string>` | Interpolation parameters for `bodyKey`. Values replace `{key}` placeholders in the translated string. **Never hardcode version numbers or dates directly in translation strings — use this instead.** |
 | `media` | `NoticeMedia` | Image to display in the modal. See below. |
 | `highlights` | `Array<{ labelKey: string; iconName?: string }>` | Bullet-point feature list rendered below the body in modals. Each entry is a translation key + optional Lucide icon name. |
 | `cta` | `NoticeCta` | Primary action button. See [§8 CTAs](#8-ctas-call-to-action). |
+
+> **Version bounds:** The range is `[minVersion, maxVersion)` — lower bound inclusive, upper bound exclusive. So `maxVersion: '4.0.0'` hides the notice once the app reaches 4.0.0. Both bounds are compared after stripping prerelease/build metadata via `semver.coerce`, so a server running `3.0.0-pre.42` is treated as `3.0.0` — consistent with `existingUserBeforeVersion` and staging environments behave like production.
 
 ### `NoticeMedia`
 
@@ -596,17 +599,25 @@ The registry integrity test will catch any `actionId` that appears in the regist
 
 ### Retire a notice (stop showing it)
 
-**Do not delete the entry.** Set `expiresAt`:
+**Do not delete the entry.** Set `maxVersion` to the last app version on which the notice should appear. Once the app is upgraded past that version, the service filters it out automatically. The database row for dismissed users remains harmless.
 
 ```typescript
 {
   id: 'old-campaign',
   // ... all existing fields unchanged ...
-  expiresAt: '2026-07-01T00:00:00Z',
+  maxVersion: '3.1.0',   // hidden once 3.1.0 ships (exclusive upper bound)
 }
 ```
 
-After the expiry date the service filters it out automatically. The database row for dismissed users remains harmless.
+To scope a notice to a specific version window (e.g. a v3-only announcement), combine both bounds:
+
+```typescript
+{
+  id: 'v3-only',
+  minVersion: '3.0.0',
+  maxVersion: '4.0.0',   // shown on >= 3.0.0 and < 4.0.0
+}
+```
 
 ---
 
@@ -751,4 +762,4 @@ cd client && npm run test -- SystemNoticeModal
 | CTA labels ≤ 20 chars, sentence case, a verb | Consistent button copy across the app. |
 | Priorities must be set explicitly for upgrade notices | Adjacent notices form a multipage group; ordering matters for the reading flow. |
 | `action` CTA `actionId` must be registered client-side | The registry integrity test enforces this. Add both the registry entry and the `registerNoticeAction` call in the same PR. |
-| `expiresAt` over deletion for retiring notices | See above. |
+| `maxVersion` over deletion for retiring notices | See §12. Deletion would cause dismissed users to re-see the notice if the ID were ever reused. |

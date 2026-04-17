@@ -37,9 +37,10 @@ export interface SystemNotice {
   dismissible: boolean;
   conditions: NoticeCondition[];
   publishedAt: string;
-  expiresAt?: string;
+  minVersion?: string;
+  maxVersion?: string;
   priority?: number;
 }
 
 // DTO sent to client (same shape minus the conditions — server evaluates those)
-export type SystemNoticeDTO = Omit<SystemNotice, 'conditions' | 'publishedAt' | 'expiresAt' | 'priority'>;
+export type SystemNoticeDTO = Omit<SystemNotice, 'conditions' | 'publishedAt' | 'minVersion' | 'maxVersion' | 'priority'>;

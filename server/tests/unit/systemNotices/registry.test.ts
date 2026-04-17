@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import semver from 'semver';
 import { SYSTEM_NOTICES } from '../../../src/systemNotices/registry.js';
 
 /** Collect all actionIds registered via registerNoticeAction() in client source files. */
@@ -43,6 +44,23 @@ describe('registry integrity', () => {
   it('all publishedAt are valid ISO dates', () => {
     for (const n of SYSTEM_NOTICES) {
       expect(() => new Date(n.publishedAt).toISOString()).not.toThrow();
+    }
+  });
+
+  it('minVersion and maxVersion are valid semver when set, and minVersion <= maxVersion when both set', () => {
+    for (const n of SYSTEM_NOTICES) {
+      if (n.minVersion !== undefined) {
+        expect(semver.valid(n.minVersion), `notice "${n.id}" has invalid minVersion "${n.minVersion}"`).not.toBeNull();
+      }
+      if (n.maxVersion !== undefined) {
+        expect(semver.valid(n.maxVersion), `notice "${n.id}" has invalid maxVersion "${n.maxVersion}"`).not.toBeNull();
+      }
+      if (n.minVersion && n.maxVersion) {
+        expect(
+          semver.lte(n.minVersion, n.maxVersion),
+          `notice "${n.id}": minVersion ${n.minVersion} > maxVersion ${n.maxVersion}`
+        ).toBe(true);
+      }
     }
   });
 });

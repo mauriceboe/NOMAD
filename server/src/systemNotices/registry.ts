@@ -27,6 +27,8 @@ export const SYSTEM_NOTICES: SystemNotice[] = [
     conditions: [{ kind: 'existingUserBeforeVersion', version: '3.0.0' }],
     publishedAt: '2026-04-16T00:00:00Z',
     priority: 90,
+    minVersion: '3.0.0',
+    maxVersion: '4.0.0',
   },
 
   {
@@ -55,6 +57,8 @@ export const SYSTEM_NOTICES: SystemNotice[] = [
     ],
     publishedAt: '2026-04-16T00:00:00Z',
     priority: 80,
+    minVersion: '3.0.0',
+    maxVersion: '4.0.0',
   },
 
   {
@@ -78,6 +82,8 @@ export const SYSTEM_NOTICES: SystemNotice[] = [
     ],
     publishedAt: '2026-04-16T00:00:00Z',
     priority: 75,
+    minVersion: '3.0.0',
+    maxVersion: '4.0.0',
   },
 
   {
@@ -98,6 +104,8 @@ export const SYSTEM_NOTICES: SystemNotice[] = [
     conditions: [{ kind: 'existingUserBeforeVersion', version: '3.0.0' }],
     publishedAt: '2026-04-16T00:00:00Z',
     priority: 70,
+    minVersion: '3.0.0',
+    maxVersion: '4.0.0',
   },
 
   {
@@ -112,6 +120,8 @@ export const SYSTEM_NOTICES: SystemNotice[] = [
     conditions: [{ kind: 'existingUserBeforeVersion', version: '3.0.0' }],
     publishedAt: '2026-04-16T00:00:00Z',
     priority: 95,
+    minVersion: '3.0.0',
+    maxVersion: '4.0.0',
   },
 
   // ── Onboarding ─────────────────────────────────────────────────────────────

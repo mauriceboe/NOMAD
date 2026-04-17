@@ -107,9 +107,11 @@ describe('GET /api/system-notices/active', () => {
       // welcome-v1 is also in the registry and matches firstLogin, so at least TEST_NOTICE is present
       const testNotice = res.body.find((n: { id: string }) => n.id === TEST_NOTICE.id);
       expect(testNotice).toBeDefined();
-      // DTO should not expose conditions, publishedAt, expiresAt, priority
+      // DTO should not expose conditions, publishedAt, minVersion, maxVersion, priority
       expect(testNotice.conditions).toBeUndefined();
       expect(testNotice.publishedAt).toBeUndefined();
+      expect(testNotice.minVersion).toBeUndefined();
+      expect(testNotice.maxVersion).toBeUndefined();
     } finally {
       const idx = SYSTEM_NOTICES.indexOf(TEST_NOTICE);
       if (idx !== -1) SYSTEM_NOTICES.splice(idx, 1);

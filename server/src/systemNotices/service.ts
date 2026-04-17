@@ -3,7 +3,7 @@ import semver from 'semver';
 import { db } from '../db/database.js';
 import { SYSTEM_NOTICES } from './registry.js';
 import { evaluate } from './conditions.js';
-import type { SystemNoticeDTO } from './types.js';
+import type { SystemNotice, SystemNoticeDTO } from './types.js';
 
 function getCurrentAppVersion(): string {
   const fromEnv = semver.valid(process.env.APP_VERSION ?? '');
@@ -14,6 +14,21 @@ function getCurrentAppVersion(): string {
   } catch {
     return '0.0.0';
   }
+}
+
+export function isNoticeVersionActive(n: SystemNotice, currentAppVersion: string): boolean {
+  const appVersion = semver.coerce(currentAppVersion)?.version ?? '0.0.0';
+  if (n.minVersion !== undefined) {
+    const min = semver.valid(n.minVersion);
+    if (!min) { console.warn(`[systemNotices] "${n.id}" invalid minVersion "${n.minVersion}" — skipping`); return false; }
+    if (semver.lt(appVersion, min)) return false;
+  }
+  if (n.maxVersion !== undefined) {
+    const max = semver.valid(n.maxVersion);
+    if (!max) { console.warn(`[systemNotices] "${n.id}" invalid maxVersion "${n.maxVersion}" — skipping`); return false; }
+    if (semver.gte(appVersion, max)) return false;
+  }
+  return true;
 }
 
 function severityWeight(s: string): number {
@@ -44,7 +59,7 @@ export function getActiveNoticesFor(userId: number): SystemNoticeDTO[] {
   return SYSTEM_NOTICES
     .filter(n => {
       if (dismissedIds.has(n.id)) return false;
-      if (n.expiresAt && now > new Date(n.expiresAt)) return false;
+      if (!isNoticeVersionActive(n, currentAppVersion)) return false;
       return evaluate(n, ctx);
     })
     .sort((a, b) => {
@@ -54,7 +69,7 @@ export function getActiveNoticesFor(userId: number): SystemNoticeDTO[] {
       if (sw !== 0) return sw;
       return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
     })
-    .map(({ conditions: _c, publishedAt: _p, expiresAt: _e, priority: _pr, ...dto }) => dto);
+    .map(({ conditions: _c, publishedAt: _p, minVersion: _mn, maxVersion: _mx, priority: _pr, ...dto }) => dto);
 }
 
 export function dismissNotice(userId: number, noticeId: string): boolean {
