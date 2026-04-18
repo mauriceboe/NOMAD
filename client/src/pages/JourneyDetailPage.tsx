@@ -1734,7 +1734,7 @@ function ProviderPicker({ provider, userId, entries, trips, existingAssetIds, on
             {[
               { id: 'trip' as const, label: t('journey.picker.tripPeriod') },
               { id: 'custom' as const, label: t('journey.picker.dateRange') },
-              { id: 'all' as const, label: t('journey.picker.allPhotos') },
+              { id: 'all' as const, label: t('journey.picker.allPhotos'), short: t('common.all') },
               { id: 'album' as const, label: t('journey.picker.albums') },
             ].map(f => (
               <button
@@ -1746,7 +1746,12 @@ function ProviderPicker({ provider, userId, entries, trips, existingAssetIds, on
                     : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                 }`}
               >
-                {f.label}
+                {f.short ? (
+                  <>
+                    <span className="hidden sm:inline">{f.label}</span>
+                    <span className="sm:hidden">{f.short}</span>
+                  </>
+                ) : f.label}
               </button>
             ))}
           </div>
@@ -2023,7 +2028,7 @@ function DatePicker({ value, onChange, tripDates }: {
   for (let i = 0; i < firstDow; i++) cells.push(null)
   for (let d = 1; d <= daysInMonth; d++) cells.push(d)
 
-  const formatted = value ? new Date(value + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : t('journey.picker.selectDate')
+  const formatted = value ? new Date(value + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : null
 
   return (
     <div className="relative">
@@ -2032,7 +2037,14 @@ function DatePicker({ value, onChange, tripDates }: {
         onClick={() => setOpen(!open)}
         className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg text-[13px] bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white text-left flex items-center justify-between"
       >
-        <span>{formatted}</span>
+        {formatted ? (
+          <span>{formatted}</span>
+        ) : (
+          <span>
+            <span className="hidden sm:inline">{t('journey.picker.selectDate')}</span>
+            <span className="sm:hidden">{t('common.date')}</span>
+          </span>
+        )}
         <Calendar size={13} className="text-zinc-400" />
       </button>
 

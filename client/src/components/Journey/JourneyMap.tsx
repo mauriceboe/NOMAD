@@ -269,8 +269,14 @@ const JourneyMap = forwardRef<JourneyMapHandle, Props>(function JourneyMap(
     const timer = setTimeout(() => {
       highlightMarker(activeMarkerId)
       const marker = markersRef.current.get(activeMarkerId)
-      if (marker && mapRef.current) {
-        mapRef.current.flyTo(marker.getLatLng(), Math.max(mapRef.current.getZoom(), 12), { duration: 0.5 })
+      if (!marker || !mapRef.current) return
+      // fitBounds may still be pending when this fires — getZoom() throws
+      // "Set map center and zoom first" until the map has a view. Guard it.
+      try {
+        const currentZoom = mapRef.current.getZoom()
+        mapRef.current.flyTo(marker.getLatLng(), Math.max(currentZoom, 12), { duration: 0.5 })
+      } catch {
+        mapRef.current.setView(marker.getLatLng(), 12)
       }
     }, 50)
     return () => clearTimeout(timer)

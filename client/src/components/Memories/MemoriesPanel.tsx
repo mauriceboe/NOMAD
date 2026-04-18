@@ -582,7 +582,8 @@ export default function MemoriesPanel({ tripId, startDate, endDate }: MemoriesPa
                 borderColor: !pickerDateFilter ? 'var(--text-primary)' : 'var(--border-primary)',
                 color: !pickerDateFilter ? 'var(--bg-primary)' : 'var(--text-muted)',
               }}>
-              {t('memories.allPhotos')}
+              <span className="hidden sm:inline">{t('memories.allPhotos')}</span>
+              <span className="sm:hidden">{t('common.all')}</span>
             </button>
           </div>
           {selectedIds.size > 0 && (
