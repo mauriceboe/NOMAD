@@ -94,14 +94,14 @@ describe('getPreferencesMatrix', () => {
     const { user } = createUser(testDb);
     const { event_types } = getPreferencesMatrix(user.id, 'user');
     expect(event_types).not.toContain('version_available');
-    expect(event_types.length).toBe(8);
+    expect(event_types.length).toBe(9);
   });
 
   it('NPREF-005 — user scope excludes version_available for everyone including admins', () => {
     const { user } = createAdmin(testDb);
     const { event_types } = getPreferencesMatrix(user.id, 'admin', 'user');
     expect(event_types).not.toContain('version_available');
-    expect(event_types.length).toBe(8);
+    expect(event_types.length).toBe(9);
   });
 
   it('NPREF-005b — admin scope returns only version_available', () => {
