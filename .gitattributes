@@ -25,4 +25,3 @@
 *.eot  binary
 *.pdf  binary
 *.zip  binary
-.github/assets/TREK1.gif filter=lfs diff=lfs merge=lfs -text
