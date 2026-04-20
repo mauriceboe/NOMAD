@@ -237,8 +237,8 @@ async function main() {
   }
 
   db.transaction(() => {
-    // --- app_settings: oidc_client_secret, smtp_pass ---
-    for (const key of ['oidc_client_secret', 'smtp_pass']) {
+    // --- app_settings: oidc_client_secret, smtp_pass, admin_webhook_url, admin_ntfy_token ---
+    for (const key of ['oidc_client_secret', 'smtp_pass', 'admin_webhook_url', 'admin_ntfy_token']) {
       const row = db.prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as { value: string } | undefined;
       if (!row?.value) continue;
       const newVal = migrateApiKeyValue(row.value, `app_settings.${key}`);
@@ -247,8 +247,8 @@ async function main() {
       }
     }
 
-    // --- users: maps_api_key, openweather_api_key, immich_api_key ---
-    const apiKeyColumns = ['maps_api_key', 'openweather_api_key', 'immich_api_key'];
+    // --- users: api key columns + synology credentials ---
+    const apiKeyColumns = ['maps_api_key', 'openweather_api_key', 'immich_api_key', 'synology_password', 'synology_sid', 'synology_did'];
     const users = db.prepare('SELECT id FROM users').all() as { id: number }[];
 
     for (const user of users) {
@@ -269,6 +269,37 @@ async function main() {
         if (newVal !== null) {
           db.prepare('UPDATE users SET mfa_secret = ? WHERE id = ?').run(newVal, user.id);
         }
+      }
+    }
+    // --- settings: per-user encrypted keys ---
+    const encryptedSettingKeys = ['webhook_url', 'ntfy_token', 'mapbox_access_token'];
+    const settingRows = db.prepare(
+      `SELECT user_id, key, value FROM settings WHERE key IN (${encryptedSettingKeys.map(() => '?').join(', ')})`
+    ).all(...encryptedSettingKeys) as { user_id: number; key: string; value: string }[];
+
+    for (const row of settingRows) {
+      if (!row.value) continue;
+      const newVal = migrateApiKeyValue(row.value, `settings[user=${row.user_id}].${row.key}`);
+      if (newVal !== null) {
+        db.prepare('UPDATE settings SET value = ? WHERE user_id = ? AND key = ?').run(newVal, row.user_id, row.key);
+      }
+    }
+
+    // --- trip_album_links: passphrase ---
+    const albumLinks = db.prepare('SELECT id, passphrase FROM trip_album_links WHERE passphrase IS NOT NULL').all() as { id: number; passphrase: string }[];
+    for (const row of albumLinks) {
+      const newVal = migrateApiKeyValue(row.passphrase, `trip_album_links[${row.id}].passphrase`);
+      if (newVal !== null) {
+        db.prepare('UPDATE trip_album_links SET passphrase = ? WHERE id = ?').run(newVal, row.id);
+      }
+    }
+
+    // --- trek_photos: passphrase ---
+    const photos = db.prepare('SELECT id, passphrase FROM trek_photos WHERE passphrase IS NOT NULL').all() as { id: number; passphrase: string }[];
+    for (const row of photos) {
+      const newVal = migrateApiKeyValue(row.passphrase, `trek_photos[${row.id}].passphrase`);
+      if (newVal !== null) {
+        db.prepare('UPDATE trek_photos SET passphrase = ? WHERE id = ?').run(newVal, row.id);
       }
     }
   })();

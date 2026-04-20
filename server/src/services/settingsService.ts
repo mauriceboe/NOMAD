@@ -1,7 +1,10 @@
 import { db } from '../db/database';
-import { maybe_encrypt_api_key } from './apiKeyCrypto';
+import { decrypt_api_key, maybe_encrypt_api_key } from './apiKeyCrypto';
 
-const ENCRYPTED_SETTING_KEYS = new Set(['webhook_url', 'ntfy_token']);
+const ENCRYPTED_SETTING_KEYS = new Set(['webhook_url', 'ntfy_token', 'mapbox_access_token']);
+// Encrypted keys that are masked (••••••••) when returned to the client.
+// Keys not in this set but in ENCRYPTED_SETTING_KEYS are decrypted and returned.
+const MASKED_SETTING_KEYS = new Set(['webhook_url', 'ntfy_token']);
 
 export const DEFAULTABLE_USER_SETTING_KEYS = [
   'temperature_unit',
@@ -83,8 +86,12 @@ export function getUserSettings(userId: number): Record<string, unknown> {
   const rows = db.prepare('SELECT key, value FROM settings WHERE user_id = ?').all(userId) as { key: string; value: string }[];
   const userSettings: Record<string, unknown> = {};
   for (const row of rows) {
-    if (ENCRYPTED_SETTING_KEYS.has(row.key)) {
+    if (MASKED_SETTING_KEYS.has(row.key)) {
       userSettings[row.key] = row.value ? '••••••••' : '';
+      continue;
+    }
+    if (ENCRYPTED_SETTING_KEYS.has(row.key)) {
+      userSettings[row.key] = row.value ? (decrypt_api_key(row.value) ?? '') : '';
       continue;
     }
     try {

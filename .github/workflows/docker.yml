@@ -6,6 +6,8 @@ on:
     paths-ignore:
       - 'docs/**'
       - '**/*.md'
+      - 'wiki/**'
+      - '.github/workflows/wiki.yml'
   workflow_dispatch:
     inputs:
       bump:
