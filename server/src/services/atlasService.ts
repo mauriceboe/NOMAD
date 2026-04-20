@@ -146,6 +146,22 @@ export const NAME_TO_CODE: Record<string, string> = {
   'somalia':'SO','papua new guinea':'PG','brunei':'BN',
 };
 
+const US_STATE_CODES = new Set([
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+  'DC',
+]);
+
+const US_COUNTRY_MARKERS = new Set([
+  'united states',
+  'united states of america',
+  'usa',
+  'us',
+]);
+
 export const CONTINENT_MAP: Record<string, string> = {
   AF:'Asia',AL:'Europe',DZ:'Africa',AD:'Europe',AO:'Africa',AR:'South America',AM:'Asia',AU:'Oceania',AT:'Europe',AZ:'Asia',
   BA:'Europe',BD:'Asia',BF:'Africa',BH:'Asia',BI:'Africa',BJ:'Africa',BN:'Asia',BO:'South America',
@@ -222,14 +238,30 @@ export function getCountryFromAddress(address: string | null): string | null {
   const normalized = last.toLowerCase();
   if (NAME_TO_CODE[normalized]) return NAME_TO_CODE[normalized];
   if (NAME_TO_CODE[last]) return NAME_TO_CODE[last];
-  if (last.length === 2 && last === last.toUpperCase()) return last;
+  if (US_COUNTRY_MARKERS.has(normalized)) return 'US';
+
+  const stateMatch = last.match(/\b([A-Z]{2})\b(?:\s+\d{5}(?:-\d{4})?)?$/);
+  if (stateMatch && US_STATE_CODES.has(stateMatch[1]) && parts.length > 1) return 'US';
+
+  if (last.length === 2 && last === last.toUpperCase()) {
+    if (US_STATE_CODES.has(last) && parts.length > 1) return 'US';
+    return last;
+  }
   return null;
 }
 
 // ── Resolve a place to a country code (address -> bbox -> geocode) ──────────
 
+function getStoredCountryCode(placeId: number): string | null {
+  const row = db.prepare('SELECT country_code FROM place_regions WHERE place_id = ?').get(placeId) as { country_code: string } | undefined;
+  return row?.country_code ?? null;
+}
+
 async function resolveCountryCode(place: Place): Promise<string | null> {
-  let code = getCountryFromAddress(place.address);
+  let code = getStoredCountryCode(place.id);
+  if (!code) {
+    code = getCountryFromAddress(place.address);
+  }
   if (!code && place.lat && place.lng) {
     code = getCountryFromCoords(place.lat, place.lng);
   }
@@ -240,7 +272,10 @@ async function resolveCountryCode(place: Place): Promise<string | null> {
 }
 
 function resolveCountryCodeSync(place: Place): string | null {
-  let code = getCountryFromAddress(place.address);
+  let code = getStoredCountryCode(place.id);
+  if (!code) {
+    code = getCountryFromAddress(place.address);
+  }
   if (!code && place.lat && place.lng) {
     code = getCountryFromCoords(place.lat, place.lng);
   }
