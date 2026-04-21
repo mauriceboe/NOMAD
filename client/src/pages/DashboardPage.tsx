@@ -12,6 +12,7 @@ import CurrencyWidget from '../components/Dashboard/CurrencyWidget'
 import TimezoneWidget from '../components/Dashboard/TimezoneWidget'
 import TripFormModal from '../components/Trips/TripFormModal'
 import ConfirmDialog from '../components/shared/ConfirmDialog'
+import CopyTripDialog from '../components/shared/CopyTripDialog'
 import { useToast } from '../components/shared/Toast'
 import { useCountUp } from '../hooks/useCountUp'
 import {
@@ -699,6 +700,7 @@ export default function DashboardPage(): React.ReactElement {
   const [showWidgetSettings, setShowWidgetSettings] = useState<boolean | 'mobile' | 'mobile-currency' | 'mobile-timezone'>(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => (localStorage.getItem('trek_dashboard_view') as 'grid' | 'list') || 'grid')
   const [deleteTrip, setDeleteTrip] = useState<DashboardTrip | null>(null)
+  const [copyTrip, setCopyTrip] = useState<DashboardTrip | null>(null)
 
   const toggleViewMode = () => {
     setViewMode(prev => {
@@ -815,14 +817,18 @@ export default function DashboardPage(): React.ReactElement {
     setArchivedTrips(prev => prev.map(update))
   }
 
-  const handleCopy = async (trip: DashboardTrip) => {
+  const handleCopy = (trip: DashboardTrip) => setCopyTrip(trip)
+
+  const confirmCopy = async () => {
+    if (!copyTrip) return
     try {
-      const data = await tripsApi.copy(trip.id, { title: `${trip.title} (${t('dashboard.copySuffix')})` })
+      const data = await tripsApi.copy(copyTrip.id, { title: `${copyTrip.title} (${t('dashboard.copySuffix')})` })
       setTrips(prev => sortTrips([data.trip, ...prev]))
       toast.success(t('dashboard.toast.copied'))
     } catch {
       toast.error(t('dashboard.toast.copyError'))
     }
+    setCopyTrip(null)
   }
 
   const today = new Date().toISOString().split('T')[0]
@@ -1203,6 +1209,13 @@ export default function DashboardPage(): React.ReactElement {
         onConfirm={confirmDelete}
         title={t('common.delete')}
         message={t('dashboard.confirm.delete', { title: deleteTrip?.title || '' })}
+      />
+
+      <CopyTripDialog
+        isOpen={!!copyTrip}
+        tripTitle={copyTrip?.title || ''}
+        onClose={() => setCopyTrip(null)}
+        onConfirm={confirmCopy}
       />
 
       <style>{`

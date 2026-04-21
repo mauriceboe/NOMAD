@@ -401,6 +401,10 @@ describe('DashboardPage', () => {
       const copyButtons = screen.getAllByRole('button', { name: /copy/i });
       await user.click(copyButtons[0]);
 
+      // Confirm the copy dialog
+      const confirmButton = await screen.findByRole('button', { name: /copy trip/i });
+      await user.click(confirmButton);
+
       await waitFor(() => {
         expect(screen.getAllByText('Paris Adventure (Copy)')[0]).toBeInTheDocument();
       });
@@ -765,6 +769,10 @@ describe('DashboardPage', () => {
       const copyButtons = screen.getAllByRole('button', { name: /copy/i });
       expect(copyButtons.length).toBeGreaterThan(0);
       await user.click(copyButtons[0]);
+
+      // Confirm the copy dialog
+      const confirmButton = await screen.findByRole('button', { name: /copy trip/i });
+      await user.click(confirmButton);
 
       await waitFor(() => {
         expect(screen.getAllByText('Paris Adventure (Copy)').length).toBeGreaterThan(0);
