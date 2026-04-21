@@ -208,9 +208,14 @@ interface ArtikelZeileProps {
   canEdit?: boolean
 }
 
+// A category's first item is seeded with this sentinel because the server
+// rejects empty names. Treat it as a placeholder in the UI.
+const PACKING_PLACEHOLDER_NAME = '...'
+
 function ArtikelZeile({ item, tripId, categories, onCategoryChange, bagTrackingEnabled, bags = [], onCreateBag, canEdit = true }: ArtikelZeileProps) {
+  const isPlaceholder = item.name === PACKING_PLACEHOLDER_NAME
   const [editing, setEditing] = useState(false)
-  const [editName, setEditName] = useState(item.name)
+  const [editName, setEditName] = useState(isPlaceholder ? '' : item.name)
   const [hovered, setHovered] = useState(false)
   const [showCatPicker, setShowCatPicker] = useState(false)
   const [showBagPicker, setShowBagPicker] = useState(false)
@@ -223,7 +228,7 @@ function ArtikelZeile({ item, tripId, categories, onCategoryChange, bagTrackingE
   const handleToggle = () => togglePackingItem(tripId, item.id, !item.checked)
 
   const handleSaveName = async () => {
-    if (!editName.trim()) { setEditing(false); setEditName(item.name); return }
+    if (!editName.trim()) { setEditing(false); setEditName(isPlaceholder ? '' : item.name); return }
     try { await updatePackingItem(tripId, item.id, { name: editName.trim() }); setEditing(false) }
     catch { toast.error(t('packing.toast.saveError')) }
   }
@@ -275,9 +280,10 @@ function ArtikelZeile({ item, tripId, categories, onCategoryChange, bagTrackingE
       {editing && canEdit ? (
         <input
           type="text" value={editName} autoFocus
+          placeholder={isPlaceholder ? '...' : undefined}
           onChange={e => setEditName(e.target.value)}
           onBlur={handleSaveName}
-          onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') { setEditing(false); setEditName(item.name) } }}
+          onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') { setEditing(false); setEditName(isPlaceholder ? '' : item.name) } }}
           style={{ flex: 1, fontSize: 13.5, padding: '2px 8px', borderRadius: 6, border: '1px solid var(--border-primary)', outline: 'none', fontFamily: 'inherit' }}
         />
       ) : (
@@ -286,7 +292,7 @@ function ArtikelZeile({ item, tripId, categories, onCategoryChange, bagTrackingE
           style={{
             flex: 1, fontSize: 13.5,
             cursor: !canEdit || item.checked ? 'default' : 'text',
-            color: item.checked ? 'var(--text-faint)' : 'var(--text-primary)',
+            color: isPlaceholder ? 'var(--text-faint)' : (item.checked ? 'var(--text-faint)' : 'var(--text-primary)'),
             transition: 'color 200ms cubic-bezier(0.23,1,0.32,1)',
             textDecoration: item.checked ? 'line-through' : 'none',
           }}
