@@ -313,13 +313,19 @@ export async function verifyIdToken(
   try {
     const verified = jwt.verify(idToken, publicKey, {
       algorithms: [alg as jwt.Algorithm],
-      issuer: expectedIssuer,
       audience: clientId,
     });
     claims = typeof verified === 'string' ? {} : (verified as Record<string, unknown>);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'verify_failed';
     return { ok: false, error: `signature_or_claim_mismatch: ${msg}` };
+  }
+
+  // Normalize trailing slash before issuer comparison — some IdPs (e.g. Authentik)
+  // include a trailing slash in the id_token iss claim.
+  const tokenIssuer = typeof claims['iss'] === 'string' ? claims['iss'].replace(/\/+$/, '') : '';
+  if (tokenIssuer !== expectedIssuer) {
+    return { ok: false, error: `signature_or_claim_mismatch: jwt issuer invalid. expected: ${expectedIssuer}` };
   }
 
   return { ok: true, claims };

@@ -4,6 +4,8 @@
  * discover caching, and the ReDoS-sensitive issuer trailing-slash regex.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
+import { generateKeyPairSync } from 'crypto';
+import jwtLib from 'jsonwebtoken';
 
 // ── DB setup ──────────────────────────────────────────────────────────────────
 
@@ -50,6 +52,7 @@ import {
   frontendUrl,
   findOrCreateUser,
   discover,
+  verifyIdToken,
 } from '../../../src/services/oidcService';
 
 const MOCK_CONFIG = {
@@ -458,5 +461,68 @@ describe('getUserInfo', () => {
 
     const fetchCall = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(fetchCall[1].headers.Authorization).toBe('Bearer access-token-123');
+  });
+});
+
+// ── verifyIdToken ─────────────────────────────────────────────────────────────
+
+describe('verifyIdToken', () => {
+  const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const jwk = publicKey.export({ format: 'jwk' }) as Record<string, unknown>;
+  const ISSUER = 'https://auth.example.com/application/o/trek';
+  const CLIENT_ID = 'trek-client';
+  const JWKS_URI = 'https://auth.example.com/.well-known/jwks.json';
+
+  function mockJwks() {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ keys: [jwk] }),
+    }));
+  }
+
+  function makeToken(iss: string, overrides: object = {}) {
+    return jwtLib.sign(
+      { sub: 'user-sub', email: 'user@example.com', ...overrides },
+      privateKey,
+      { algorithm: 'RS256', audience: CLIENT_ID, issuer: iss, expiresIn: '1h' }
+    );
+  }
+
+  const doc = { jwks_uri: JWKS_URI } as any;
+
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('OIDC-SVC-033: accepts token whose iss matches expectedIssuer exactly', async () => {
+    mockJwks();
+    const token = makeToken(ISSUER);
+    const result = await verifyIdToken(token, doc, CLIENT_ID, ISSUER);
+    expect(result.ok).toBe(true);
+  });
+
+  it('OIDC-SVC-034: accepts token whose iss has a trailing slash (Authentik)', async () => {
+    mockJwks();
+    const token = makeToken(ISSUER + '/');
+    const result = await verifyIdToken(token, doc, CLIENT_ID, ISSUER);
+    expect(result.ok).toBe(true);
+  });
+
+  it('OIDC-SVC-035: rejects token with wrong issuer', async () => {
+    mockJwks();
+    const token = makeToken('https://evil.example.com');
+    const result = await verifyIdToken(token, doc, CLIENT_ID, ISSUER);
+    expect(result.ok).toBe(false);
+    expect((result as any).error).toMatch('jwt issuer invalid');
+  });
+
+  it('OIDC-SVC-036: rejects token with wrong audience', async () => {
+    mockJwks();
+    const token = makeToken(ISSUER, {});
+    const wrongAudToken = jwtLib.sign(
+      { sub: 'user-sub', iss: ISSUER },
+      privateKey,
+      { algorithm: 'RS256', audience: 'wrong-client', expiresIn: '1h' }
+    );
+    const result = await verifyIdToken(wrongAudToken, doc, CLIENT_ID, ISSUER);
+    expect(result.ok).toBe(false);
   });
 });
