@@ -9,6 +9,7 @@ import type { ServiceResult, AssetInfo } from './helpersService';
 import { fail, success } from './helpersService';
 import { encrypt_api_key, decrypt_api_key } from '../apiKeyCrypto';
 import * as photoCache from './trekPhotoCache';
+import { ensureLocalThumbnail } from './thumbnailService';
 
 // ── Lookup / Register ────────────────────────────────────────────────────
 
@@ -101,7 +102,31 @@ export async function streamPhoto(
   }
 
   if (photo.file_path) {
-    const localPath = path.join(__dirname, '../../../uploads', photo.file_path);
+    const uploadsRoot = path.join(__dirname, '../../../uploads');
+
+    if (kind === 'thumbnail') {
+      let thumbRel = photo.thumbnail_path ?? null;
+      if (!thumbRel) {
+        const result = await ensureLocalThumbnail(uploadsRoot, photo.file_path);
+        if (result) {
+          thumbRel = result.thumbnailRelPath;
+          db.prepare(
+            'UPDATE trek_photos SET thumbnail_path = ?, width = COALESCE(width, ?), height = COALESCE(height, ?) WHERE id = ?'
+          ).run(thumbRel, result.width, result.height, photo.id);
+        }
+      }
+      if (thumbRel) {
+        const thumbAbs = path.join(uploadsRoot, thumbRel);
+        if (fs.existsSync(thumbAbs)) {
+          res.set('Cache-Control', 'public, max-age=86400, immutable');
+          res.sendFile(thumbAbs);
+          return;
+        }
+      }
+      // Fall through to original if thumbnail unavailable.
+    }
+
+    const localPath = path.join(uploadsRoot, photo.file_path);
     if (fs.existsSync(localPath)) {
       res.set('Cache-Control', 'public, max-age=86400');
       res.sendFile(localPath);
