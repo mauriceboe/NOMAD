@@ -1,4 +1,5 @@
 import { db, canAccessTrip } from '../db/database';
+import { avatarUrl } from './authService';
 
 const BAG_COLORS = ['#6366f1', '#ec4899', '#f97316', '#10b981', '#06b6d4', '#8b5cf6', '#ef4444', '#f59e0b'];
 
@@ -131,7 +132,10 @@ export function listBags(tripId: string | number) {
     if (!membersByBag.has(m.bag_id)) membersByBag.set(m.bag_id, []);
     membersByBag.get(m.bag_id)!.push(m);
   }
-  return bags.map(b => ({ ...b, members: membersByBag.get(b.id) || [] }));
+  return bags.map(b => ({
+    ...b,
+    members: (membersByBag.get(b.id) || []).map(m => ({ ...m, avatar: avatarUrl(m) })),
+  }));
 }
 
 export function setBagMembers(tripId: string | number, bagId: string | number, userIds: number[]) {
@@ -140,11 +144,12 @@ export function setBagMembers(tripId: string | number, bagId: string | number, u
   db.prepare('DELETE FROM packing_bag_members WHERE bag_id = ?').run(bagId);
   const ins = db.prepare('INSERT OR IGNORE INTO packing_bag_members (bag_id, user_id) VALUES (?, ?)');
   for (const uid of userIds) ins.run(bagId, uid);
-  return db.prepare(`
+  const rows = db.prepare(`
     SELECT bm.user_id, u.username, u.avatar
     FROM packing_bag_members bm JOIN users u ON bm.user_id = u.id
     WHERE bm.bag_id = ?
-  `).all(bagId);
+  `).all(bagId) as { user_id: number; username: string; avatar: string | null }[];
+  return rows.map(m => ({ ...m, avatar: avatarUrl(m) }));
 }
 
 export function createBag(tripId: string | number, data: { name: string; color?: string }) {
@@ -260,7 +265,7 @@ export function getCategoryAssignees(tripId: string | number) {
   const assignees: Record<string, { user_id: number; username: string; avatar: string | null }[]> = {};
   for (const row of rows as any[]) {
     if (!assignees[row.category_name]) assignees[row.category_name] = [];
-    assignees[row.category_name].push({ user_id: row.user_id, username: row.username, avatar: row.avatar });
+    assignees[row.category_name].push({ user_id: row.user_id, username: row.username, avatar: avatarUrl(row) });
   }
 
   return assignees;
@@ -274,12 +279,13 @@ export function updateCategoryAssignees(tripId: string | number, categoryName: s
     for (const uid of userIds) insert.run(tripId, categoryName, uid);
   }
 
-  return db.prepare(`
+  const updated = db.prepare(`
     SELECT pca.user_id, u.username, u.avatar
     FROM packing_category_assignees pca
     JOIN users u ON pca.user_id = u.id
     WHERE pca.trip_id = ? AND pca.category_name = ?
-  `).all(tripId, categoryName);
+  `).all(tripId, categoryName) as { user_id: number; username: string; avatar: string | null }[];
+  return updated.map(m => ({ ...m, avatar: avatarUrl(m) }));
 }
 
 // ── Reorder ────────────────────────────────────────────────────────────────
