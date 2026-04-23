@@ -219,6 +219,59 @@ describe('discover', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
     await expect(discover('https://bad-issuer.example.com')).rejects.toThrow();
   });
+
+  it('OIDC-SVC-037: accepts mismatched doc issuer when discoveryUrl is explicit', async () => {
+    const doc = {
+      issuer: 'https://auth.example.com/application/o/myapp/',
+      authorization_endpoint: 'https://auth.example.com/application/o/myapp/authorize/',
+      token_endpoint: 'https://auth.example.com/application/o/token/',
+      userinfo_endpoint: 'https://auth.example.com/application/o/userinfo/',
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => doc }));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await discover(
+      'https://auth.example.com',
+      'https://auth.example.com/application/o/myapp/.well-known/openid-configuration',
+    );
+
+    expect(result.issuer).toBe(doc.issuer);
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('differs from configured OIDC_ISSUER'));
+    warnSpy.mockRestore();
+  });
+
+  it('OIDC-SVC-038: throws on mismatched doc issuer when discoveryUrl is omitted', async () => {
+    const doc = {
+      issuer: 'https://evil.example.com',
+      authorization_endpoint: 'https://unique-2.example.com/auth',
+      token_endpoint: 'https://unique-2.example.com/token',
+      userinfo_endpoint: 'https://unique-2.example.com/userinfo',
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => doc }));
+
+    await expect(discover('https://unique-2.example.com')).rejects.toThrow(
+      'OIDC discovery issuer mismatch',
+    );
+  });
+
+  it('OIDC-SVC-039: trailing-slash-only mismatch with explicit discoveryUrl does not warn', async () => {
+    const doc = {
+      issuer: 'https://auth.example.com/',
+      authorization_endpoint: 'https://auth.example.com/auth',
+      token_endpoint: 'https://auth.example.com/token',
+      userinfo_endpoint: 'https://auth.example.com/userinfo',
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => doc }));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await discover(
+      'https://auth.example.com',
+      'https://auth.example.com/.well-known/openid-configuration',
+    );
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
 });
 
 // ── issuer trailing-slash regex (ReDoS guard) ─────────────────────────────────

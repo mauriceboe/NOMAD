@@ -140,11 +140,21 @@ export async function discover(issuer: string, discoveryUrl?: string | null): Pr
   const res = await fetch(url);
   if (!res.ok) throw new Error('Failed to fetch OIDC discovery document');
   const doc = (await res.json()) as OidcDiscoveryDoc;
-  // Validate that the discovery doc's issuer matches the operator-configured
-  // one. A MITM or compromised doc could otherwise supply a crafted issuer
-  // that passes jwt.verify() because we used doc.issuer as the expected value.
-  if (doc.issuer && doc.issuer.replace(/\/+$/, '') !== issuer) {
-    throw new Error(`OIDC discovery issuer mismatch: expected "${issuer}", got "${doc.issuer}"`);
+  // Validate that the discovery doc's issuer matches the operator-configured one.
+  // When no custom discoveryUrl is set, a mismatch signals a MITM or misconfiguration
+  // and we reject. When the operator explicitly overrides the discovery URL (e.g.
+  // Authentik realm paths), the discovery doc's issuer is the canonical value —
+  // trust it and warn rather than blocking login.
+  const docIssuer = doc.issuer?.replace(/\/+$/, '') ?? '';
+  if (docIssuer && docIssuer !== issuer) {
+    if (discoveryUrl) {
+      console.warn(
+        `[OIDC] Discovery doc issuer "${doc.issuer}" differs from configured OIDC_ISSUER "${issuer}". ` +
+        `Using discovery doc issuer for id_token verification (custom OIDC_DISCOVERY_URL is set).`,
+      );
+    } else {
+      throw new Error(`OIDC discovery issuer mismatch: expected "${issuer}", got "${doc.issuer}"`);
+    }
   }
   doc._issuer = url;
   discoveryCache = doc;

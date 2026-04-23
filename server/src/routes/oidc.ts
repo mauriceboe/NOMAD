@@ -112,7 +112,7 @@ router.get('/callback', async (req: Request, res: Response) => {
       tokenData.id_token,
       doc,
       config.clientId,
-      config.issuer,
+      (doc.issuer ?? '').replace(/\/+$/, '') || config.issuer,
     );
     if (idVerify.ok !== true) {
       const reason = 'error' in idVerify ? idVerify.error : 'unknown';
