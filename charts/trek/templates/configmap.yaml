@@ -22,6 +22,9 @@ data:
   {{- if .Values.env.FORCE_HTTPS }}
   FORCE_HTTPS: {{ .Values.env.FORCE_HTTPS | quote }}
   {{- end }}
+  {{- if .Values.env.HSTS_INCLUDE_SUBDOMAINS }}
+  HSTS_INCLUDE_SUBDOMAINS: {{ .Values.env.HSTS_INCLUDE_SUBDOMAINS | quote }}
+  {{- end }}
   {{- if .Values.env.COOKIE_SECURE }}
   COOKIE_SECURE: {{ .Values.env.COOKIE_SECURE | quote }}
   {{- end }}
