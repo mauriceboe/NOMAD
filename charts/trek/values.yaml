@@ -30,6 +30,8 @@ env:
   # Also used as the base URL for links in email notifications and other external links.
   # FORCE_HTTPS: "false"
   # Optional. When "true": HTTPS redirect, HSTS, CSP upgrade-insecure-requests, secure cookies. Only behind a TLS proxy. Requires TRUST_PROXY.
+  # HSTS_INCLUDE_SUBDOMAINS: "false"
+  # When "true": adds includeSubDomains to the HSTS header. Only effective when HSTS is active. Leave "false" if sibling subdomains still run over plain HTTP.
   # COOKIE_SECURE: "true"
   # Auto-derived (true in production or when FORCE_HTTPS=true). Set "false" to force cookies over plain HTTP. Not recommended for production.
   # TRUST_PROXY: "1"

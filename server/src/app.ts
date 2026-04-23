@@ -124,6 +124,7 @@ export function createApp(): express.Application {
     },
     crossOriginEmbedderPolicy: false,
     hsts: hstsActive ? { maxAge: 31536000, includeSubDomains: hstsIncludeSubdomains } : false,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   }));
 
   if (shouldForceHttps) {
