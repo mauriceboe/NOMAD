@@ -1576,7 +1576,10 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
                                       {res.reservation_time?.includes('T') && (
                                         <span style={{ fontWeight: 400 }}>
                                           {new Date(res.reservation_time).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: timeFormat === '12h' })}
-                                          {res.reservation_end_time && ` – ${res.reservation_end_time}`}
+                                          {res.reservation_end_time && ` – ${(() => {
+                                            const endStr = res.reservation_end_time.includes('T') ? res.reservation_end_time : (res.reservation_time.split('T')[0] + 'T' + res.reservation_end_time)
+                                            return new Date(endStr).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: timeFormat === '12h' })
+                                          })()}`}
                                         </span>
                                       )}
                                       {(() => {
