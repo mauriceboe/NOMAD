@@ -66,7 +66,11 @@ export default function DayDetailPanel({ day, days, places, categories = [], tri
   const isFahrenheit = useSettingsStore(s => s.settings.temperature_unit) === 'fahrenheit'
   const is12h = useSettingsStore(s => s.settings.time_format) === '12h'
   const blurCodes = useSettingsStore(s => s.settings.blur_booking_codes)
-  const fmtTime = (v) => formatTime12(v, is12h)
+  const fmtTime = (v) => {
+    if (!v) return v
+    if (v.includes('T')) return new Date(v).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: is12h })
+    return formatTime12(v, is12h)
+  }
   const unit = isFahrenheit ? '°F' : '°C'
   const collapsed = collapsedProp
   const toggleCollapse = () => onToggleCollapse?.()
