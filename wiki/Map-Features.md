@@ -36,18 +36,20 @@ When you have a day selected, a dark dashed line connects consecutive places in 
 
 At zoom level 12 or higher, small pill-shaped labels appear between consecutive places and show the estimated **walking time** and **driving time** for each segment. Below zoom 12 they are hidden to keep the map clean.
 
+> **Requires:** Settings → Display → **Route calculation** must be ON. When this setting is OFF, TREK never queries the routing service, so no pills are calculated or drawn at any zoom level.
+
 ## Reservation and transport overlay
 
-Flights, trains, cars, and cruises are drawn as overlays between their endpoint places:
+Flights, trains, cars, and cruises can be drawn as overlays between their endpoint places. Overlays are **off by default** — activate each reservation individually by clicking the small **Route** icon next to the booking row in the day sidebar. The selection is remembered per trip in your browser. Click the icon again to hide it.
 
 - **Flights and cruises** — geodesic great-circle arcs
 - **Trains and cars** — straight lines
 - **Antimeridian crossings** — arcs that would cross the date line are split into sub-arcs to avoid wrapping across the map
 - **Endpoint markers** — pill-shaped labels with the transport icon and the endpoint code (e.g. IATA airport code) or location name
-- **Flight stats** — a floating label on the arc shows departure code → arrival code and, when times are available, the duration and great-circle distance. Stats labels are only rendered for flights.
+- **Flight stats** — a floating label on the arc shows departure code → arrival code and, when times are available, the duration and great-circle distance. Stats labels are only rendered for flights and require Settings → Display → **Route calculation** to be ON.
 - **Confirmed reservations** — solid line; **Pending** — dashed line
 
-> **Admin:** Whether endpoint labels appear is controlled by the **Show connection labels** setting (`map_booking_labels`).
+> **Admin:** Whether endpoint text labels appear on the endpoint markers is controlled by the **Booking route labels** setting in Settings → Display (`map_booking_labels`).
 
 ## Location button
 
