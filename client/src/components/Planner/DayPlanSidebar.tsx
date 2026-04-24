@@ -2214,7 +2214,7 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
       {/* ICS subscription dialog */}
       {icsDialog && ReactDOM.createPortal(
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 1000,
+          position: 'fixed', inset: 0, zIndex: 10000,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(3px)',
         }} onClick={closeIcsDialog}>
