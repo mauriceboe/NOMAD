@@ -855,6 +855,72 @@ describe('ICS export', () => {
     const res = await request(app).get(`/api/trips/${trip.id}/export.ics`);
     expect(res.status).toBe(401);
   });
+
+  it('TRIP-025 — GET /api/trips/:id/subscribe.ics returns null before a calendar link exists', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id, { title: 'Calendar Trip' });
+
+    const res = await request(app)
+      .get(`/api/trips/${trip.id}/subscribe.ics`)
+      .set('Host', 'trek.example.com')
+      .set('Cookie', authCookie(user.id));
+
+    expect(res.status).toBe(200);
+    expect(res.body.url).toBeNull();
+    expect(res.body.webcal_url).toBeNull();
+    expect(res.body.token).toBeNull();
+  });
+
+  it('TRIP-025 — POST /api/trips/:id/subscribe.ics creates shareable http+webcal links', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id, { title: 'Calendar Trip' });
+
+    const res = await request(app)
+      .post(`/api/trips/${trip.id}/subscribe.ics`)
+      .set('Host', 'trek.example.com')
+      .set('Cookie', authCookie(user.id));
+
+    expect(res.status).toBe(201);
+    expect(res.body.url).toMatch(/^http:\/\/trek\.example\.com\/api\/shared\/.+\/calendar\.ics$/);
+    expect(res.body.webcal_url).toMatch(/^webcal:\/\/trek\.example\.com\/api\/shared\/.+\/calendar\.ics$/);
+    expect(typeof res.body.token).toBe('string');
+  });
+
+
+  it('TRIP-025 — DELETE /api/trips/:id/subscribe.ics removes calendar token', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id, { title: 'Delete Calendar Token' });
+    await request(app)
+      .post(`/api/trips/${trip.id}/subscribe.ics`)
+      .set('Host', 'trek.example.com')
+      .set('Cookie', authCookie(user.id));
+
+    const del = await request(app)
+      .delete(`/api/trips/${trip.id}/subscribe.ics`)
+      .set('Cookie', authCookie(user.id));
+
+    expect(del.status).toBe(200);
+    expect(del.body.success).toBe(true);
+
+    const status = await request(app)
+      .get(`/api/trips/${trip.id}/subscribe.ics`)
+      .set('Host', 'trek.example.com')
+      .set('Cookie', authCookie(user.id));
+    expect(status.body.token).toBeNull();
+
+  });
+
+  it('TRIP-025 — non-member cannot get subscribe link → 404', async () => {
+    const { user: owner } = createUser(testDb);
+    const { user: stranger } = createUser(testDb);
+    const trip = createTrip(testDb, owner.id, { title: 'Private Trip' });
+
+    const res = await request(app)
+      .get(`/api/trips/${trip.id}/subscribe.ics`)
+      .set('Cookie', authCookie(stranger.id));
+
+    expect(res.status).toBe(404);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

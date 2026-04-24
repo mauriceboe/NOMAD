@@ -894,19 +894,115 @@ describe('DayPlanSidebar', () => {
 
   // ── ICS export click ─────────────────────────────────────────────────
 
-  it('FE-PLANNER-DAYPLAN-058: clicking ICS button calls fetch for .ics export', async () => {
+  it('FE-PLANNER-DAYPLAN-058: clicking ICS button first asks link or download', async () => {
     const user = userEvent.setup()
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-      ok: true,
-      blob: () => Promise.resolve(new Blob(['BEGIN:VCALENDAR'], { type: 'text/calendar' })),
-    } as any)
-    // Mock URL.createObjectURL
+    if (!navigator.clipboard) {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: vi.fn().mockResolvedValue(undefined) },
+        configurable: true,
+      })
+    }
+    const clipboardSpy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      const method = (init?.method || 'GET').toUpperCase()
+
+      if (url === '/api/trips/1/subscribe.ics' && method === 'GET') {
+        return {
+          ok: true,
+          json: () => Promise.resolve({ token: null }),
+        } as any
+      }
+
+      if (url === '/api/trips/1/subscribe.ics' && method === 'POST') {
+        return {
+          ok: true,
+          json: () => Promise.resolve({
+            url: 'https://example.com/api/shared/token/calendar.ics',
+            webcal_url: 'webcal://example.com/api/shared/token/calendar.ics',
+          }),
+        } as any
+      }
+
+      if (url === '/api/trips/1/subscribe.ics' && method === 'DELETE') {
+        return { ok: true } as any
+      }
+
+      if (url === '/api/trips/1/export.ics' && method === 'GET') {
+        return {
+          ok: true,
+          blob: () => Promise.resolve(new Blob(['BEGIN:VCALENDAR'], { type: 'text/calendar' })),
+        } as any
+      }
+
+      throw new Error(`Unexpected fetch call: ${method} ${url}`)
+    })
     const createObjURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock')
     const revokeObjURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+
     render(<DayPlanSidebar {...makeDefaultProps()} />)
     await user.click(screen.getByText('ICS').closest('button')!)
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith('/api/trips/1/subscribe.ics', expect.any(Object)))
+    expect(await screen.findByText('Calendar share')).toBeInTheDocument()
+    expect(screen.getByText('Create a subscription link for calendar apps, or download the ICS file.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Create link' }))
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith('/api/trips/1/subscribe.ics', expect.objectContaining({ method: 'POST' })))
+
+    expect(screen.getByDisplayValue('https://example.com/api/shared/token/calendar.ics')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Copy' }))
+    await waitFor(() => expect(clipboardSpy).toHaveBeenCalledWith('https://example.com/api/shared/token/calendar.ics'))
+
+    await user.click(screen.getByRole('button', { name: 'Delete link' }))
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith('/api/trips/1/subscribe.ics', expect.objectContaining({ method: 'DELETE' })))
+    expect(screen.getByRole('button', { name: 'Create link' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Download ICS file' }))
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith('/api/trips/1/export.ics', expect.any(Object)))
+    expect(createObjURL).toHaveBeenCalled()
+    expect(revokeObjURL).toHaveBeenCalledWith('blob:mock')
+
     fetchSpy.mockRestore()
+    clipboardSpy.mockRestore()
+    createObjURL.mockRestore()
+    revokeObjURL.mockRestore()
+  })
+
+  it('FE-PLANNER-DAYPLAN-097: opening ICS dialog shows existing generated link when present', async () => {
+    const user = userEvent.setup()
+    const expectedUrl = `${window.location.origin}/api/shared/existing-token/calendar.ics`
+    const clipboardSpy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ token: 'existing-token' }),
+      } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        blob: () => Promise.resolve(new Blob(['BEGIN:VCALENDAR'], { type: 'text/calendar' })),
+      } as any)
+    const createObjURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock')
+    const revokeObjURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+
+    render(<DayPlanSidebar {...makeDefaultProps()} />)
+    await user.click(screen.getByText('ICS').closest('button')!)
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith('/api/trips/1/subscribe.ics', expect.any(Object)))
+    expect(await screen.findByDisplayValue(expectedUrl)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Create link' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Copy' }))
+    await waitFor(() => expect(clipboardSpy).toHaveBeenCalledWith(expectedUrl))
+
+    await user.click(screen.getByRole('button', { name: 'Download ICS file' }))
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith('/api/trips/1/export.ics', expect.any(Object)))
+    expect(createObjURL).toHaveBeenCalled()
+    expect(revokeObjURL).toHaveBeenCalledWith('blob:mock')
+    expect(fetchSpy).not.toHaveBeenCalledWith('/api/trips/1/subscribe.ics', expect.objectContaining({ method: 'POST' }))
+
+    fetchSpy.mockRestore()
+    clipboardSpy.mockRestore()
     createObjURL.mockRestore()
     revokeObjURL.mockRestore()
   })

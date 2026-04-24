@@ -1,6 +1,7 @@
 import { db, canAccessTrip } from '../db/database';
 import crypto from 'crypto';
 import { loadTagsByPlaceIds } from './queryHelpers';
+import { exportICS } from './tripService';
 
 interface SharePermissions {
   share_map?: boolean;
@@ -18,6 +19,11 @@ interface ShareTokenInfo {
   share_packing: boolean;
   share_budget: boolean;
   share_collab: boolean;
+}
+
+interface CalendarShareTokenInfo {
+  token: string;
+  created_at: string;
 }
 
 /**
@@ -77,6 +83,57 @@ export function getShareLink(tripId: string): ShareTokenInfo | null {
  */
 export function deleteShareLink(tripId: string): void {
   db.prepare('DELETE FROM share_tokens WHERE trip_id = ?').run(tripId);
+}
+
+/**
+ * Creates or returns a dedicated calendar subscription link for a trip.
+ */
+export function createOrUpdateCalendarShareLink(
+  tripId: string,
+  createdBy: number,
+): { token: string; created: boolean } {
+  const existing = db.prepare('SELECT token FROM calendar_share_tokens WHERE trip_id = ?').get(tripId) as { token: string } | undefined;
+  if (existing) {
+    return { token: existing.token, created: false };
+  }
+
+  const token = crypto.randomBytes(24).toString('base64url');
+  db.prepare('INSERT INTO calendar_share_tokens (trip_id, token, created_by) VALUES (?, ?, ?)')
+    .run(tripId, token, createdBy);
+  return { token, created: true };
+}
+
+/**
+ * Returns the calendar subscription link for a trip, or null if none exists.
+ */
+export function getCalendarShareLink(tripId: string): CalendarShareTokenInfo | null {
+  const row = db.prepare('SELECT * FROM calendar_share_tokens WHERE trip_id = ?').get(tripId) as any;
+  if (!row) return null;
+  return {
+    token: row.token,
+    created_at: row.created_at,
+  };
+}
+
+/**
+ * Deletes the calendar subscription link for a trip.
+ */
+export function deleteCalendarShareLink(tripId: string): void {
+  db.prepare('DELETE FROM calendar_share_tokens WHERE trip_id = ?').run(tripId);
+}
+
+/**
+ * Resolves a shared token to ICS calendar content.
+ * Returns null when token or trip is invalid.
+ */
+export function getSharedTripICS(token: string): { ics: string; filename: string } | null {
+  const shareRow = db.prepare('SELECT trip_id FROM calendar_share_tokens WHERE token = ?').get(token) as { trip_id: number } | undefined;
+  if (!shareRow) return null;
+  try {
+    return exportICS(shareRow.trip_id);
+  } catch {
+    return null;
+  }
 }
 
 /**

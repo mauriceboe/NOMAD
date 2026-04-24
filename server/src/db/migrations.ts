@@ -2130,6 +2130,22 @@ function runMigrations(db: Database.Database): void {
         'ON journey_entries(journey_id, entry_date, sort_order)'
       );
     },
+    () => {
+      // Dedicated calendar subscription tokens for trips
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS calendar_share_tokens (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          trip_id INTEGER NOT NULL,
+          token TEXT NOT NULL UNIQUE,
+          created_by INTEGER NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE CASCADE,
+          FOREIGN KEY (created_by) REFERENCES users(id),
+          UNIQUE(trip_id)
+        )
+      `);
+      db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_calendar_share_trip ON calendar_share_tokens(trip_id)');
+    },
   ];
 
   if (currentVersion < migrations.length) {

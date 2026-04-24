@@ -36,6 +36,7 @@ import { listItems as listTodoItems } from '../services/todoService';
 import { listBudgetItems } from '../services/budgetService';
 import { listReservations } from '../services/reservationService';
 import { listFiles } from '../services/fileService';
+import { createOrUpdateCalendarShareLink, getCalendarShareLink, deleteCalendarShareLink } from '../services/shareService';
 
 const router = express.Router();
 
@@ -353,6 +354,59 @@ router.get('/:id/export.ics', authenticate, (req: Request, res: Response) => {
     if (e instanceof NotFoundError) return res.status(404).json({ error: e.message });
     throw e;
   }
+});
+
+// ── ICS calendar subscription link ───────────────────────────────────────
+
+router.get('/:id/subscribe.ics', authenticate, (req: Request, res: Response) => {
+  const authReq = req as AuthRequest;
+  if (!canAccessTrip(req.params.id, authReq.user.id)) {
+    return res.status(404).json({ error: 'Trip not found' });
+  }
+
+  const existing = getCalendarShareLink(req.params.id);
+  const token = existing?.token ?? null;
+
+  const host = req.get('host');
+  if (!host) return res.status(500).json({ error: 'Host header missing' });
+
+  const forwardedProto = typeof req.headers['x-forwarded-proto'] === 'string'
+    ? req.headers['x-forwarded-proto'].split(',')[0].trim()
+    : null;
+  const protocol = forwardedProto || req.protocol;
+  const url = token ? `${protocol}://${host}/api/shared/${encodeURIComponent(token)}/calendar.ics` : null;
+  const webcal_url = url ? url.replace(/^https?:\/\//, 'webcal://') : null;
+
+  res.json({ url, webcal_url, token, created: false });
+});
+
+router.post('/:id/subscribe.ics', authenticate, (req: Request, res: Response) => {
+  const authReq = req as AuthRequest;
+  if (!canAccessTrip(req.params.id, authReq.user.id)) {
+    return res.status(404).json({ error: 'Trip not found' });
+  }
+
+  const result = createOrUpdateCalendarShareLink(req.params.id, authReq.user.id);
+  const host = req.get('host');
+  if (!host) return res.status(500).json({ error: 'Host header missing' });
+
+  const forwardedProto = typeof req.headers['x-forwarded-proto'] === 'string'
+    ? req.headers['x-forwarded-proto'].split(',')[0].trim()
+    : null;
+  const protocol = forwardedProto || req.protocol;
+  const url = `${protocol}://${host}/api/shared/${encodeURIComponent(result.token)}/calendar.ics`;
+  const webcal_url = url.replace(/^https?:\/\//, 'webcal://');
+
+  res.status(result.created ? 201 : 200).json({ url, webcal_url, token: result.token, created: result.created });
+});
+
+router.delete('/:id/subscribe.ics', authenticate, (req: Request, res: Response) => {
+  const authReq = req as AuthRequest;
+  const access = canAccessTrip(req.params.id, authReq.user.id);
+  if (!access) return res.status(404).json({ error: 'Trip not found' });
+
+  deleteCalendarShareLink(req.params.id);
+  res.json({ success: true });
 });
 
 export default router;

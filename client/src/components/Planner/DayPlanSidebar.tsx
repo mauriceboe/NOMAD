@@ -4,7 +4,7 @@ declare global { interface Window { __dragData: DragDataPayload | null } }
 
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import ReactDOM from 'react-dom'
-import { ChevronDown, ChevronRight, ChevronUp, ChevronsDownUp, ChevronsUpDown, Navigation, RotateCcw, ExternalLink, Clock, Pencil, GripVertical, Ticket, Plus, FileText, Check, Trash2, Info, MapPin, Star, Heart, Camera, Lightbulb, Flag, Bookmark, Train, Bus, Plane, Car, Ship, Coffee, ShoppingBag, AlertTriangle, FileDown, Lock, Hotel, Utensils, Users, Undo2, X, Route as RouteIcon } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronUp, ChevronsDownUp, ChevronsUpDown, Navigation, RotateCcw, ExternalLink, Clock, Pencil, GripVertical, Ticket, Plus, FileText, Check, Trash2, Info, MapPin, Star, Heart, Camera, Lightbulb, Flag, Bookmark, Train, Bus, Plane, Car, Ship, Coffee, ShoppingBag, AlertTriangle, FileDown, Lock, Hotel, Utensils, Users, Undo2, X, Route as RouteIcon, Link2, Copy } from 'lucide-react'
 
 const RES_ICONS = { flight: Plane, hotel: Hotel, restaurant: Utensils, train: Train, car: Car, cruise: Ship, event: Ticket, tour: Users, other: FileText }
 import { assignmentsApi, reservationsApi } from '../../api/client'
@@ -252,6 +252,9 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
   const setDropTargetKey = (key) => { dropTargetRef.current = key; _setDropTargetKey(key) }
   const [dragOverDayId, setDragOverDayId] = useState(null)
   const [transportDetail, setTransportDetail] = useState(null)
+  const [icsDialog, setIcsDialog] = useState<{ url: string; webcal_url: string; creating: boolean } | null>(null)
+  const [icsCopied, setIcsCopied] = useState(false)
+  const icsCopyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [transportPosVersion, setTransportPosVersion] = useState(0)
 
   useEffect(() => {
@@ -283,6 +286,99 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
   }, [selectedAssignmentId, selectedPlaceId])
 
   const currency = trip?.currency || 'EUR'
+
+  useEffect(() => {
+    return () => {
+      if (icsCopyTimerRef.current) clearTimeout(icsCopyTimerRef.current)
+    }
+  }, [])
+
+  const closeIcsDialog = () => setIcsDialog(null)
+
+  const handleIcsOpenDialog = async () => {
+    setIcsCopied(false)
+    setIcsDialog({ url: '', webcal_url: '', creating: true })
+    try {
+      const res = await fetch(`/api/trips/${tripId}/subscribe.ics`, { credentials: 'include' })
+      if (!res.ok) throw new Error()
+      const data = await res.json() as { token?: string | null }
+      if (data.token) {
+        const url = `${window.location.origin}/api/shared/${encodeURIComponent(data.token)}/calendar.ics`
+        const webcal_url = url.replace(/^https?:\/\//, 'webcal://')
+        setIcsDialog({ url, webcal_url, creating: false })
+      } else {
+        setIcsDialog({ url: '', webcal_url: '', creating: false })
+      }
+    } catch {
+      setIcsDialog({ url: '', webcal_url: '', creating: false })
+      toast.error(t('dayplan.calendarLinkFailed'))
+    }
+  }
+
+  const handleIcsCreateLink = async () => {
+    if (icsDialog?.creating) return
+    setIcsDialog(prev => prev ? { ...prev, creating: true } : { url: '', webcal_url: '', creating: true })
+    try {
+      const res = await fetch(`/api/trips/${tripId}/subscribe.ics`, { method: 'POST', credentials: 'include' })
+      if (!res.ok) throw new Error()
+      const data = await res.json() as { url?: string; webcal_url?: string }
+      const shareUrl = data.url
+      const openUrl = data.webcal_url || data.url
+      if (!shareUrl || !openUrl) throw new Error()
+      setIcsDialog({ url: shareUrl, webcal_url: openUrl, creating: false })
+    } catch {
+      setIcsDialog(prev => prev ? { ...prev, creating: false } : prev)
+      toast.error(t('dayplan.calendarLinkFailed'))
+    }
+  }
+
+  const handleIcsCopyLink = async () => {
+    if (!icsDialog?.url) return
+    try {
+      await navigator.clipboard.writeText(icsDialog.url)
+      setIcsCopied(true)
+      if (icsCopyTimerRef.current) clearTimeout(icsCopyTimerRef.current)
+      icsCopyTimerRef.current = setTimeout(() => setIcsCopied(false), 2000)
+    } catch {
+      toast.error(t('dayplan.calendarCopyFailed'))
+    }
+  }
+
+  const handleIcsDeleteLink = async () => {
+    if (!icsDialog || icsDialog.creating) return
+    setIcsDialog(prev => prev ? { ...prev, creating: true } : prev)
+    try {
+      const res = await fetch(`/api/trips/${tripId}/subscribe.ics`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      if (!res.ok) throw new Error()
+      setIcsCopied(false)
+      setIcsDialog(prev => prev ? { ...prev, url: '', webcal_url: '', creating: false } : prev)
+      toast.success(t('dayplan.calendarLinkDeleted'))
+    } catch {
+      setIcsDialog(prev => prev ? { ...prev, creating: false } : prev)
+      toast.error(t('dayplan.calendarDeleteFailed'))
+    }
+  }
+
+  const handleIcsDownload = async () => {
+    try {
+      const res = await fetch(`/api/trips/${tripId}/export.ics`, { credentials: 'include' })
+      if (!res.ok) throw new Error()
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${trip?.title || 'trip'}.ics`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success(t('dayplan.calendarDownloaded'))
+      closeIcsDialog()
+    } catch {
+      toast.error(t('dayplan.calendarExportFailed'))
+    }
+  }
 
   // Drag-Daten aus dataTransfer, Ref oder window lesen (dataTransfer geht bei Re-Render verloren)
   const getDragData = (e) => {
@@ -993,21 +1089,7 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
           </div>
           <div style={{ position: 'relative', flexShrink: 0 }}>
             <button
-              onClick={async () => {
-                try {
-                  const res = await fetch(`/api/trips/${tripId}/export.ics`, {
-                    credentials: 'include',
-                  })
-                  if (!res.ok) throw new Error()
-                  const blob = await res.blob()
-                  const url = URL.createObjectURL(blob)
-                  const a = document.createElement('a')
-                  a.href = url
-                  a.download = `${trip?.title || 'trip'}.ics`
-                  a.click()
-                  URL.revokeObjectURL(url)
-                } catch { toast.error(t('planner.icsExportFailed')) }
-              }}
+              onClick={handleIcsOpenDialog}
               onMouseEnter={() => setIcsHover(true)}
               onMouseLeave={() => setIcsHover(false)}
               style={{
@@ -2123,6 +2205,101 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
                 border: 'none', borderRadius: 8, padding: '6px 16px', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
               }}>{t('common.confirm')}</button>
             </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ICS subscription dialog */}
+      {icsDialog && ReactDOM.createPortal(
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(3px)',
+        }} onClick={closeIcsDialog}>
+          <div style={{
+            width: 420, maxWidth: '92vw', background: 'var(--bg-card)', borderRadius: 16,
+            boxShadow: '0 16px 48px rgba(0,0,0,0.22)', padding: '22px 22px 18px',
+            display: 'flex', flexDirection: 'column', gap: 12, position: 'relative',
+          }} onClick={e => e.stopPropagation()}>
+            <button
+              onClick={closeIcsDialog}
+              aria-label="Close"
+              style={{
+                position: 'absolute',
+                top: 10,
+                right: 10,
+                width: 30,
+                height: 30,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 8,
+                border: '1px solid var(--border-faint)',
+                background: 'transparent',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+              }}
+            >
+              <X size={14} />
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+              <Link2 size={14} style={{ color: 'var(--text-muted)' }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                {t('dayplan.calendarShareTitle')}
+              </span>
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--text-faint)', margin: 0, lineHeight: 1.5 }}>
+              {t('dayplan.calendarShareDescription')}
+            </p>
+            {icsDialog.url ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px',
+                  background: 'var(--bg-tertiary)', borderRadius: 8, border: '1px solid var(--border-faint)',
+                }}>
+                  <input type="text" value={icsDialog.url} readOnly style={{
+                    flex: 1, border: 'none', background: 'none', fontSize: 11, color: 'var(--text-primary)',
+                    outline: 'none', fontFamily: 'monospace',
+                  }} />
+                  <button onClick={handleIcsCopyLink} style={{
+                    display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 6,
+                    border: 'none', background: icsCopied ? '#16a34a' : 'var(--accent)', color: icsCopied ? 'white' : 'var(--accent-text)',
+                    fontSize: 10, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.2s',
+                  }}>
+                    {icsCopied ? <><Check size={10} /> {t('common.copied')}</> : <><Copy size={10} /> {t('common.copy')}</>}
+                  </button>
+                </div>
+                <button onClick={handleIcsDeleteLink} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                  padding: '6px 0', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)',
+                  background: 'rgba(239,68,68,0.06)', color: '#ef4444', fontSize: 11, fontWeight: 500,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                  <Trash2 size={11} /> {t('dayplan.calendarDeleteLink')}
+                </button>
+              </div>
+            ) : (
+              <button onClick={handleIcsCreateLink} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                width: '100%', padding: '8px 0', borderRadius: 8, border: '1px dashed var(--border-primary)',
+                background: 'none', color: 'var(--text-muted)', fontSize: 12, fontWeight: 500,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                <Link2 size={12} /> {t('dayplan.calendarCreateLink')}
+              </button>
+            )}
+            <button
+              onClick={handleIcsDownload}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                width: '100%', padding: '8px 0', borderRadius: 8, border: 'none',
+                background: 'var(--accent)', color: 'var(--accent-text)', fontSize: 12, fontWeight: 500,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              {t('dayplan.calendarDownloadFile')}
+            </button>
           </div>
         </div>,
         document.body

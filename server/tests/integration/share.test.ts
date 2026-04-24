@@ -204,6 +204,24 @@ describe('Shared trip access', () => {
       .send({});
     expect(res.status).toBe(404);
   });
+
+  it('SHARE-009 — GET /shared/:token/calendar.ics returns public calendar payload', async () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id, { title: 'Rome Calendar' });
+
+    const create = await request(app)
+      .post(`/api/trips/${trip.id}/subscribe.ics`)
+      .set('Host', 'trek.example.com')
+      .set('Cookie', authCookie(user.id))
+      .send({});
+    const token = create.body.token;
+
+    const res = await request(app).get(`/api/shared/${token}/calendar.ics`);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/calendar/);
+    expect(res.text).toContain('BEGIN:VCALENDAR');
+    expect(res.text).toContain('END:VCALENDAR');
+  });
 });
 
 describe('Shared trip — day assignments and notes', () => {
