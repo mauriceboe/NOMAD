@@ -1,0 +1,32 @@
+# TypeORM Schema Changes - 2026-04-26T15:38:15.075Z
+
+- CREATE Migration: migrations/1777217895075-create-user.ts
+- Entity: entities/User.ts
+
+- CREATE Migration: migrations/1777217895075-create-session.ts
+- Entity: entities/Session.ts
+
+- CREATE Migration: migrations/1777217895075-create-account.ts
+- Entity: entities/Account.ts
+
+- CREATE Migration: migrations/1777217895075-create-verification.ts
+- Entity: entities/Verification.ts
+
+- CREATE Migration: migrations/1777217895075-create-jwks.ts
+- Entity: entities/Jwks.ts
+
+- CREATE Migration: migrations/1777217895075-create-oauthClient.ts
+- Entity: entities/OauthClient.ts
+
+- CREATE Migration: migrations/1777217895075-create-oauthRefreshToken.ts
+- Entity: entities/OauthRefreshToken.ts
+
+- CREATE Migration: migrations/1777217895075-create-oauthAccessToken.ts
+- Entity: entities/OauthAccessToken.ts
+
+- CREATE Migration: migrations/1777217895075-create-oauthConsent.ts
+- Entity: entities/OauthConsent.ts
+
+- CREATE Migration: migrations/1777217895075-create-passkey.ts
+- Entity: entities/Passkey.ts
+
