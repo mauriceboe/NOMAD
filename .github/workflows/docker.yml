@@ -8,6 +8,9 @@ on:
       - '**/*.md'
       - 'wiki/**'
       - '.github/workflows/wiki.yml'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/FUNDING.yml'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
   workflow_dispatch:
     inputs:
       bump:

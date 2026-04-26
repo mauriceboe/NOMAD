@@ -62,6 +62,7 @@ body:
         - Docker (standalone)
         - Kubernetes / Helm
         - Unraid template
+        - Proxmox Community Script
         - Sources
         - Other
     validations:

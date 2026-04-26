@@ -4,6 +4,7 @@
 - [[Install: Docker|Install-Docker]]
 - [[Install: Docker Compose|Install-Docker-Compose]]
 - [[Install: Helm|Install-Helm]]
+- [[Install: Proxmox VE (LXC)|Install-Proxmox]]
 - [[Install: Unraid|Install-Unraid]]
 - [[Reverse Proxy|Reverse-Proxy]]
 - [[Environment Variables|Environment-Variables]]
