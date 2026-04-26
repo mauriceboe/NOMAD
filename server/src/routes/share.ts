@@ -58,4 +58,16 @@ router.get('/shared/:token', (req: Request, res: Response) => {
   res.json(data);
 });
 
+// Public calendar subscription payload (no auth required)
+router.get('/shared/:token/calendar.ics', (req: Request, res: Response) => {
+  const { token } = req.params;
+  const exported = shareService.getSharedTripICS(token);
+  if (!exported) return res.status(404).json({ error: 'Invalid or expired link' });
+
+  res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+  // Inline lets calendar clients subscribe/fetch from URL instead of forced download.
+  res.setHeader('Content-Disposition', `inline; filename="${exported.filename}"`);
+  res.send(exported.ics);
+});
+
 export default router;

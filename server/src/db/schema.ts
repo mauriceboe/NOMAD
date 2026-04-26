@@ -202,6 +202,15 @@ function createTables(db: Database.Database): void {
       UNIQUE(trip_id, user_id)
     );
 
+    CREATE TABLE IF NOT EXISTS calendar_share_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      trip_id INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+      token TEXT NOT NULL UNIQUE,
+      created_by INTEGER NOT NULL REFERENCES users(id),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(trip_id)
+    );
+
     CREATE TABLE IF NOT EXISTS day_notes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       day_id INTEGER NOT NULL REFERENCES days(id) ON DELETE CASCADE,
