@@ -223,6 +223,23 @@ If `ALLOWED_ORIGINS` is not set, TREK allows all origins (development default). 
 
 ---
 
+## MCP OAuth flow does not initiate / "Connect" redirects but authentication never starts
+
+**Cause:** TREK builds the OAuth 2.1 redirect URI from `APP_URL`. If `APP_URL` is not set, the authorization URL is constructed from a localhost fallback that external clients (Claude.ai, Claude Desktop) cannot reach, so the OAuth handshake never completes.
+
+**Fix:** Set `APP_URL` to the public URL of your instance:
+
+```yaml
+environment:
+  - APP_URL=https://trek.example.com
+```
+
+Restart the container after adding the variable. Once set, clicking **Connect** in the MCP client should redirect to your TREK instance and complete the OAuth flow normally.
+
+> **Note:** `APP_URL` is required for any MCP OAuth integration. Without it, the authorization endpoint resolves to `http://localhost:<PORT>`, which is unreachable from external MCP clients.
+
+---
+
 ## MCP integration: "Too many requests" or "Session limit reached"
 
 **Cause:** Each user is limited to 300 MCP requests per minute and 20 concurrent sessions by default. Exceeding either limit returns a `429` response.
