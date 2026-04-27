@@ -246,7 +246,7 @@ const texts: Record<string, DemoTexts> = {
     selfHostLink: 'host mandiri',
     close: 'Mengerti',
   },
-  ua: {
+  uk: {
     titleBefore: 'Ласкаво просимо до ',
     titleAfter: '',
     title: 'Ласкаво просимо до демо-версії TREK',

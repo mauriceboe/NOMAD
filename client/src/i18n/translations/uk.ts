@@ -1,4 +1,4 @@
-const ua: Record<string, string> = {
+const uk: Record<string, string> = {
   // Common
   'common.save': 'Зберегти',
   'common.showMore': 'Показати більше',
@@ -2373,5 +2373,5 @@ const ua: Record<string, string> = {
   'transport.addManual': 'Ручний транспорт',
 }
 
-export default ua
+export default uk
 
