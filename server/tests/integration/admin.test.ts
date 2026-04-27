@@ -41,7 +41,7 @@ import { createApp } from '../../src/app';
 import { createTables } from '../../src/db/schema';
 import { runMigrations } from '../../src/db/migrations';
 import { resetTestDb } from '../helpers/test-db';
-import { createUser, createAdmin, createInviteToken, createTrip, createBudgetItem, createJourney, createJourneyEntry, addJourneyContributor } from '../helpers/factories';
+import { createUser, createAdmin, createInviteToken, createTrip, createBudgetItem, createJourney, createJourneyEntry, addJourneyContributor, addTripPhoto } from '../helpers/factories';
 import { authCookie } from '../helpers/auth';
 import { loginAttempts, mfaAttempts } from '../../src/routes/auth';
 
@@ -190,6 +190,23 @@ describe('Admin user management', () => {
       "INSERT INTO user_notice_dismissals (user_id, notice_id, dismissed_at) VALUES (?, 'test-notice', ?)"
     ).run(target.id, Date.now());
 
+    // owned journey: target owns a journey with an entry (cascade-deletes on journey deletion)
+    const ownedJourney = createJourney(testDb, target.id);
+    createJourneyEntry(testDb, ownedJourney.id, target.id);
+
+    // trip_files.uploaded_by (SET NULL): target uploaded a file to otherUser's trip
+    const fileRow = testDb.prepare(
+      "INSERT INTO trip_files (trip_id, filename, original_name, uploaded_by) VALUES (?, 'f.pdf', 'file.pdf', ?)"
+    ).run(otherTrip.id, target.id);
+
+    // trek_photos.owner_id (SET NULL): target owns a photo in the central registry
+    const trekPhotoRow = testDb.prepare(
+      "INSERT INTO trek_photos (provider, asset_id, owner_id) VALUES ('immich', 'asset-admin-test', ?)"
+    ).run(target.id);
+
+    // trip_photos.user_id (CASCADE): target added a photo to otherUser's trip
+    addTripPhoto(testDb, otherTrip.id, target.id, 'asset-tp-admin', 'immich');
+
     const res = await request(app)
       .delete(`/api/admin/users/${target.id}`)
       .set('Cookie', authCookie(admin.id));
@@ -210,6 +227,15 @@ describe('Admin user management', () => {
     expect(testDb.prepare('SELECT id FROM notifications WHERE recipient_id = ?').get(target.id)).toBeUndefined();
     // notice dismissals are cascade-deleted
     expect(testDb.prepare("SELECT user_id FROM user_notice_dismissals WHERE user_id = ? AND notice_id = 'test-notice'").get(target.id)).toBeUndefined();
+    // owned journey and its entries are cascade-deleted
+    expect(testDb.prepare('SELECT id FROM journeys WHERE user_id = ?').get(target.id)).toBeUndefined();
+    expect(testDb.prepare('SELECT id FROM journey_entries WHERE journey_id = ?').get(ownedJourney.id)).toBeUndefined();
+    // uploaded file survives but uploaded_by is now NULL
+    expect((testDb.prepare('SELECT uploaded_by FROM trip_files WHERE id = ?').get(fileRow.lastInsertRowid) as any).uploaded_by).toBeNull();
+    // trek_photos row survives but owner_id is now NULL
+    expect((testDb.prepare('SELECT owner_id FROM trek_photos WHERE id = ?').get(trekPhotoRow.lastInsertRowid) as any).owner_id).toBeNull();
+    // trip_photos row for target is cascade-deleted
+    expect(testDb.prepare("SELECT id FROM trip_photos WHERE trip_id = ? AND user_id = ?").get(otherTrip.id, target.id)).toBeUndefined();
   });
 
   it('ADMIN-006 — admin cannot delete their own account', async () => {
