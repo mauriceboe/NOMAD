@@ -23,9 +23,20 @@ Items are sorted by their time or position index.
 ## Assigning places to a day
 
 - **Drag and drop** — drag a place from the right-hand Places sidebar and drop it onto a day section or between existing items.
+
+![Adding a place by dragging](assets/DayItineraryAddPlaceDragging.gif)
+
+- **Add button** — click the **+** button inside an expanded day section to open an inline search panel; find the place and tap it to assign.
+
+![Adding a place by button](assets/DayItineraryAddPlaceByButton.gif)
+
 - **Mobile** — tap the **Add Place** button inside an expanded day section to open an inline search panel; find the place and tap it to assign.
 
 You can also reorder places within a day, or move them to a different day, by dragging and dropping inside the sidebar.
+
+To remove a place from a day, click the **X** button next to the place in the day timeline.
+
+![Removing a place by button](assets/DayItineraryRemovePlaceByButton.gif)
 
 ## Multi-day reservations
 
