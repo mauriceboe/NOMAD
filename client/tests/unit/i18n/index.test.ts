@@ -47,6 +47,7 @@ describe('getLocaleForLanguage', () => {
     expect(getLocaleForLanguage('zh-TW')).toBe('zh-TW')
     expect(getLocaleForLanguage('ar')).toBe('ar-SA')
     expect(getLocaleForLanguage('br')).toBe('pt-BR')
+    expect(getLocaleForLanguage('uk')).toBe('uk-UA')
   })
 
   it('FE-COMP-I18N-003: falls back to en-US for unknown language codes', () => {
@@ -61,6 +62,7 @@ describe('getIntlLanguage', () => {
     expect(getIntlLanguage('de')).toBe('de')
     expect(getIntlLanguage('fr')).toBe('fr')
     expect(getIntlLanguage('zh-TW')).toBe('zh-TW')
+    expect(getIntlLanguage('uk')).toBe('uk')
   })
 
   it('FE-COMP-I18N-005: maps br to pt-BR', () => {
@@ -83,6 +85,7 @@ describe('isRtlLanguage', () => {
     expect(isRtlLanguage('en')).toBe(false)
     expect(isRtlLanguage('de')).toBe(false)
     expect(isRtlLanguage('zh-TW')).toBe(false)
+    expect(isRtlLanguage('uk')).toBe(false)
   })
 })
 
@@ -91,9 +94,10 @@ describe('isRtlLanguage', () => {
 describe('SUPPORTED_LANGUAGES', () => {
   it('FE-COMP-I18N-009: contains expected entries with value/label shape', () => {
     expect(Array.isArray(SUPPORTED_LANGUAGES)).toBe(true)
-    expect(SUPPORTED_LANGUAGES).toHaveLength(15)
+    expect(SUPPORTED_LANGUAGES).toHaveLength(16)
     expect(SUPPORTED_LANGUAGES).toContainEqual(expect.objectContaining({ value: 'en', label: 'English' }))
     expect(SUPPORTED_LANGUAGES).toContainEqual(expect.objectContaining({ value: 'ar', label: 'العربية' }))
+    expect(SUPPORTED_LANGUAGES).toContainEqual(expect.objectContaining({ value: 'uk', label: 'Українська' }))
   })
 })
 
