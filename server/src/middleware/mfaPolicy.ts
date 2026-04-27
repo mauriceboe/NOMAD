@@ -68,7 +68,7 @@ export function enforceGlobalMfaPolicy(req: Request, res: Response, next: NextFu
     return;
   }
 
-  if (process.env.DEMO_MODE === 'true' && verified.email && DEMO_EMAILS.has(verified.email)) {
+  if (process.env.DEMO_MODE?.toLowerCase() === 'true' && verified.email && DEMO_EMAILS.has(verified.email)) {
     next();
     return;
   }

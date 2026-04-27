@@ -29,8 +29,9 @@ const server = app.listen(PORT, () => {
   const banner = [
     '──────────────────────────────────────',
     '  TREK API started',
+    `  Version      ${process.env.APP_VERSION}`,
     `  Port:        ${PORT}`,
-    `  Environment: ${process.env.NODE_ENV || 'development'}`,
+    `  Environment: ${process.env.NODE_ENV?.toLowerCase() || 'development'}`,
     `  Timezone:    ${tz}`,
     `  Origins:     ${origins}`,
     `  Log level:   ${LOG_LVL}`,
@@ -40,8 +41,8 @@ const server = app.listen(PORT, () => {
     '──────────────────────────────────────',
   ];
   banner.forEach(l => console.log(l));
-  if (process.env.DEMO_MODE === 'true') sLogInfo('Demo mode: ENABLED');
-  if (process.env.DEMO_MODE === 'true' && process.env.NODE_ENV === 'production') {
+  if (process.env.DEMO_MODE?.toLowerCase() === 'true') sLogInfo('Demo mode: ENABLED');
+  if (process.env.DEMO_MODE?.toLowerCase() === 'true' && process.env.NODE_ENV?.toLowerCase() === 'production') {
     sLogWarn('SECURITY WARNING: DEMO_MODE is enabled in production!');
   }
   scheduler.start();

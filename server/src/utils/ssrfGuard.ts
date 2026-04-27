@@ -1,7 +1,7 @@
 import dns from 'node:dns/promises';
 import { Agent } from 'undici';
 
-const ALLOW_INTERNAL_NETWORK = process.env.ALLOW_INTERNAL_NETWORK === 'true';
+const ALLOW_INTERNAL_NETWORK = process.env.ALLOW_INTERNAL_NETWORK?.toLowerCase() === 'true';
 
 export interface SsrfResult {
   allowed: boolean;

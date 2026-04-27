@@ -53,7 +53,7 @@ export function createApp(): express.Application {
   const app = express();
 
   // Trust first proxy (nginx/Docker) for correct req.ip
-  if (process.env.NODE_ENV === 'production' || process.env.TRUST_PROXY) {
+  if (process.env.NODE_ENV?.toLowerCase() === 'production' || process.env.TRUST_PROXY) {
     app.set('trust proxy', Number.parseInt(process.env.TRUST_PROXY) || 1);
   }
 
@@ -67,13 +67,13 @@ export function createApp(): express.Application {
       if (!origin || allowedOrigins.includes(origin)) callback(null, true);
       else callback(new Error('Not allowed by CORS'));
     };
-  } else if (process.env.NODE_ENV === 'production') {
+  } else if (process.env.NODE_ENV?.toLowerCase() === 'production') {
     corsOrigin = false;
   } else {
     corsOrigin = true;
   }
 
-  const shouldForceHttps = process.env.FORCE_HTTPS === 'true';
+  const shouldForceHttps = process.env.FORCE_HTTPS?.toLowerCase() === 'true';
   // HSTS is worth enabling any time we're serving production traffic,
   // not only when FORCE_HTTPS is set. Self-hosters behind Traefik /
   // Caddy / Cloudflare Tunnel typically leave FORCE_HTTPS unset (the

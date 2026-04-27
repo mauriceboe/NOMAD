@@ -449,7 +449,7 @@ router.put('/default-user-settings', (req: Request, res: Response) => {
 });
 
 // ── Dev-only: test notification endpoints ──────────────────────────────────────
-if (process.env.NODE_ENV === 'development') {
+if (process.env.NODE_ENV?.toLowerCase() === 'development') {
   const { send } = require('../services/notificationService');
 
   router.post('/dev/test-notification', async (req: Request, res: Response) => {

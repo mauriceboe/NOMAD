@@ -288,7 +288,7 @@ export function updateOidcSettings(data: {
 // ── Demo Baseline ──────────────────────────────────────────────────────────
 
 export function saveDemoBaseline(): { error?: string; status?: number; message?: string } {
-  if (process.env.DEMO_MODE !== 'true') {
+  if (process.env.DEMO_MODE?.toLowerCase() !== 'true') {
     return { error: 'Not found', status: 404 };
   }
   try {

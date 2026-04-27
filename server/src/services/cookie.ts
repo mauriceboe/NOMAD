@@ -18,10 +18,10 @@ const COOKIE_NAME = 'trek_session';
  * remains the explicit escape hatch for plain-HTTP LAN testing.
  */
 export function cookieOptions(clear = false, req?: Request) {
-  if (process.env.COOKIE_SECURE === 'false') {
+  if (process.env.COOKIE_SECURE?.toLowerCase() === 'false') {
     return buildOptions(clear, false);
   }
-  const envSecure = process.env.NODE_ENV === 'production' || process.env.FORCE_HTTPS === 'true';
+  const envSecure = process.env.NODE_ENV?.toLowerCase() === 'production' || process.env.FORCE_HTTPS?.toLowerCase() === 'true';
   const requestSecure = req?.secure === true;
   return buildOptions(clear, envSecure || requestSecure);
 }

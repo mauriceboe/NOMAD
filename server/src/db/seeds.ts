@@ -6,7 +6,7 @@ import crypto from 'crypto';
 // are only relevant after the first user exists; at that point seeds have already
 // finished and skip via the userCount > 0 guard above.
 function isOidcOnlyConfigured(): boolean {
-  if (process.env.OIDC_ONLY !== 'true') return false;
+  if (process.env.OIDC_ONLY?.toLowerCase() !== 'true') return false;
   return !!(process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID);
 }
 

@@ -170,7 +170,7 @@ export async function send(payload: NotificationPayload): Promise<void> {
   const configEntry = EVENT_NOTIFICATION_CONFIG[event];
   if (!configEntry) {
     logDebug(`notificationService.send: unknown event type "${event}", using fallback`);
-    if (process.env.NODE_ENV === 'development' && actorId != null) {
+    if (process.env.NODE_ENV?.toLowerCase() === 'development' && actorId != null) {
       const devSender = (db.prepare('SELECT username, avatar FROM users WHERE id = ?').get(actorId) as { username: string; avatar: string | null } | undefined) ?? null;
       createNotificationForRecipient({
         type: 'simple',

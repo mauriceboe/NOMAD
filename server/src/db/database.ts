@@ -47,7 +47,7 @@ const db = new Proxy({} as Database.Database, {
   },
 });
 
-if (process.env.DEMO_MODE === 'true') {
+if (process.env.DEMO_MODE?.toLowerCase() === 'true') {
   try {
     const { seedDemoData } = require('../demo/demo-seed');
     seedDemoData(_db);

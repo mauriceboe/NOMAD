@@ -168,7 +168,7 @@ router.put('/auto-settings', (req: Request, res: Response) => {
     const msg = err instanceof Error ? err.message : String(err);
     res.status(500).json({
       error: 'Could not save auto-backup settings',
-      detail: process.env.NODE_ENV !== 'production' ? msg : undefined,
+      detail: process.env.NODE_ENV?.toLowerCase() !== 'production' ? msg : undefined,
     });
   }
 });

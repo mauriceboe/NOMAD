@@ -139,7 +139,7 @@ let demoTask: ScheduledTask | null = null;
 
 function startDemoReset(): void {
   if (demoTask) { demoTask.stop(); demoTask = null; }
-  if (process.env.DEMO_MODE !== 'true') return;
+  if (process.env.DEMO_MODE?.toLowerCase() !== 'true') return;
 
   demoTask = cron.schedule('0 * * * *', () => {
     try {
