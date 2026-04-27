@@ -5,6 +5,7 @@ metadata:
   name: {{ include "trek.fullname" . }}
   labels:
     app: {{ include "trek.name" . }}
+    {{- include "trek.labels" . | nindent 4 }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

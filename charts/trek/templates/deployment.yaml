@@ -4,6 +4,7 @@ metadata:
   name: {{ include "trek.fullname" . }}
   labels:
     app: {{ include "trek.name" . }}
+    {{- include "trek.labels" . | nindent 4 }}
 spec:
   replicas: 1
   selector:
@@ -16,6 +17,7 @@ spec:
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
       labels:
         app: {{ include "trek.name" . }}
+        {{- include "trek.selectorLabels" . | nindent 8 }}
     spec:
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -23,12 +25,21 @@ spec:
         - name: {{ .name }}
         {{- end }}
       {{- end }}
+      {{- with .Values.podSecurityContext }}
       securityContext:
-        fsGroup: 1000
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName }}
+      {{- end }}
       containers:
         - name: trek
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -80,6 +91,18 @@ spec:
               port: 3000
             initialDelaySeconds: 5
             periodSeconds: 10
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       volumes:
         - name: data
           persistentVolumeClaim:

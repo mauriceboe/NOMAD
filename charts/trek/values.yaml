@@ -90,6 +90,28 @@ generateEncryptionKey: false
 existingSecret: ""
 existingSecretKey: ENCRYPTION_KEY
 
+# Pod-level security context (applied to the pod spec)
+podSecurityContext:
+  fsGroup: 1000
+
+# Container-level security context (applied to the trek container)
+# NOTE: The default entrypoint runs `chown` as root before dropping to
+# the `node` user (UID 1000) via su-exec. Setting `runAsNonRoot: true`
+# will prevent the container from starting unless the entrypoint is
+# changed or an initContainer handles the ownership fix.
+# Compatible subset for policy compliance without breaking the entrypoint:
+#   allowPrivilegeEscalation: false
+#   capabilities:
+#     drop:
+#       - ALL
+#   seccompProfile:
+#     type: RuntimeDefault
+securityContext: {}
+
+# Priority class name for the pod
+# See: https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/
+priorityClassName: ""
+
 persistence:
   enabled: true
   data:
@@ -104,6 +126,36 @@ resources:
   limits:
     cpu: 500m
     memory: 512Mi
+
+# Node selector for pod scheduling
+# See: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
+nodeSelector: {}
+
+# Tolerations for pod scheduling
+# See: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+tolerations: []
+
+# Affinity rules for pod scheduling
+# See: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
+affinity: {}
+
+# Network policy configuration
+networkPolicy:
+  enabled: false
+  # Ingress rules — by default allows traffic on port 3000 from all sources.
+  # Override to restrict to specific namespaces or pod selectors.
+  # Example: allow only from ingress namespace:
+  #   ingress:
+  #     - from:
+  #         - namespaceSelector:
+  #             matchLabels:
+  #               kubernetes.io/metadata.name: ingress-nginx
+  #       ports:
+  #         - port: 3000
+  ingress: []
+  # Egress rules — by default allows all outbound traffic.
+  # Set to restrict outbound connections (e.g. DNS-only).
+  egress: []
 
 ingress:
   enabled: false

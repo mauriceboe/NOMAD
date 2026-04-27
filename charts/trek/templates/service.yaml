@@ -4,6 +4,7 @@ metadata:
   name: {{ include "trek.fullname" . }}
   labels:
     app: {{ include "trek.name" . }}
+    {{- include "trek.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
