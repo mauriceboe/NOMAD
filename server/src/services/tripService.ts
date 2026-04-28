@@ -117,10 +117,11 @@ export function generateDays(tripId: number | bigint | string, startDate: string
     }
   }
 
-  // Overflow dated days (trip shrunk): convert to dateless instead of deleting
-  const nullify = db.prepare('UPDATE days SET date = NULL, day_number = ? WHERE id = ?');
+  // Overflow dated days (trip shrunk): delete them (issue #909).
+  // Cascade removes their assignments, notes, and accommodations.
+  const del = db.prepare('DELETE FROM days WHERE id = ?');
   for (let i = targetDates.length; i < dated.length; i++) {
-    nullify.run(targetDates.length + (i - targetDates.length) + 1, dated[i].id);
+    del.run(dated[i].id);
   }
 
   // Any remaining unused dateless days: keep as dateless, just renumber.

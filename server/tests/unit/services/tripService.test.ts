@@ -96,33 +96,37 @@ describe('generateDays', () => {
     expect(getNotes(day2.id)[0].id).toBe(note.id);
   });
 
-  it('TRIP-SVC-011: shrinking range converts overflow days to dateless, preserves their assignments', () => {
+  it('TRIP-SVC-011: shrinking range deletes overflow days and their assignments (issue #909)', () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id, { start_date: '2025-07-01', end_date: '2025-07-05' });
     const daysBefore = getDays(trip.id);
     expect(daysBefore).toHaveLength(5);
 
     const place = createPlace(testDb, trip.id);
-    // Assign places to days 4 and 5 (will become overflow)
-    const a4 = createDayAssignment(testDb, daysBefore[3].id, place.id);
-    const a5 = createDayAssignment(testDb, daysBefore[4].id, place.id);
+    createDayAssignment(testDb, daysBefore[3].id, place.id);
+    createDayAssignment(testDb, daysBefore[4].id, place.id);
 
-    // Shrink from 5 to 3 days
+    // Shrink from 5 to 3 days — surplus days and their content are removed
     generateDays(trip.id, '2025-07-01', '2025-07-03');
 
     const daysAfter = getDays(trip.id);
-    expect(daysAfter).toHaveLength(5); // no rows deleted
+    expect(daysAfter).toHaveLength(3);
+    expect(daysAfter.map(d => d.date)).toEqual(['2025-07-01', '2025-07-02', '2025-07-03']);
+  });
 
-    const dated = daysAfter.filter(d => d.date !== null);
-    const dateless = daysAfter.filter(d => d.date === null);
-    expect(dated).toHaveLength(3);
-    expect(dateless).toHaveLength(2);
+  it('TRIP-SVC-016: shrinking range deletes empty overflow days (issue #909)', () => {
+    const { user } = createUser(testDb);
+    const trip = createTrip(testDb, user.id, { start_date: '2025-07-01', end_date: '2025-07-07' });
+    expect(getDays(trip.id)).toHaveLength(7);
 
-    // Overflow days still have their assignments
-    expect(getAssignments(dateless[0].id)).toHaveLength(1);
-    expect(getAssignments(dateless[0].id)[0].id).toBe(a4.id);
-    expect(getAssignments(dateless[1].id)).toHaveLength(1);
-    expect(getAssignments(dateless[1].id)[0].id).toBe(a5.id);
+    // Shrink 7 → 5; days 6 and 7 have no content
+    generateDays(trip.id, '2025-07-01', '2025-07-05');
+
+    const daysAfter = getDays(trip.id);
+    expect(daysAfter).toHaveLength(5);
+    expect(daysAfter.map(d => d.date)).toEqual([
+      '2025-07-01', '2025-07-02', '2025-07-03', '2025-07-04', '2025-07-05',
+    ]);
   });
 
   it('TRIP-SVC-012: growing range keeps existing day content and appends new empty days', () => {
