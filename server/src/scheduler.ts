@@ -2,6 +2,7 @@ import cron, { type ScheduledTask } from 'node-cron';
 import archiver from 'archiver';
 import path from 'node:path';
 import fs from 'node:fs';
+import { logInfo, logError } from './services/auditLog';
 
 const dataDir = path.join(__dirname, '../data');
 const backupsDir = path.join(dataDir, 'backups');
@@ -79,11 +80,9 @@ async function runBackup(): Promise<void> {
       if (fs.existsSync(uploadsDir)) archive.directory(uploadsDir, 'uploads');
       archive.finalize();
     });
-    const { logInfo: li } = require('./services/auditLog');
-    li(`Auto-Backup created: ${filename}`);
+    logInfo(`Auto-Backup created: ${filename}`);
   } catch (err: unknown) {
-    const { logError: le } = require('./services/auditLog');
-    le(`Auto-Backup: ${err instanceof Error ? err.message : err}`);
+    logError(`Auto-Backup: ${err instanceof Error ? err.message : err}`);
     if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
     return;
   }
@@ -94,23 +93,28 @@ async function runBackup(): Promise<void> {
   }
 }
 
-function cleanupOldBackups(keepDays: number): void {
+function autoBackupTimestampMs(filename: string): number | null {
+  // auto-backup-2026-04-27T00-00-00.zip → 2026-04-27T00:00:00
+  const stamp = filename.slice('auto-backup-'.length, -'.zip'.length);
+  const iso = stamp.replace(/T(\d{2})-(\d{2})-(\d{2})$/, 'T$1:$2:$3');
+  const ms = Date.parse(iso);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+export function cleanupOldBackups(keepDays: number, now: number = Date.now()): void {
   try {
-    const MS_PER_DAY = 24 * 60 * 60 * 1000;
-    const cutoff = Date.now() - keepDays * MS_PER_DAY;
-    const files = fs.readdirSync(backupsDir).filter(f => f.endsWith('.zip'));
+    const cutoff = now - keepDays * 24 * 60 * 60 * 1000;
+    const files = fs.readdirSync(backupsDir).filter(f => f.startsWith('auto-backup-') && f.endsWith('.zip'));
     for (const file of files) {
       const filePath = path.join(backupsDir, file);
-      const stat = fs.statSync(filePath);
-      if (stat.birthtimeMs < cutoff) {
+      const ageMs = autoBackupTimestampMs(file) ?? fs.statSync(filePath).mtimeMs;
+      if (ageMs < cutoff) {
         fs.unlinkSync(filePath);
-        const { logInfo: li } = require('./services/auditLog');
-        li(`Auto-Backup old backup deleted: ${file}`);
+        logInfo(`Auto-Backup old backup deleted: ${file}`);
       }
     }
   } catch (err: unknown) {
-    const { logError: le } = require('./services/auditLog');
-    le(`Auto-Backup cleanup: ${err instanceof Error ? err.message : err}`);
+    logError(`Auto-Backup cleanup: ${err instanceof Error ? err.message : err}`);
   }
 }
 
@@ -122,16 +126,14 @@ function start(): void {
 
   const settings = loadSettings();
   if (!settings.enabled) {
-    const { logInfo: li } = require('./services/auditLog');
-    li('Auto-Backup disabled');
+    logInfo('Auto-Backup disabled');
     return;
   }
 
   const expression = buildCronExpression(settings);
   const tz = process.env.TZ || 'UTC';
   currentTask = cron.schedule(expression, runBackup, { timezone: tz });
-  const { logInfo: li2 } = require('./services/auditLog');
-  li2(`Auto-Backup scheduled: ${settings.interval} (${expression}), tz: ${tz}, retention: ${settings.keep_days === 0 ? 'forever' : settings.keep_days + ' days'}`);
+  logInfo(`Auto-Backup scheduled: ${settings.interval} (${expression}), tz: ${tz}, retention: ${settings.keep_days === 0 ? 'forever' : settings.keep_days + ' days'}`);
 }
 
 // Demo mode: hourly reset of demo user data
@@ -146,12 +148,10 @@ function startDemoReset(): void {
       const { resetDemoUser } = require('./demo/demo-reset');
       resetDemoUser();
     } catch (err: unknown) {
-      const { logError: le } = require('./services/auditLog');
-      le(`Demo reset: ${err instanceof Error ? err.message : err}`);
+      logError(`Demo reset: ${err instanceof Error ? err.message : err}`);
     }
   });
-  const { logInfo: li3 } = require('./services/auditLog');
-  li3('Demo hourly reset scheduled');
+  logInfo('Demo hourly reset scheduled');
 }
 
 // Trip reminders: daily check at 9 AM local time for trips starting tomorrow
@@ -167,14 +167,12 @@ function startTripReminders(): void {
     const channelsRaw = getSetting('notification_channels') || getSetting('notification_channel') || 'none';
     const activeChannels = channelsRaw === 'none' ? [] : channelsRaw.split(',').map((c: string) => c.trim());
     if (!reminderEnabled) {
-      const { logInfo: li } = require('./services/auditLog');
-      li('Trip reminders: disabled in settings');
+      logInfo('Trip reminders: disabled in settings');
       return;
     }
 
     const tripCount = (db.prepare('SELECT COUNT(*) as c FROM trips WHERE reminder_days > 0 AND start_date IS NOT NULL').get() as { c: number }).c;
-    const { logInfo: liSetup } = require('./services/auditLog');
-    liSetup(`Trip reminders: enabled via [${activeChannels.join(',')}]${tripCount > 0 ? `, ${tripCount} trip(s) with active reminders` : ''}`);
+    logInfo(`Trip reminders: enabled via [${activeChannels.join(',')}]${tripCount > 0 ? `, ${tripCount} trip(s) with active reminders` : ''}`);
   } catch {
     return;
   }
@@ -196,13 +194,11 @@ function startTripReminders(): void {
         await send({ event: 'trip_reminder', actorId: null, scope: 'trip', targetId: trip.id, params: { trip: trip.title, tripId: String(trip.id) } }).catch(() => {});
       }
 
-      const { logInfo: li } = require('./services/auditLog');
       if (trips.length > 0) {
-        li(`Trip reminders sent for ${trips.length} trip(s): ${trips.map(t => `"${t.title}" (${t.reminder_days}d)`).join(', ')}`);
+        logInfo(`Trip reminders sent for ${trips.length} trip(s): ${trips.map(t => `"${t.title}" (${t.reminder_days}d)`).join(', ')}`);
       }
     } catch (err: unknown) {
-      const { logError: le } = require('./services/auditLog');
-      le(`Trip reminder check failed: ${err instanceof Error ? err.message : err}`);
+      logError(`Trip reminder check failed: ${err instanceof Error ? err.message : err}`);
     }
   }, { timezone: tz });
 }
@@ -222,12 +218,10 @@ function startTodoReminders(): void {
   const getSetting = (key: string) => (db.prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as { value: string } | undefined)?.value;
   const enabled = getSetting('notify_todo_due') !== 'false';
   if (!enabled) {
-    const { logInfo: li } = require('./services/auditLog');
-    li('Todo due reminders: disabled in settings');
+    logInfo('Todo due reminders: disabled in settings');
     return;
   }
-  const { logInfo: liSetup } = require('./services/auditLog');
-  liSetup(`Todo due reminders: enabled (lead ${TODO_REMINDER_LEAD_DAYS}d)`);
+  logInfo(`Todo due reminders: enabled (lead ${TODO_REMINDER_LEAD_DAYS}d)`);
 
   const tz = process.env.TZ || 'UTC';
   todoReminderTask = cron.schedule('0 9 * * *', async () => {
@@ -271,13 +265,11 @@ function startTodoReminders(): void {
         db.prepare('UPDATE todo_items SET reminded_at = CURRENT_TIMESTAMP WHERE id = ?').run(todo.id);
       }
 
-      const { logInfo: li } = require('./services/auditLog');
       if (todos.length > 0) {
-        li(`Todo reminders sent for ${todos.length} item(s)`);
+        logInfo(`Todo reminders sent for ${todos.length} item(s)`);
       }
     } catch (err: unknown) {
-      const { logError: le } = require('./services/auditLog');
-      le(`Todo reminder check failed: ${err instanceof Error ? err.message : err}`);
+      logError(`Todo reminder check failed: ${err instanceof Error ? err.message : err}`);
     }
   }, { timezone: tz });
 }
@@ -294,8 +286,7 @@ function startVersionCheck(): void {
       const { checkAndNotifyVersion } = require('./services/adminService');
       await checkAndNotifyVersion();
     } catch (err: unknown) {
-      const { logError: le } = require('./services/auditLog');
-      le(`Version check: ${err instanceof Error ? err.message : err}`);
+      logError(`Version check: ${err instanceof Error ? err.message : err}`);
     }
   }, { timezone: tz });
 }
@@ -313,12 +304,10 @@ function startIdempotencyCleanup(): void {
       const cutoff = Math.floor(Date.now() / 1000) - 86400;
       const result = db.prepare('DELETE FROM idempotency_keys WHERE created_at < ?').run(cutoff);
       if (result.changes > 0) {
-        const { logInfo: li } = require('./services/auditLog');
-        li(`Idempotency cleanup: removed ${result.changes} expired key(s)`);
+        logInfo(`Idempotency cleanup: removed ${result.changes} expired key(s)`);
       }
     } catch (err: unknown) {
-      const { logError: le } = require('./services/auditLog');
-      le(`Idempotency cleanup: ${err instanceof Error ? err.message : err}`);
+      logError(`Idempotency cleanup: ${err instanceof Error ? err.message : err}`);
     }
   }, { timezone: tz });
 }
@@ -340,8 +329,7 @@ function startTrekPhotoCacheCleanup(): void {
       const { sweepExpired } = require('./services/memories/trekPhotoCache');
       sweepExpired();
     } catch (err: unknown) {
-      const { logError: le } = require('./services/auditLog');
-      le(`Trek photo cache cleanup: ${err instanceof Error ? err.message : err}`);
+      logError(`Trek photo cache cleanup: ${err instanceof Error ? err.message : err}`);
     }
   });
 }
