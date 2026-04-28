@@ -463,7 +463,7 @@ describe('Update trip', () => {
     expect(notesAfter!.day_id).toBe(daysAfter[1].id);
   });
 
-  it('TRIP-024 — Shrinking trip date range keeps overflow days as dateless with content intact', async () => {
+  it('TRIP-024 — Shrinking trip date range deletes overflow days and their content', async () => {
     const { user } = createUser(testDb);
     const trip = createTrip(testDb, user.id, { start_date: '2026-09-01', end_date: '2026-09-05' });
 
@@ -481,13 +481,12 @@ describe('Update trip', () => {
     expect(res.status).toBe(200);
 
     const daysAfter = testDb.prepare('SELECT * FROM days WHERE trip_id = ? ORDER BY day_number').all(trip.id) as { id: number; date: string | null }[];
-    expect(daysAfter).toHaveLength(5);
-    expect(daysAfter.filter(d => d.date !== null)).toHaveLength(3);
-    expect(daysAfter.filter(d => d.date === null)).toHaveLength(2);
+    expect(daysAfter).toHaveLength(3);
+    expect(daysAfter.every(d => d.date !== null)).toBe(true);
 
-    // Overflow assignments survived
+    // Overflow days and their assignments deleted
     const all = testDb.prepare('SELECT * FROM day_assignments WHERE id IN (?, ?)').all(a4.id, a5.id) as { id: number }[];
-    expect(all).toHaveLength(2);
+    expect(all).toHaveLength(0);
   });
 });
 
