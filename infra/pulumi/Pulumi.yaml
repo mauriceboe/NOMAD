@@ -1,0 +1,23 @@
+name: skafld-atlas
+runtime:
+  name: nodejs
+  options:
+    packagemanager: npm
+description: |
+  Pulumi stack for Skafld.Atlas — a self-hosted travel/trip planner.
+
+  Provisions:
+    - Railway project + service (Docker deployment with two persistent volumes)
+    - Cloudflare R2 bucket for off-site backups
+    - Cloudflare DNS records pointing atlas.skafld.com at Railway
+    - Cloudflare Access policy restricting access to authorized users
+    - Doppler project + service tokens for secrets management
+    - GitHub repo configuration (branch protection, Actions secrets)
+
+  Secrets are sourced from Doppler at deploy time. Pulumi state contains
+  references and IDs only — never actual secret values.
+
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: typescript

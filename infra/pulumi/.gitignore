@@ -1,0 +1,12 @@
+# Pulumi build artifacts
+bin/
+node_modules/
+*.log
+
+# Pulumi state — should not be committed; lives in Pulumi Cloud
+Pulumi.*.yaml.bak
+
+# Local env files (Doppler is source of truth for secrets)
+.env
+.env.local
+.env.pulumi

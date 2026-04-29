@@ -1,0 +1,26 @@
+{
+  "name": "skafld-atlas-infra",
+  "version": "0.1.0",
+  "description": "Pulumi infrastructure for Skafld.Atlas",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "preview": "pulumi preview --stack prod",
+    "up": "pulumi up --stack prod",
+    "destroy": "pulumi destroy --stack prod",
+    "refresh": "pulumi refresh --stack prod",
+    "drift": "pulumi preview --stack prod --expect-no-changes"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@pulumi/pulumi": "^3.130.0",
+    "@pulumi/cloudflare": "^5.40.0",
+    "@pulumi/command": "^1.0.0",
+    "@pulumi/github": "^6.2.0",
+    "@pulumiverse/doppler": "^0.7.0",
+    "@pulumi/random": "^4.16.0"
+  }
+}

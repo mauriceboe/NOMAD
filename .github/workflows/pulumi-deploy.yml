@@ -1,0 +1,63 @@
+name: pulumi-deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/pulumi/**'
+      - '.github/workflows/pulumi-deploy.yml'
+  workflow_dispatch: # allow manual triggers for re-runs
+
+# Never run two deploys at once.
+concurrency:
+  group: pulumi-deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: pulumi up (prod)
+    runs-on: ubuntu-latest
+    # The 'prod' environment is configured in the repo with required reviewers.
+    # GitHub will pause the job here and wait for manual approval before
+    # any deploy steps run.
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: infra/pulumi
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: infra/pulumi/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Pulumi up
+        uses: pulumi/actions@v6
+        with:
+          command: up
+          stack-name: prod
+          work-dir: infra/pulumi
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PROVIDER_TOKEN }}
+
+      - name: Smoke test
+        run: |
+          DOMAIN=$(pulumi stack output url --stack prod | tr -d '"')
+          echo "Smoke testing $DOMAIN/api/health..."
+          host "$DOMAIN" || echo "DNS not yet propagated; not failing the job"

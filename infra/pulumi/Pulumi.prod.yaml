@@ -1,0 +1,26 @@
+# Configuration for the prod stack.
+#
+# Secrets (Railway token, Cloudflare token, Doppler token, GitHub token)
+# are NOT stored here. They come from environment variables at deploy time:
+#   - Local runs: read from your shell env (sourced from 1Password / Doppler CLI)
+#   - GitHub Actions: read from repo secrets
+#
+# To set a non-secret value:    pulumi config set <key> <value> --stack prod
+# To set a secret value:        pulumi config set <key> <value> --secret --stack prod
+#
+# We avoid putting secrets in pulumi config entirely — Doppler is the source
+# of truth, and we use ESC (Pulumi Environments) or env vars to bridge.
+config:
+  skafld-atlas:domain: atlas.skafld.com
+  skafld-atlas:cloudflareZone: skafld.com
+  skafld-atlas:githubOwner: skafld-studio
+  skafld-atlas:githubRepo: skafld-atlas
+  skafld-atlas:railwayRegion: us-west2
+  skafld-atlas:dataVolumeSize: "5"
+  skafld-atlas:uploadsVolumeSize: "20"
+  skafld-atlas:dopplerProject: skafld-atlas
+  skafld-atlas:dopplerConfig: prd
+  skafld-atlas:backupBucketName: skafld-atlas-backups-prod
+  skafld-atlas:authorizedEmails:
+    - charles@skafldstudio.com
+    - mike@skafldstudio.com
