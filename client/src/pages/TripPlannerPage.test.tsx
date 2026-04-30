@@ -1474,6 +1474,56 @@ describe('TripPlannerPage', () => {
     });
   });
 
+  describe('FE-PAGE-PLANNER-051: Mobile Plan sidebar stays mounted after onPlaceClick (issue #932)', () => {
+    it('does not unmount the mobile Plan portal when a place is tapped, preserving scroll position', async () => {
+      vi.useFakeTimers();
+      Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 375 });
+
+      const place = buildPlace({ id: 1, trip_id: 42, lat: 48.8566, lng: 2.3522 });
+      const assignment = buildAssignment({ id: 10, day_id: 99, place, order_index: 0 });
+      seedTripStore({ id: 42 });
+      seedStore(useTripStore, {
+        places: [place],
+        assignments: { '99': [assignment] },
+      } as any);
+
+      renderPlannerPage(42);
+      act(() => { vi.runAllTimers(); });
+      vi.useRealTimers();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('day-plan-sidebar')).toBeInTheDocument();
+      });
+
+      // Open the mobile Plan portal via the bottom-nav Plan button (selector mirrors FE-PAGE-PLANNER-049).
+      const mobilePlanBtn = Array.from(document.body.querySelectorAll('button')).find(
+        b => b.textContent === 'Plan' && !b.getAttribute('title'),
+      );
+      expect(mobilePlanBtn).toBeTruthy();
+      await act(async () => { fireEvent.click(mobilePlanBtn!); });
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId('day-plan-sidebar').length).toBe(2);
+      });
+
+      // The mock factory overwrites capturedDayPlanSidebarProps on each mount,
+      // so current holds the mobile portal instance's props.
+      const mobileOnPlaceClick = capturedDayPlanSidebarProps.current.onPlaceClick;
+      expect(typeof mobileOnPlaceClick).toBe('function');
+
+      await act(async () => {
+        mobileOnPlaceClick(place.id, assignment.id);
+      });
+
+      // Invariant: portal must NOT unmount — both instances persist.
+      // Pre-fix: collapses to 1 (setMobileSidebarOpen(null) destroyed scroll container).
+      // Post-fix: stays at 2, browser preserves scrollTop on the living DOM node.
+      expect(screen.getAllByTestId('day-plan-sidebar').length).toBe(2);
+
+      Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1024 });
+    });
+  });
+
   describe('FE-PAGE-PLANNER-037: onExpandedDaysChange covers mapPlaces hidden logic', () => {
     it('calls onExpandedDaysChange to trigger mapPlaces hidden set computation', async () => {
       vi.useFakeTimers();
