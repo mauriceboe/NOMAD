@@ -7,14 +7,10 @@ import { useTranslation } from '../../i18n'
 import { Plane, CalendarDays, Globe, Compass, User, Settings, Shield, LogOut, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-const BASE_ITEMS: { to: string; label: string; icon: LucideIcon; addonId?: string }[] = [
-  { to: '/trips', label: 'Trips', icon: Plane },
-]
-
-const ADDON_NAV: Record<string, { to: string; label: string; icon: LucideIcon }> = {
-  vacay: { to: '/vacay', label: 'Vacay', icon: CalendarDays },
-  atlas: { to: '/atlas', label: 'Atlas', icon: Globe },
-  journey: { to: '/journey', label: 'Journey', icon: Compass },
+const ADDON_NAV: Record<string, { icon: LucideIcon; labelKey: string }> = {
+  vacay:   { icon: CalendarDays, labelKey: 'admin.addons.catalog.vacay.name' },
+  atlas:   { icon: Globe,        labelKey: 'admin.addons.catalog.atlas.name' },
+  journey: { icon: Compass,      labelKey: 'admin.addons.catalog.journey.name' },
 }
 
 export default function BottomNav() {
@@ -25,11 +21,13 @@ export default function BottomNav() {
   const globalAddons = addons.filter(a => a.type === 'global' && a.enabled)
   const [showProfile, setShowProfile] = useState(false)
 
-  const items = [...BASE_ITEMS]
-  for (const addon of globalAddons) {
-    const nav = ADDON_NAV[addon.id]
-    if (nav) items.push(nav)
-  }
+  const items: { to: string; label: string; icon: LucideIcon }[] = [
+    { to: '/trips', label: t('nav.myTrips'), icon: Plane },
+    ...globalAddons.flatMap(addon => {
+      const nav = ADDON_NAV[addon.id]
+      return nav ? [{ to: `/${addon.id}`, label: t(nav.labelKey), icon: nav.icon }] : []
+    }),
+  ]
 
   return (
     <>

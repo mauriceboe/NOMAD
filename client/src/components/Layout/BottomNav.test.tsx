@@ -19,8 +19,10 @@ vi.mock('react-router-dom', async () => {
 import { render, screen, fireEvent } from '../../../tests/helpers/render';
 import userEvent from '@testing-library/user-event';
 import { useAuthStore } from '../../store/authStore';
+import { useSettingsStore } from '../../store/settingsStore';
+import { useAddonStore } from '../../store/addonStore';
 import { resetAllStores, seedStore } from '../../../tests/helpers/store';
-import { buildUser } from '../../../tests/helpers/factories';
+import { buildUser, buildSettings } from '../../../tests/helpers/factories';
 import BottomNav from './BottomNav';
 
 const currentUser = buildUser({ id: 1, username: 'testuser', email: 'test@example.com' });
@@ -39,7 +41,7 @@ describe('BottomNav', () => {
 
   it('FE-COMP-BOTTOMNAV-002: shows Trips nav link', () => {
     render(<BottomNav />);
-    expect(screen.getByText('Trips')).toBeInTheDocument();
+    expect(screen.getByText('My Trips')).toBeInTheDocument();
   });
 
   it('FE-COMP-BOTTOMNAV-003: shows Profile button', () => {
@@ -98,5 +100,40 @@ describe('BottomNav', () => {
     fireEvent.click(backdrop);
     // Sheet should be closed — username no longer visible (only the nav Profile text remains)
     expect(screen.queryByText('testuser')).not.toBeInTheDocument();
+  });
+
+  it('FE-COMP-BOTTOMNAV-010: Trips label translates when language is fr', () => {
+    seedStore(useSettingsStore, { settings: buildSettings({ language: 'fr' }) });
+    render(<BottomNav />);
+    expect(screen.getByText('Mes voyages')).toBeInTheDocument();
+  });
+
+  it('FE-COMP-BOTTOMNAV-011: Profile label translates when language is fr', () => {
+    seedStore(useSettingsStore, { settings: buildSettings({ language: 'fr' }) });
+    render(<BottomNav />);
+    expect(screen.getByText('Profil')).toBeInTheDocument();
+  });
+
+  it('FE-COMP-BOTTOMNAV-012: addon labels translate when language is fr', () => {
+    seedStore(useSettingsStore, { settings: buildSettings({ language: 'fr' }) });
+    seedStore(useAddonStore, {
+      addons: [
+        { id: 'vacay', name: 'Vacay', type: 'global', icon: 'calendar', enabled: true },
+        { id: 'atlas', name: 'Atlas', type: 'global', icon: 'globe', enabled: true },
+        { id: 'journey', name: 'Journey', type: 'global', icon: 'compass', enabled: true },
+      ],
+    });
+    render(<BottomNav />);
+    expect(screen.getByText('Vacances')).toBeInTheDocument();
+    expect(screen.getByText('Atlas')).toBeInTheDocument();
+    expect(screen.getByText('Journal de voyage')).toBeInTheDocument();
+  });
+
+  it('FE-COMP-BOTTOMNAV-013: unknown addon id is not rendered', () => {
+    seedStore(useAddonStore, {
+      addons: [{ id: 'foo', name: 'Foo Addon', type: 'global', icon: 'star', enabled: true }],
+    });
+    render(<BottomNav />);
+    expect(screen.queryByText('Foo Addon')).not.toBeInTheDocument();
   });
 });
