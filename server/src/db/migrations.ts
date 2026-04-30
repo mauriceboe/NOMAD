@@ -2130,6 +2130,17 @@ function runMigrations(db: Database.Database): void {
         'ON journey_entries(journey_id, entry_date, sort_order)'
       );
     },
+    // Swap inverted start_day_id/end_day_id pairs in day_accommodations caused
+    // by the old Math.min/Math.max picker bug (pre-8e05ba7) which used raw IDs
+    // instead of positional order on trips with non-monotonic day ID layouts.
+    () => {
+      db.exec(`
+        UPDATE day_accommodations
+        SET start_day_id = end_day_id, end_day_id = start_day_id
+        WHERE (SELECT day_number FROM days WHERE id = start_day_id)
+            > (SELECT day_number FROM days WHERE id = end_day_id)
+      `);
+    },
   ];
 
   if (currentVersion < migrations.length) {

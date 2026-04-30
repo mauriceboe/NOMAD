@@ -1,4 +1,4 @@
-// FE-PLANNER-RESMODAL-001 to FE-PLANNER-RESMODAL-035
+// FE-PLANNER-RESMODAL-001 to FE-PLANNER-RESMODAL-052
 import { render, screen, waitFor, fireEvent } from '../../../tests/helpers/render';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -722,5 +722,104 @@ describe('ReservationModal', () => {
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'hotel' })
     );
+  });
+
+  // ── Hotel day-range picker — non-monotonic IDs (issue #929) ───────────────
+  // Mirrors DayDetailPanel-056/057 for the ReservationModal path.
+  // ID layout: day_number 1-9 → IDs 17-25, day_number 10-16 → IDs 1-7.
+
+  function buildNonMonotonicDaysRM() {
+    return [
+      buildDay({ id: 17, trip_id: 1, date: '2026-04-30', day_number: 1 }),
+      buildDay({ id: 18, trip_id: 1, date: '2026-05-01', day_number: 2 }),
+      buildDay({ id: 19, trip_id: 1, date: '2026-05-02', day_number: 3 }),
+      buildDay({ id: 20, trip_id: 1, date: '2026-05-03', day_number: 4 }),
+      buildDay({ id: 21, trip_id: 1, date: '2026-05-04', day_number: 5 }),
+      buildDay({ id: 22, trip_id: 1, date: '2026-05-05', day_number: 6 }),
+      buildDay({ id: 23, trip_id: 1, date: '2026-05-06', day_number: 7 }),
+      buildDay({ id: 24, trip_id: 1, date: '2026-05-07', day_number: 8 }),
+      buildDay({ id: 25, trip_id: 1, date: '2026-05-08', day_number: 9 }),
+      buildDay({ id: 1,  trip_id: 1, date: '2026-05-09', day_number: 10 }),
+      buildDay({ id: 2,  trip_id: 1, date: '2026-05-10', day_number: 11 }),
+      buildDay({ id: 3,  trip_id: 1, date: '2026-05-11', day_number: 12 }),
+      buildDay({ id: 4,  trip_id: 1, date: '2026-05-12', day_number: 13 }),
+      buildDay({ id: 5,  trip_id: 1, date: '2026-05-13', day_number: 14 }),
+      buildDay({ id: 6,  trip_id: 1, date: '2026-05-14', day_number: 15 }),
+      buildDay({ id: 7,  trip_id: 1, date: '2026-05-15', day_number: 16 }),
+    ] as any[];
+  }
+
+  it('FE-PLANNER-RESMODAL-050: non-monotonic IDs — end picker with low ID does not clobber start', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const days = buildNonMonotonicDaysRM();
+
+    render(<ReservationModal {...defaultProps} onSave={onSave} days={days} />);
+
+    // Switch to hotel type
+    await userEvent.click(screen.getByRole('button', { name: /^Accommodation$/i }));
+    await userEvent.type(screen.getByPlaceholderText(/e\.g\. Lufthansa/i), 'Overlap Hotel');
+
+    // Open start picker (first "Select day" trigger) and select Day 1 (id=17)
+    const startTrigger = () => screen.getAllByRole('button').filter(b => b.textContent?.includes('Select day') || b.textContent?.startsWith('Day '))[0];
+    await userEvent.click(startTrigger());
+    await userEvent.click(screen.getAllByRole('button').find(b => b.textContent?.startsWith('Day 1') && !b.textContent?.startsWith('Day 1 ') || b.textContent?.trim() === 'Day 1')!);
+
+    // Open end picker and select Day 16 (id=7, low ID but last positionally)
+    const endTrigger = () => screen.getAllByRole('button').filter(b => b.textContent?.includes('Select day') || /^Day \d+/.test(b.textContent?.trim() ?? ''))[1];
+    await userEvent.click(endTrigger());
+    await userEvent.click(screen.getAllByRole('button').find(b => b.textContent?.startsWith('Day 16'))!);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Add$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    const saved = onSave.mock.calls[0][0];
+    // start must stay id=17 (Day 1) — old Math.max would clobber it to id=7
+    expect(saved.create_accommodation?.start_day_id).toBe(17);
+    expect(saved.create_accommodation?.end_day_id).toBe(7);
+  });
+
+  it('FE-PLANNER-RESMODAL-051: non-monotonic IDs — start picker does not collapse end when start has high ID', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const days = buildNonMonotonicDaysRM();
+
+    render(<ReservationModal {...defaultProps} onSave={onSave} days={days} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Accommodation$/i }));
+    await userEvent.type(screen.getByPlaceholderText(/e\.g\. Lufthansa/i), 'Span Hotel');
+
+    // Set end to Day 16 (id=7) first
+    const endTrigger = () => screen.getAllByRole('button').filter(b => b.textContent?.includes('Select day') || /^Day \d+/.test(b.textContent?.trim() ?? ''))[1];
+    await userEvent.click(endTrigger());
+    await userEvent.click(screen.getAllByRole('button').find(b => b.textContent?.startsWith('Day 16'))!);
+
+    // Set start to Day 9 (id=25, high ID but earlier by position than Day 16)
+    // Old code: Math.max(25, 7) = 25 → end collapses to Day 9.
+    // New code: position(id=25)=8 < position(id=7)=15 → end stays id=7.
+    const startTrigger = () => screen.getAllByRole('button').filter(b => b.textContent?.includes('Select day') || /^Day \d+/.test(b.textContent?.trim() ?? ''))[0];
+    await userEvent.click(startTrigger());
+    await userEvent.click(screen.getAllByRole('button').find(b => b.textContent?.startsWith('Day 9'))!);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Add$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    const saved = onSave.mock.calls[0][0];
+    expect(saved.create_accommodation?.start_day_id).toBe(25); // Day 9
+    expect(saved.create_accommodation?.end_day_id).toBe(7);    // Day 16 — must NOT have collapsed
+  });
+
+  it('FE-PLANNER-RESMODAL-052: hotel with no accommodation_id sends assignment_id as null (issue #934)', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    // Hotel reservation with assignment_id set but no accommodation
+    const res = buildReservation({
+      id: 10, title: 'Stale Hotel', type: 'hotel', status: 'confirmed',
+      accommodation_id: null, assignment_id: 99,
+    } as any);
+
+    render(<ReservationModal {...defaultProps} onSave={onSave} reservation={res} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Update$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(onSave.mock.calls[0][0].assignment_id).toBeNull();
   });
 });
