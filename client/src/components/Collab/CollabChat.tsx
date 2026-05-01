@@ -768,7 +768,7 @@ export default function CollabChat({ tripId, currentUser }: CollabChatProps) {
       )}
 
       {/* Composer */}
-      <div style={{ flexShrink: 0, paddingTop: 8, paddingLeft: 12, paddingRight: 12, borderTop: '1px solid var(--border-faint)', background: 'var(--bg-card)' }} className="pb-[96px] md:pb-3">
+      <div style={{ flexShrink: 0, paddingTop: 8, paddingLeft: 12, paddingRight: 12, borderTop: '1px solid var(--border-faint)', background: 'var(--bg-card)' }} className="pb-3">
         {/* Reply preview */}
         {replyTo && (
           <div style={{
