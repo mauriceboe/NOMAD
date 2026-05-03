@@ -1,4 +1,11 @@
 import type { SystemNotice } from './types.js';
+import { registerPredicate } from './conditions.js';
+import { db } from '../db/database.js';
+
+registerPredicate('whitespace-collision-detected', () => {
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = 'whitespace_migration_collision'").get() as { value: string } | undefined;
+  return row?.value === 'true';
+});
 
 /**
  * SYSTEM NOTICE REGISTRY
@@ -122,6 +129,26 @@ export const SYSTEM_NOTICES: SystemNotice[] = [
     priority: 95,
     minVersion: '3.0.0',
     maxVersion: '4.0.0',
+  },
+
+  // ── 3.0.14 admin notice — whitespace migration collision ───────────────────
+
+  {
+    id: 'v3014-whitespace-collision',
+    display: 'banner',
+    severity: 'warn',
+    icon: 'AlertTriangle',
+    titleKey: 'system_notice.v3014_whitespace_collision.title',
+    bodyKey:  'system_notice.v3014_whitespace_collision.body',
+    dismissible: true,
+    conditions: [
+      { kind: 'existingUserBeforeVersion', version: '3.0.14' },
+      { kind: 'role', roles: ['admin'] },
+      { kind: 'custom', id: 'whitespace-collision-detected' },
+    ],
+    publishedAt: '2026-05-03T00:00:00Z',
+    priority: 85,
+    minVersion: '3.0.14',
   },
 
   // ── Onboarding ─────────────────────────────────────────────────────────────

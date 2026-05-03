@@ -1,8 +1,10 @@
 import Database from 'better-sqlite3';
 import { encrypt_api_key } from '../services/apiKeyCrypto';
 
-export function trimUserWhitespace(db: Database.Database): void {
+/** Returns true if any collision was encountered (renamed row). */
+export function trimUserWhitespace(db: Database.Database): boolean {
   type DirtyRow = { id: number; username?: string; email?: string };
+  let hadCollision = false;
 
   const dirtyUsernames = db.prepare(
     `SELECT id, username FROM users WHERE username != TRIM(username)`
@@ -16,6 +18,7 @@ export function trimUserWhitespace(db: Database.Database): void {
 
     const final = collision ? `${trimmed}__migrated_${row.id}` : trimmed;
     if (collision) {
+      hadCollision = true;
       console.warn(
         `[migration] WHITESPACE COLLISION username: user id=${row.id} ` +
         `original=${JSON.stringify(row.username)} trimmed="${trimmed}" ` +
@@ -43,6 +46,7 @@ export function trimUserWhitespace(db: Database.Database): void {
 
     let final = trimmed;
     if (collision) {
+      hadCollision = true;
       const at = trimmed.lastIndexOf('@');
       final = at > 0
         ? `${trimmed.slice(0, at)}__migrated_${row.id}${trimmed.slice(at)}`
@@ -61,6 +65,8 @@ export function trimUserWhitespace(db: Database.Database): void {
     }
     db.prepare(`UPDATE users SET email = ? WHERE id = ?`).run(final, row.id);
   }
+
+  return hadCollision;
 }
 
 function runMigrations(db: Database.Database): void {
@@ -2210,7 +2216,12 @@ function runMigrations(db: Database.Database): void {
       db.exec(`INSERT INTO app_settings (key, value) VALUES ('app_version', '${process.env.APP_VERSION || '3.0.14'}')`);
     },
     // trim leading/trailing whitespace from stored usernames and emails
-    () => trimUserWhitespace(db),
+    () => {
+      const hadCollision = trimUserWhitespace(db);
+      if (hadCollision) {
+        db.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('whitespace_migration_collision', 'true')").run();
+      }
+    },
   ];
 
   if (currentVersion < migrations.length) {
