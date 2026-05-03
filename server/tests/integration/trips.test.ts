@@ -677,6 +677,20 @@ describe('Trip members', () => {
     expect(res.body.error).toMatch(/already/i);
   });
 
+  it('TRIP-013 — Adding a member by whitespace-padded username resolves correctly → 201', async () => {
+    const { user: owner } = createUser(testDb);
+    const { user: invitee } = createUser(testDb, { username: 'paddeduser' });
+    const trip = createTrip(testDb, owner.id, { title: 'Padded Trip' });
+
+    const res = await request(app)
+      .post(`/api/trips/${trip.id}/members`)
+      .set('Cookie', authCookie(owner.id))
+      .send({ identifier: '  paddeduser  ' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.member.id).toBe(invitee.id);
+  });
+
   it('TRIP-014 — DELETE /api/trips/:id/members/:userId removes a member → 200', async () => {
     const { user: owner } = createUser(testDb);
     const { user: member } = createUser(testDb);

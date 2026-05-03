@@ -219,6 +219,54 @@ describe('Registration', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Registration — whitespace normalization
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Registration — whitespace normalization', () => {
+  it('AUTH-REG-TRIM-1 — username with surrounding whitespace is trimmed before storage', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      username: '  trimmeduser  ',
+      email: 'trimmed@example.com',
+      password: 'Str0ng!Pass',
+    });
+    expect(res.status).toBe(201);
+    const row = testDb.prepare('SELECT username FROM users WHERE email = ?').get('trimmed@example.com') as { username: string };
+    expect(row.username).toBe('trimmeduser');
+  });
+
+  it('AUTH-REG-TRIM-2 — email with surrounding whitespace is trimmed before storage', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      username: 'emailtrimuser',
+      email: '  emailtrim@example.com  ',
+      password: 'Str0ng!Pass',
+    });
+    expect(res.status).toBe(201);
+    const row = testDb.prepare('SELECT email FROM users WHERE username = ?').get('emailtrimuser') as { email: string };
+    expect(row.email).toBe('emailtrim@example.com');
+  });
+
+  it('AUTH-REG-TRIM-3 — whitespace-padded username that trims to existing username returns 409', async () => {
+    createUser(testDb, { username: 'alice', email: 'alice@example.com' });
+    const res = await request(app).post('/api/auth/register').send({
+      username: '  alice  ',
+      email: 'alice2@example.com',
+      password: 'Str0ng!Pass',
+    });
+    expect(res.status).toBe(409);
+  });
+
+  it('AUTH-REG-TRIM-4 — whitespace-padded email that trims to existing email returns 409', async () => {
+    createUser(testDb, { username: 'bob', email: 'bob@example.com' });
+    const res = await request(app).post('/api/auth/register').send({
+      username: 'bob2',
+      email: '  bob@example.com  ',
+      password: 'Str0ng!Pass',
+    });
+    expect(res.status).toBe(409);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Session / Me
 // ─────────────────────────────────────────────────────────────────────────────
 

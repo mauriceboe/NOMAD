@@ -343,7 +343,9 @@ export function registerUser(body: {
   password?: string;
   invite_token?: string;
 }): { error?: string; status?: number; token?: string; user?: Record<string, unknown>; auditUserId?: number; auditDetails?: Record<string, unknown> } {
-  const { username, email, password, invite_token } = body;
+  const username = typeof body.username === 'string' ? body.username.trim() : '';
+  const email = typeof body.email === 'string' ? body.email.trim() : '';
+  const { password, invite_token } = body;
 
   const userCount = (db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number }).count;
 

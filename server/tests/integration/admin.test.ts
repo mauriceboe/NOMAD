@@ -369,6 +369,53 @@ describe('Admin user management', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Admin user management — whitespace normalization
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Admin user management — whitespace normalization', () => {
+  it('ADMIN-UPDATE-TRIM-1 — PUT /admin/users/:id trims username before storing', async () => {
+    const { user: admin } = createAdmin(testDb);
+    const { user } = createUser(testDb);
+
+    const res = await request(app)
+      .put(`/api/admin/users/${user.id}`)
+      .set('Cookie', authCookie(admin.id))
+      .send({ username: '  trimmedadmin  ' });
+
+    expect(res.status).toBe(200);
+    const row = testDb.prepare('SELECT username FROM users WHERE id = ?').get(user.id) as { username: string };
+    expect(row.username).toBe('trimmedadmin');
+  });
+
+  it('ADMIN-UPDATE-TRIM-2 — PUT /admin/users/:id trims email before storing', async () => {
+    const { user: admin } = createAdmin(testDb);
+    const { user } = createUser(testDb);
+
+    const res = await request(app)
+      .put(`/api/admin/users/${user.id}`)
+      .set('Cookie', authCookie(admin.id))
+      .send({ email: '  newemail@example.com  ' });
+
+    expect(res.status).toBe(200);
+    const row = testDb.prepare('SELECT email FROM users WHERE id = ?').get(user.id) as { email: string };
+    expect(row.email).toBe('newemail@example.com');
+  });
+
+  it('ADMIN-UPDATE-TRIM-3 — PUT /admin/users/:id with whitespace-padded username that trims to existing returns 409', async () => {
+    const { user: admin } = createAdmin(testDb);
+    const { user: existing } = createUser(testDb, { username: 'carol' });
+    const { user: target } = createUser(testDb);
+
+    const res = await request(app)
+      .put(`/api/admin/users/${target.id}`)
+      .set('Cookie', authCookie(admin.id))
+      .send({ username: `  ${existing.username}  ` });
+
+    expect(res.status).toBe(409);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // System stats
 // ─────────────────────────────────────────────────────────────────────────────
 

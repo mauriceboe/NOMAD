@@ -112,7 +112,9 @@ export function createUser(data: { username: string; email: string; password: st
 }
 
 export function updateUser(id: string, data: { username?: string; email?: string; role?: string; password?: string }) {
-  const { username, email, role, password } = data;
+  const username = typeof data.username === 'string' ? data.username.trim() : data.username;
+  const email = typeof data.email === 'string' ? data.email.trim() : data.email;
+  const { role, password } = data;
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as User | undefined;
 
   if (!user) return { error: 'User not found', status: 404 };

@@ -350,7 +350,7 @@ export function findOrCreateUser(
   config: OidcConfig,
   inviteToken?: string,
 ): { user: User } | { error: string } {
-  const email = userInfo.email!.toLowerCase();
+  const email = userInfo.email!.trim().toLowerCase();
   const name = userInfo.name || userInfo.preferred_username || email.split('@')[0];
   const sub = userInfo.sub;
 
