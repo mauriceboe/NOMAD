@@ -6,27 +6,32 @@ TREK makes outbound HTTP requests when you configure integrations such as Immich
 
 All outbound requests go through an SSRF guard (`ssrfGuard.ts`). The guard resolves the hostname to an IP address before allowing the connection and blocks addresses in private ranges.
 
-## Blocked unless `ALLOW_INTERNAL_NETWORK=true`
+## Always blocked (no override possible)
 
-All of the following are blocked by default and can be permitted by setting `ALLOW_INTERNAL_NETWORK=true`:
+These ranges are blocked regardless of any setting:
 
-| Range / Hostname | Description |
+| Range | Description |
 |---|---|
 | `127.0.0.0/8`, `::1` | Loopback |
 | `0.0.0.0/8` | Unspecified |
 | `169.254.0.0/16`, `fe80::/10` | Link-local / cloud metadata endpoints |
 | `::ffff:127.x.x.x`, `::ffff:169.254.x.x` | IPv4-mapped loopback and link-local |
+
+## Blocked unless `ALLOW_INTERNAL_NETWORK=true`
+
+| Range / Hostname | Description |
+|---|---|
 | `10.0.0.0/8` | RFC-1918 private |
 | `172.16.0.0/12` | RFC-1918 private |
 | `192.168.0.0/16` | RFC-1918 private |
 | `100.64.0.0/10` | CGNAT / Tailscale shared address space |
 | `fc00::/7` | IPv6 ULA |
 | IPv4-mapped RFC-1918 variants | e.g. `::ffff:10.x`, `::ffff:192.168.x` |
-| `*.local`, `*.internal` hostnames | mDNS / internal DNS suffixes |
+| `*.local`, `*.internal` hostnames | mDNS / internal DNS suffixes (e.g. Docker service names, LAN hosts) |
 
-The hostname `localhost` is not blocked at the hostname stage but resolves to `127.0.0.1`, which falls under the loopback rule above.
+The hostname `localhost` is not blocked at the hostname stage, but it resolves to `127.0.0.1` which is caught by the loopback rule above and is therefore always blocked.
 
-> **Warning:** `ALLOW_INTERNAL_NETWORK=true` also permits loopback and link-local addresses, including `169.254.169.254` (cloud instance metadata). Do **not** set this flag on a cloud-hosted TREK instance.
+`*.local` and `*.internal` hostnames are permitted when `ALLOW_INTERNAL_NETWORK=true` — the guard still resolves them to an IP and enforces all IP-level rules, so any such hostname that resolves to a loopback or link-local address remains blocked regardless.
 
 ## When to enable
 

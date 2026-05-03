@@ -66,10 +66,6 @@ export async function checkSsrf(rawUrl: string, bypassInternalIpAllowed: boolean
 
   const hostname = url.hostname.toLowerCase();
 
-  if (isInternalHostname(hostname) && hostname !== 'localhost' && !ALLOW_INTERNAL_NETWORK) {
-    return { allowed: false, isPrivate: false, error: 'Requests to .local/.internal domains are not allowed' };
-  }
-
   // Resolve hostname to IP
   let resolvedIp: string;
   try {
@@ -79,7 +75,7 @@ export async function checkSsrf(rawUrl: string, bypassInternalIpAllowed: boolean
     return { allowed: false, isPrivate: false, error: 'Could not resolve hostname' };
   }
 
-  if (isAlwaysBlocked(resolvedIp) && !ALLOW_INTERNAL_NETWORK) {
+  if (isAlwaysBlocked(resolvedIp)) {
     return {
       allowed: false,
       isPrivate: true,
