@@ -4,7 +4,7 @@ import { clientsClaim } from 'workbox-core';
 import {
   precacheAndRoute,
   cleanupOutdatedCaches,
-  createHandlerBoundToURL,
+  matchPrecache,
 } from 'workbox-precaching';
 import { registerRoute, NavigationRoute } from 'workbox-routing';
 import { NetworkFirst, CacheFirst } from 'workbox-strategies';
@@ -23,16 +23,28 @@ self.skipWaiting();
 clientsClaim();
 
 // Inject precache manifest (replaced by vite-plugin-pwa at build time)
-// @ts-expect-error __WB_MANIFEST is injected at build time
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
 // ── Static routes (not user-configurable) ─────────────────────────────────────
 
+// Network-first navigations so reverse-proxy auth redirects (Cloudflare Zero
+// Trust, Pangolin, etc.) reach the browser instead of being swallowed by the
+// precached app shell. `redirect: 'manual'` produces an opaqueredirect Response
+// which, per Fetch spec, the browser follows for navigation requests returned
+// from FetchEvent.respondWith. Falls back to precached app shell offline.
 registerRoute(
-  new NavigationRoute(createHandlerBoundToURL('index.html'), {
-    denylist: [/^\/api/, /^\/uploads/, /^\/mcp/],
-  }),
+  new NavigationRoute(
+    async ({ request }) => {
+      try {
+        return await fetch(request, { redirect: 'manual' });
+      } catch {
+        const cached = await matchPrecache('index.html');
+        return cached ?? Response.error();
+      }
+    },
+    { denylist: [/^\/api/, /^\/uploads/, /^\/mcp/] },
+  ),
 );
 
 registerRoute(
@@ -65,11 +77,32 @@ registerRoute(
 
 const DAY = 24 * 60 * 60;
 
+// Detects when an upstream reverse-proxy auth gate (Cloudflare Zero Trust,
+// Pangolin, etc.) redirects a mid-session API call to an external SSO login
+// page. Uses redirect:'manual' so the response stays as opaqueredirect instead
+// of being silently followed; converts it to a 401 that the Axios interceptor
+// in api/client.ts already handles (→ window.location.href = '/login').
+const authRedirectPlugin = {
+  async requestWillFetch({ request }: { request: Request }): Promise<Request> {
+    return new Request(request, { redirect: 'manual' });
+  },
+  async fetchDidSucceed({ response }: { response: Response }): Promise<Response> {
+    if (response.type === 'opaqueredirect') {
+      return new Response(JSON.stringify({ code: 'AUTH_REQUIRED' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return response;
+  },
+};
+
 function buildApiStrategy(cfg: SwCacheConfig): NetworkFirst {
   return new NetworkFirst({
     cacheName: 'api-data',
     networkTimeoutSeconds: 5,
     plugins: [
+      authRedirectPlugin,
       new ExpirationPlugin({
         maxEntries: cfg.apiMaxEntries,
         maxAgeSeconds: cfg.apiTtlDays * DAY,
