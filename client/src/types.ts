@@ -16,7 +16,7 @@ export interface User {
 
 export interface Trip {
   id: number
-  name: string
+  title: string
   description: string | null
   start_date: string
   end_date: string

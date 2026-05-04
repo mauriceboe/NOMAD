@@ -31,7 +31,7 @@ export const createBudgetSlice = (set: SetState, get: GetState): BudgetSlice => 
 
   addBudgetItem: async (tripId, data) => {
     try {
-      const result = await budgetApi.create(tripId, data)
+      const result = await budgetRepo.create(tripId, data as Record<string, unknown>)
       set(state => ({ budgetItems: [...state.budgetItems, result.item] }))
       return result.item
     } catch (err: unknown) {
@@ -41,7 +41,7 @@ export const createBudgetSlice = (set: SetState, get: GetState): BudgetSlice => 
 
   updateBudgetItem: async (tripId, id, data) => {
     try {
-      const result = await budgetApi.update(tripId, id, data)
+      const result = await budgetRepo.update(tripId, id, data as Record<string, unknown>)
       set(state => ({
         budgetItems: state.budgetItems.map(item => item.id === id ? result.item : item)
       }))
@@ -58,7 +58,7 @@ export const createBudgetSlice = (set: SetState, get: GetState): BudgetSlice => 
     const prev = get().budgetItems
     set(state => ({ budgetItems: state.budgetItems.filter(item => item.id !== id) }))
     try {
-      await budgetApi.delete(tripId, id)
+      await budgetRepo.delete(tripId, id)
     } catch (err: unknown) {
       set({ budgetItems: prev })
       throw new Error(getApiErrorMessage(err, 'Error deleting budget item'))

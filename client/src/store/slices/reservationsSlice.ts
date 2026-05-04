@@ -1,4 +1,3 @@
-import { reservationsApi } from '../../api/client'
 import { reservationRepo } from '../../repo/reservationRepo'
 import type { StoreApi } from 'zustand'
 import type { TripStoreState } from '../tripStore'
@@ -28,7 +27,7 @@ export const createReservationsSlice = (set: SetState, get: GetState): Reservati
 
   addReservation: async (tripId, data) => {
     try {
-      const result = await reservationsApi.create(tripId, data)
+      const result = await reservationRepo.create(tripId, data as Record<string, unknown>)
       set(state => ({ reservations: [result.reservation, ...state.reservations] }))
       return result.reservation
     } catch (err: unknown) {
@@ -38,7 +37,7 @@ export const createReservationsSlice = (set: SetState, get: GetState): Reservati
 
   updateReservation: async (tripId, id, data) => {
     try {
-      const result = await reservationsApi.update(tripId, id, data)
+      const result = await reservationRepo.update(tripId, id, data as Record<string, unknown>)
       set(state => ({
         reservations: state.reservations.map(r => r.id === id ? result.reservation : r)
       }))
@@ -57,17 +56,19 @@ export const createReservationsSlice = (set: SetState, get: GetState): Reservati
       reservations: state.reservations.map(r => r.id === id ? { ...r, status: newStatus } : r)
     }))
     try {
-      await reservationsApi.update(tripId, id, { status: newStatus })
+      await reservationRepo.update(tripId, id, { status: newStatus })
     } catch {
       set({ reservations: prev })
     }
   },
 
   deleteReservation: async (tripId, id) => {
+    const prev = get().reservations
+    set(state => ({ reservations: state.reservations.filter(r => r.id !== id) }))
     try {
-      await reservationsApi.delete(tripId, id)
-      set(state => ({ reservations: state.reservations.filter(r => r.id !== id) }))
+      await reservationRepo.delete(tripId, id)
     } catch (err: unknown) {
+      set({ reservations: prev })
       throw new Error(getApiErrorMessage(err, 'Error deleting reservation'))
     }
   },

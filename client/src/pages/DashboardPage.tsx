@@ -791,7 +791,7 @@ export default function DashboardPage(): React.ReactElement {
 
   const handleArchive = async (id) => {
     try {
-      const data = await tripsApi.archive(id)
+      const data = await tripRepo.update(id, { is_archived: true })
       setTrips(prev => prev.filter(t => t.id !== id))
       setArchivedTrips(prev => sortTrips([data.trip, ...prev]))
       toast.success(t('dashboard.toast.archived'))
@@ -802,7 +802,7 @@ export default function DashboardPage(): React.ReactElement {
 
   const handleUnarchive = async (id) => {
     try {
-      const data = await tripsApi.unarchive(id)
+      const data = await tripRepo.update(id, { is_archived: false })
       setArchivedTrips(prev => prev.filter(t => t.id !== id))
       setTrips(prev => sortTrips([data.trip, ...prev]))
       toast.success(t('dashboard.toast.restored'))
