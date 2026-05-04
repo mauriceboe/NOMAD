@@ -22,7 +22,7 @@ import * as scheduler from './scheduler';
 
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST;
-const APP_VERSION: string = process.env.APP_VERSION || (require('../../package.json') as { version: string }).version;
+const APP_VERSION: string = process.env.APP_VERSION || (require('../package.json') as { version: string }).version;
 
 const onListen = () => {
   const { logInfo: sLogInfo, logWarn: sLogWarn } = require('./services/auditLog');
