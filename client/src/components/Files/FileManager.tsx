@@ -5,6 +5,7 @@ import { Upload, Trash2, ExternalLink, Download, X, FileText, FileImage, File, M
 import { useToast } from '../shared/Toast'
 import { useTranslation } from '../../i18n'
 import { filesApi } from '../../api/client'
+import { fileRepo } from '../../repo/fileRepo'
 import type { Place, Reservation, TripFile, Day, AssignmentsMap } from '../../types'
 import { useCanDo } from '../../store/permissionsStore'
 import { useTripStore } from '../../store/tripStore'
@@ -290,7 +291,7 @@ export default function FileManager({ files = [], onUpload, onDelete, onUpdate, 
 
   const handleStar = async (fileId: number) => {
     try {
-      await filesApi.toggleStar(tripId, fileId)
+      await fileRepo.toggleStar(tripId, fileId)
       refreshFiles()
     } catch { /* */ }
   }
@@ -409,7 +410,7 @@ export default function FileManager({ files = [], onUpload, onDelete, onUpdate, 
 
   const handleAssign = async (fileId: number, data: { place_id?: number | null; reservation_id?: number | null }) => {
     try {
-      await filesApi.update(tripId, fileId, data)
+      await fileRepo.update(tripId, fileId, data as Record<string, unknown>)
       refreshFiles()
     } catch {
       toast.error(t('files.toast.assignError'))

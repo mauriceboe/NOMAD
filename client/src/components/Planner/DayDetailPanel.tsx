@@ -5,6 +5,7 @@ import { X, Sun, Cloud, CloudRain, CloudSnow, CloudDrizzle, CloudLightning, Wind
 const RES_TYPE_ICONS = { flight: Plane, hotel: Hotel, restaurant: Utensils, train: Train, car: Car, cruise: Ship, event: Ticket, tour: Users, other: FileText }
 const RES_TYPE_COLORS = { flight: '#3b82f6', hotel: '#8b5cf6', restaurant: '#ef4444', train: '#06b6d4', car: '#6b7280', cruise: '#0ea5e9', event: '#f59e0b', tour: '#10b981', other: '#6b7280' }
 import { weatherApi, accommodationsApi } from '../../api/client'
+import { accommodationRepo } from '../../repo/accommodationRepo'
 import { useCanDo } from '../../store/permissionsStore'
 import { useTripStore } from '../../store/tripStore'
 import CustomSelect from '../shared/CustomSelect'
@@ -117,7 +118,7 @@ export default function DayDetailPanel({ day, days, places, categories = [], tri
   const handleSaveAccommodation = async () => {
     if (!hotelForm.place_id) return
     try {
-      const data = await accommodationsApi.create(tripId, {
+      const data = await accommodationRepo.create(tripId, {
         place_id: hotelForm.place_id,
         start_day_id: hotelDayRange.start,
         end_day_id: hotelDayRange.end,
@@ -142,7 +143,7 @@ export default function DayDetailPanel({ day, days, places, categories = [], tri
   const updateAccommodationField = async (field, value) => {
     if (!accommodation) return
     try {
-      const data = await accommodationsApi.update(tripId, accommodation.id, { [field]: value || null })
+      const data = await accommodationRepo.update(tripId, accommodation.id, { [field]: value || null })
       setAccommodation(data.accommodation)
       onAccommodationChange?.()
     } catch {}
@@ -151,7 +152,7 @@ export default function DayDetailPanel({ day, days, places, categories = [], tri
   const handleRemoveAccommodation = async () => {
     if (!accommodation) return
     try {
-      await accommodationsApi.delete(tripId, accommodation.id)
+      await accommodationRepo.delete(tripId, accommodation.id)
       const updated = accommodations.filter(a => a.id !== accommodation.id)
       setAccommodations(updated)
       setDayAccommodations(updated.filter(a =>
@@ -583,7 +584,7 @@ export default function DayDetailPanel({ day, days, places, categories = [], tri
                   <button onClick={async () => {
                     if (showHotelPicker === 'edit' && accommodation) {
                       // Update existing
-                      await accommodationsApi.update(tripId, accommodation.id, {
+                      await accommodationRepo.update(tripId, accommodation.id, {
                         place_id: hotelForm.place_id,
                         start_day_id: hotelDayRange.start,
                         end_day_id: hotelDayRange.end,

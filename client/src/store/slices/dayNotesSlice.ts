@@ -1,4 +1,7 @@
-import { daysApi, dayNotesApi } from '../../api/client'
+import { dayNotesApi } from '../../api/client'
+import { offlineDb } from '../../db/offlineDb'
+import { dayRepo } from '../../repo/dayRepo'
+import { mutationQueue, generateUUID } from '../../sync/mutationQueue'
 import type { StoreApi } from 'zustand'
 import type { TripStoreState } from '../tripStore'
 import type { DayNote } from '../../types'
@@ -19,7 +22,7 @@ export interface DayNotesSlice {
 export const createDayNotesSlice = (set: SetState, get: GetState): DayNotesSlice => ({
   updateDayNotes: async (tripId, dayId, notes) => {
     try {
-      await daysApi.update(tripId, dayId, { notes })
+      await dayRepo.update(tripId, dayId, { notes })
       set(state => ({
         days: state.days.map(d => d.id === parseInt(String(dayId)) ? { ...d, notes } : d)
       }))
@@ -30,7 +33,7 @@ export const createDayNotesSlice = (set: SetState, get: GetState): DayNotesSlice
 
   updateDayTitle: async (tripId, dayId, title) => {
     try {
-      await daysApi.update(tripId, dayId, { title })
+      await dayRepo.update(tripId, dayId, { title })
       set(state => ({
         days: state.days.map(d => d.id === parseInt(String(dayId)) ? { ...d, title } : d)
       }))
@@ -48,6 +51,22 @@ export const createDayNotesSlice = (set: SetState, get: GetState): DayNotesSlice
         [String(dayId)]: [...(state.dayNotes[String(dayId)] || []), tempNote],
       }
     }))
+
+    if (!navigator.onLine) {
+      const day = await offlineDb.days.get(Number(dayId))
+      if (day) {
+        await offlineDb.days.put({ ...day, notes_items: [...(day.notes_items || []), tempNote] })
+      }
+      await mutationQueue.enqueue({
+        id: generateUUID(),
+        tripId: Number(tripId),
+        method: 'POST',
+        url: `/trips/${tripId}/days/${dayId}/notes`,
+        body: data as Record<string, unknown>,
+      })
+      return tempNote
+    }
+
     try {
       const result = await dayNotesApi.create(tripId, dayId, data)
       set(state => ({
@@ -69,6 +88,32 @@ export const createDayNotesSlice = (set: SetState, get: GetState): DayNotesSlice
   },
 
   updateDayNote: async (tripId, dayId, id, data) => {
+    if (!navigator.onLine) {
+      const existing = get().dayNotes[String(dayId)]?.find(n => n.id === id)
+      const optimistic: DayNote = { ...(existing ?? {} as DayNote), ...(data as Partial<DayNote>), id }
+      set(state => ({
+        dayNotes: {
+          ...state.dayNotes,
+          [String(dayId)]: (state.dayNotes[String(dayId)] || []).map(n => n.id === id ? optimistic : n),
+        }
+      }))
+      const day = await offlineDb.days.get(Number(dayId))
+      if (day) {
+        await offlineDb.days.put({
+          ...day,
+          notes_items: (day.notes_items || []).map(n => n.id === id ? optimistic : n),
+        })
+      }
+      await mutationQueue.enqueue({
+        id: generateUUID(),
+        tripId: Number(tripId),
+        method: 'PUT',
+        url: `/trips/${tripId}/days/${dayId}/notes/${id}`,
+        body: data as Record<string, unknown>,
+      })
+      return optimistic
+    }
+
     try {
       const result = await dayNotesApi.update(tripId, dayId, id, data)
       set(state => ({
@@ -91,6 +136,25 @@ export const createDayNotesSlice = (set: SetState, get: GetState): DayNotesSlice
         [String(dayId)]: (state.dayNotes[String(dayId)] || []).filter(n => n.id !== id),
       }
     }))
+
+    if (!navigator.onLine) {
+      const day = await offlineDb.days.get(Number(dayId))
+      if (day) {
+        await offlineDb.days.put({
+          ...day,
+          notes_items: (day.notes_items || []).filter(n => n.id !== id),
+        })
+      }
+      await mutationQueue.enqueue({
+        id: generateUUID(),
+        tripId: Number(tripId),
+        method: 'DELETE',
+        url: `/trips/${tripId}/days/${dayId}/notes/${id}`,
+        body: undefined,
+      })
+      return
+    }
+
     try {
       await dayNotesApi.delete(tripId, dayId, id)
     } catch (err: unknown) {

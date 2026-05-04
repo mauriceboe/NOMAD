@@ -1,4 +1,6 @@
 import { assignmentsApi } from '../../api/client'
+import { offlineDb } from '../../db/offlineDb'
+import { mutationQueue, generateUUID } from '../../sync/mutationQueue'
 import type { StoreApi } from 'zustand'
 import type { TripStoreState } from '../tripStore'
 import type { Assignment, AssignmentsMap } from '../../types'
@@ -39,6 +41,23 @@ export const createAssignmentsSlice = (set: SetState, get: GetState): Assignment
         [String(dayId)]: current,
       }
     }))
+
+    if (!navigator.onLine) {
+      const day = await offlineDb.days.get(parseInt(String(dayId)))
+      if (day) {
+        const updated = [...(day.assignments || [])]
+        updated.splice(insertIdx, 0, tempAssignment)
+        await offlineDb.days.put({ ...day, assignments: updated })
+      }
+      await mutationQueue.enqueue({
+        id: generateUUID(),
+        tripId: Number(tripId),
+        method: 'POST',
+        url: `/trips/${tripId}/days/${dayId}/assignments`,
+        body: { place_id: placeId },
+      })
+      return tempAssignment
+    }
 
     try {
       const data = await assignmentsApi.create(tripId, dayId, { place_id: placeId })
@@ -98,6 +117,24 @@ export const createAssignmentsSlice = (set: SetState, get: GetState): Assignment
         [String(dayId)]: state.assignments[String(dayId)].filter(a => a.id !== assignmentId),
       }
     }))
+
+    if (!navigator.onLine) {
+      const day = await offlineDb.days.get(parseInt(String(dayId)))
+      if (day) {
+        await offlineDb.days.put({
+          ...day,
+          assignments: (day.assignments || []).filter(a => a.id !== assignmentId),
+        })
+      }
+      await mutationQueue.enqueue({
+        id: generateUUID(),
+        tripId: Number(tripId),
+        method: 'DELETE',
+        url: `/trips/${tripId}/days/${dayId}/assignments/${assignmentId}`,
+        body: undefined,
+      })
+      return
+    }
 
     try {
       await assignmentsApi.delete(tripId, dayId, assignmentId)

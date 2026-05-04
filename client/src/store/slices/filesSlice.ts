@@ -35,10 +35,12 @@ export const createFilesSlice = (set: SetState, get: GetState): FilesSlice => ({
   },
 
   deleteFile: async (tripId, id) => {
+    const prev = get().files
+    set(state => ({ files: state.files.filter(f => f.id !== id) }))
     try {
-      await filesApi.delete(tripId, id)
-      set(state => ({ files: state.files.filter(f => f.id !== id) }))
+      await fileRepo.delete(tripId, id)
     } catch (err: unknown) {
+      set({ files: prev })
       throw new Error(getApiErrorMessage(err, 'Error deleting file'))
     }
   },

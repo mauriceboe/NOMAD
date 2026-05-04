@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { StoreApi } from 'zustand'
-import { tripsApi, tagsApi, categoriesApi } from '../api/client'
+import { tagsApi, categoriesApi } from '../api/client'
 import { offlineDb } from '../db/offlineDb'
 import { tripRepo } from '../repo/tripRepo'
 import { dayRepo } from '../repo/dayRepo'
@@ -146,16 +146,18 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
 
   updateTrip: async (tripId: number | string, data: Partial<Trip>) => {
     try {
-      const result = await tripsApi.update(tripId, data)
+      const result = await tripRepo.update(tripId, data)
       set({ trip: result.trip })
-      const daysData = await dayRepo.list(tripId)
-      const assignmentsMap: AssignmentsMap = {}
-      const dayNotesMap: DayNotesMap = {}
-      for (const day of daysData.days) {
-        assignmentsMap[String(day.id)] = day.assignments || []
-        dayNotesMap[String(day.id)] = day.notes_items || []
+      if (navigator.onLine) {
+        const daysData = await dayRepo.list(tripId)
+        const assignmentsMap: AssignmentsMap = {}
+        const dayNotesMap: DayNotesMap = {}
+        for (const day of daysData.days) {
+          assignmentsMap[String(day.id)] = day.assignments || []
+          dayNotesMap[String(day.id)] = day.notes_items || []
+        }
+        set({ days: daysData.days, assignments: assignmentsMap, dayNotes: dayNotesMap })
       }
-      set({ days: daysData.days, assignments: assignmentsMap, dayNotes: dayNotesMap })
       return result.trip
     } catch (err: unknown) {
       throw new Error(getApiErrorMessage(err, 'Error updating trip'))

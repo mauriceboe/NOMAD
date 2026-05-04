@@ -7,65 +7,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      workbox: {
-        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2,ttf}'],
-        navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api/, /^\/uploads/, /^\/mcp/],
-        runtimeCaching: [
-          {
-            // Carto map tiles (default provider)
-            urlPattern: /^https:\/\/[a-d]\.basemaps\.cartocdn\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'map-tiles',
-              expiration: { maxEntries: 1000, maxAgeSeconds: 30 * 24 * 60 * 60 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            // OpenStreetMap tiles (fallback / alternative)
-            urlPattern: /^https:\/\/[a-c]\.tile\.openstreetmap\.org\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'map-tiles',
-              expiration: { maxEntries: 1000, maxAgeSeconds: 30 * 24 * 60 * 60 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            // Leaflet CSS/JS from unpkg CDN
-            urlPattern: /^https:\/\/unpkg\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'cdn-libs',
-              expiration: { maxEntries: 30, maxAgeSeconds: 365 * 24 * 60 * 60 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            // API calls — prefer network, fall back to cache
-            // Exclude sensitive endpoints (auth, admin, backup, settings)
-            urlPattern: /\/api\/(?!auth|admin|backup|settings).*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-data',
-              expiration: { maxEntries: 200, maxAgeSeconds: 24 * 60 * 60 },
-              networkTimeoutSeconds: 5,
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-          {
-            // Uploaded files (photos, covers — public assets only)
-            urlPattern: /\/uploads\/(?:covers|avatars)\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'user-uploads',
-              expiration: { maxEntries: 300, maxAgeSeconds: 7 * 24 * 60 * 60 },
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-        ],
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
       },
       manifest: {
         name: 'TREK \u2014 Travel Planner',

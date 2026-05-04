@@ -13,12 +13,15 @@ import type { Table } from 'dexie'
 // Map Dexie table names used in `resource` field → actual Dexie tables.
 function getTable(resource: string): Table | undefined {
   const map: Record<string, Table> = {
-    places:       offlineDb.places,
-    packingItems: offlineDb.packingItems,
-    todoItems:    offlineDb.todoItems,
-    budgetItems:  offlineDb.budgetItems,
-    reservations: offlineDb.reservations,
-    tripFiles:    offlineDb.tripFiles,
+    trips:          offlineDb.trips,
+    days:           offlineDb.days,
+    places:         offlineDb.places,
+    packingItems:   offlineDb.packingItems,
+    todoItems:      offlineDb.todoItems,
+    budgetItems:    offlineDb.budgetItems,
+    reservations:   offlineDb.reservations,
+    accommodations: offlineDb.accommodations,
+    tripFiles:      offlineDb.tripFiles,
   }
   return map[resource]
 }
